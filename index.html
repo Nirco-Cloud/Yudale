@@ -230,7 +230,10 @@
 
     .wallets-bar { display: flex; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.15); }
     .wallet-chip { flex: 1; min-width: 0; background: rgba(0, 0, 0, 0.25); padding: 9px 8px; border-radius: 12px; font-size: 0.74rem; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 3px; cursor: pointer; }
+    .wallet-chip { position: relative; }
+    .wallet-chip::after { content: '＋'; position: absolute; top: 5px; inset-inline-end: 8px; font-size: 0.95rem; font-weight: 800; color: #fff; opacity: .75; pointer-events: none; }
     .wallet-chip strong { font-size: 0.95rem; direction: ltr; }
+    .wallets-hint { font-size: 0.72rem; text-align: center; margin-top: 8px; opacity: .85; }
 
     /* Inputs */
     .amount-input-box { position: relative; margin-bottom: 10px; }
@@ -311,7 +314,7 @@
     .chip-btn.selected { background: var(--nav-active-bg); border-color: var(--primary); color: var(--primary); font-weight: 700; }
 
     /* Scrollable lists: each list scrolls inside its own card */
-    .scroll-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-inline-end: 4px; scrollbar-width: thin; scrollbar-color: var(--card-border) transparent; }
+    .scroll-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: auto; -webkit-overflow-scrolling: touch; padding-inline-end: 4px; scrollbar-width: thin; scrollbar-color: var(--card-border) transparent; }
     .scroll-list.short { max-height: 45vh; }
     .scroll-list::-webkit-scrollbar { width: 6px; }
     .scroll-list::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
@@ -479,20 +482,21 @@
 
         <div class="wallets-bar">
           <div class="wallet-chip" onclick="promptCashLoad()">
-            <span>💵 מזומן:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="יתרת המזומן בארנק במטבע הנוכחי. לחיצה על הכפתור מוסיפה משיכה מכספומט. הוצאה במזומן מורידה מהיתרה." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span>
+            <span>💵 מזומן</span>
             <strong id="ui-cash-balance" style="color: #34d399;">¥0</strong>
           </div>
 
           <div class="wallet-chip" onclick="promptLayaLoad()" style="border: 1px solid rgba(167, 139, 250, 0.5); background: rgba(167, 139, 250, 0.15);">
-            <span>💳 LAYA:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="יתרת כרטיס LAYA במטבע הנוכחי. לחיצה על הכפתור מוסיפה טעינה לכרטיס. הוצאה ב-LAYA וטעינת כרטיס הנסיעות מורידות מהיתרה." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span>
+            <span>💳 LAYA</span>
             <strong id="ui-laya-balance" style="color: #c4b5fd;">¥0</strong>
           </div>
 
           <div class="wallet-chip" id="wallet-suica-chip" onclick="toggleSuicaPanel()" style="border: 1px solid rgba(96, 165, 250, 0.5); background: rgba(96, 165, 250, 0.15);">
-            <span><span id="ui-card-label">🐧 Suica</span>:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="יתרת כרטיס ה-Suica. לחיצה על הכפתור פותחת טעינה מתוך LAYA או מזומן. הוצאה בכרטיס מורידה מהיתרה." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span>
+            <span><span id="ui-card-label">🐧 Suica</span></span>
             <strong id="ui-suica-balance" style="color: #60a5fa;">¥0</strong>
           </div>
         </div>
+        <div class="wallets-hint">לחצו על יתרה כדי להוסיף כסף: משיכת מזומן, טעינת LAYA או טעינת כרטיס הנסיעות</div>
 
         <!-- Suica Load Panel -->
         <div id="suica-load-panel" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.3);">
@@ -502,7 +506,7 @@
              <option value="cash">💵 מזומן</option>
            </select>
            <div style="display: flex; gap: 8px;">
-             <input type="number" id="suica-load-amount" class="text-input" style="margin: 0; flex: 1; background: rgba(0,0,0,0.3); color: white;" value="5000" inputmode="numeric">
+             <input type="number" id="suica-load-amount" class="text-input" style="margin: 0; flex: 1; background: rgba(0,0,0,0.3); color: white;" value="" placeholder="0" inputmode="decimal">
              <button class="primary-btn" style="width: auto; padding: 8px 16px; margin-top:0;" onclick="loadSuica()">טען</button>
            </div>
            <div id="suica-msg" style="color:#fca5a5; font-size:0.75rem; margin-top:5px; display:none;">אין מספיק יתרה!</div>
@@ -620,7 +624,7 @@
       <div class="card">
         <div class="card-title"><span>💱 המרת מטבע<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="ההמרה משתמשת בשערים של האפליקציה (מתעדכנים אוטומטית כשיש אינטרנט, או ידנית בהגדרות). עמלת אשראי לא נכללת." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <label class="field-label">סכום</label>
-        <input type="number" id="conv-amount" class="text-input" style="direction:ltr; font-weight:700; margin-top:4px;" value="100" inputmode="decimal" oninput="renderConverter()">
+        <input type="number" id="conv-amount" class="text-input" style="direction:ltr; font-weight:700; margin-top:4px;" value="" placeholder="0" inputmode="decimal" oninput="renderConverter()">
         <label class="field-label">מ-</label>
         <select id="conv-from" class="select-input" style="margin-top:4px;" onchange="convFromTouched=true;renderConverter()"></select>
         <button class="swap-btn" onclick="swapConverter()" aria-label="החלף כיוון" title="החלף כיוון">⇅</button>
@@ -2003,7 +2007,7 @@
       const ov = openDialog(`
         <h3>💵 משיכת מזומן</h3>
         <p>הזן סכום ב-${escapeHtml(code)} שמשכת מכספומט כדי להוסיף ליתרה:</p>
-        <input type="number" id="custom-cash-input" class="text-input" value="10000" inputmode="decimal" style="margin-bottom:16px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
+        <input type="number" id="custom-cash-input" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:16px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">הוסף מזומן</button>
@@ -2025,7 +2029,7 @@
       const ov = openDialog(`
         <h3>💳 טעינת LAYA</h3>
         <p>הזן סכום ב-${escapeHtml(code)} שטענת לכרטיס LAYA כדי להוסיף ליתרה:</p>
-        <input type="number" id="custom-laya-input" class="text-input" value="10000" inputmode="decimal" style="margin-bottom:16px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
+        <input type="number" id="custom-laya-input" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:16px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">הוסף ליתרה</button>
@@ -2045,6 +2049,7 @@
     function toggleSuicaPanel() {
       const panel = document.getElementById('suica-load-panel');
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      document.getElementById('suica-load-amount').value = '';   // rule: load/convert amount fields always start empty
       document.getElementById('suica-msg').style.display = 'none';
     }
 
@@ -2060,6 +2065,7 @@
         w.suica += amount;
         msg.style.display = 'none';
         document.getElementById('suica-load-panel').style.display = 'none';
+        document.getElementById('suica-load-amount').value = '';
         saveData();
       } else {
         msg.style.display = 'block';
