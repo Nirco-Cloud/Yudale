@@ -33,7 +33,9 @@
       };
       var link = document.createElement('link');
       link.rel = 'manifest';
-      link.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+      // Hosted on https: use the real manifest.webmanifest file (more reliable install). Opened as a local file: the in-page copy.
+      link.href = /^https?:$/.test(location.protocol) ? 'manifest.webmanifest'
+        : 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
       document.head.appendChild(link);
     })();
   </script>
@@ -395,7 +397,28 @@
 
     /* Dialogs */
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-    .dialog { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 16px; width: 90%; max-width: 350px; box-shadow: var(--shadow-md); border: 1px solid var(--card-border); }
+    .dialog { background: var(--card-bg); color: var(--text-main); padding: 20px; border-radius: 16px; width: 90%; max-width: 350px; box-shadow: var(--shadow-md); border: 1px solid var(--card-border); max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; }
+    .dialog.wide { max-width: 440px; }
+    #bk-details summary { padding: 12px 0; margin-bottom: 0; }
+    .today-card .t-row { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--card-border); }
+    .today-card .t-row:first-of-type { border-top: none; }
+    .today-card .t-time { flex: 0 0 48px; font-weight: 800; color: var(--primary); direction: ltr; text-align: center; font-size: 0.9rem; padding-top: 1px; }
+    .today-card .t-main { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 0.9rem; font-weight: 600; }
+    .today-card .t-sub { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+    .edit-btn { background: none; border: none; font-size: 1rem; cursor: pointer; padding: 8px 6px; flex: 0 0 auto; }
+    .dlg-row { display: flex; gap: 8px; }
+    .dlg-row > * { flex: 1; min-width: 0; }
+    .nav-link { min-height: 40px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--primary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--card-border); border-radius: 999px; background: var(--card-bg); margin: 6px 0 0 6px; }
+    .bk-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+    .bk-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--card-border); font-size: 0.85rem; }
+    .bk-row input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; }
+    .bk-row .bk-main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .bk-row.bad { opacity: 0.6; }
+    .bk-warn { color: var(--accent-red); font-size: 0.75rem; }
+    .bk-prepaid { min-height: 36px; display: flex; align-items: center; gap: 6px; font-size: 0.78rem; margin-top: 4px; }
+    .bk-prepaid input { width: 16px; height: 16px; }
+    .res-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; direction: rtl; overflow-wrap: anywhere; }
+    #bk-paste { width: 100%; min-height: 110px; direction: ltr; text-align: left; font-family: monospace; font-size: 0.75rem; }
     .dialog h3 { margin-bottom: 12px; }
     .dialog p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
     .dialog-actions { display: flex; gap: 12px; }
@@ -513,6 +536,8 @@
         </div>
       </div>
 
+      <div class="card today-card" id="today-card" style="display:none"></div>
+
       <!-- Add Expense Form -->
       <div class="card">
         <div class="card-title">
@@ -584,15 +609,17 @@
           <span style="font-size:0.75rem; color:var(--text-muted);">רק מלונות שחויבו נספרים בסך ההוצאות הראשי.</span>
         </div>
         <button class="primary-btn btn-secondary" id="hotel-add-toggle" style="margin:0 0 12px;" onclick="toggleHotelForm()">➕ הוסף מלון</button>
+        <button class="link-btn" style="margin:-6px 0 8px;" onclick="openBookingsImport()">📥 ייבוא הזמנות מ-Gemini</button>
         <div id="hotel-add-form" class="hotel-card" style="display:none; margin-bottom:16px;">
           <div class="hotel-name" style="margin-bottom:10px;">מלון חדש</div>
           <input type="text" id="new-hotel-name" class="text-input" placeholder="שם המלון" maxlength="80">
+          <input type="text" id="new-hotel-address" class="text-input" placeholder="כתובת (רשות – לניווט ב-Google Maps)" maxlength="200">
           <div class="date-pair">
             <label>תאריך כניסה<input type="date" id="new-hotel-in" class="text-input" onchange="hotelInChanged()"></label>
             <label>תאריך יציאה<input type="date" id="new-hotel-out" class="text-input" onchange="hotelOutTouched=true"></label>
           </div>
           <div style="display:flex; gap:8px;">
-            <input type="number" id="new-hotel-price" class="text-input" style="flex:1; min-width:0; direction:ltr;" placeholder="מחיר ההזמנה" inputmode="decimal">
+            <input type="number" id="new-hotel-price" max="1000000000" class="text-input" style="flex:1; min-width:0; direction:ltr;" placeholder="מחיר ההזמנה" inputmode="decimal">
             <select id="new-hotel-currency" class="select-input" style="width:46%;" aria-label="מטבע"></select>
           </div>
           <div class="dialog-actions">
@@ -606,6 +633,22 @@
     </div>
 
     <div id="screen-reservations" class="screen">
+      <div class="card" id="bk-card">
+        <details id="bk-details">
+          <summary class="card-title" style="cursor:pointer; list-style:none;"><span>📥 ייבוא הזמנות מ-Gemini</span><span style="font-size:0.8rem; color:var(--text-muted);">▾</span></summary>
+          <p style="font-size:0.78rem; color:var(--text-muted); line-height:1.5; margin-bottom:8px;">מעתיקים פרומפט ל-Gemini (שמחובר ל‑Gmail), מדביקים כאן את התשובה, ומאשרים מה להוסיף. מלונות נכנסים לטאב המלונות; טיסות, השכרות רכב, מסעדות, אטרקציות וכרטיסים לרשימת ההזמנות. הזמנה ששולמה מראש נרשמת כהוצאה באשראי.</p>
+          <div class="field-label" style="margin-top:4px;">שלב 1: החודש של ההזמנות</div>
+          <div style="display:flex; gap:8px;">
+            <select id="bk-month" class="select-input" style="flex:1;" aria-label="חודש"></select>
+            <input type="number" id="bk-year" class="text-input" style="width:96px; margin:0; direction:ltr; text-align:center;" inputmode="numeric" aria-label="שנה">
+          </div>
+          <button class="primary-btn btn-secondary" style="margin:10px 0 0;" onclick="copyGeminiPrompt()">📋 העתק פרומפט ל-Gemini</button>
+          <div class="field-label" style="margin-top:14px;">שלב 2: הדבק כאן את התשובה של Gemini</div>
+          <textarea id="bk-paste" class="text-input" placeholder='{ "type": "trip-bookings", ... }' spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+          <div id="bk-msg" class="message-box"></div>
+          <button class="primary-btn" style="margin-top:8px;" onclick="previewBookings()">🔍 בדוק והוסף</button>
+        </details>
+      </div>
       <div class="card">
         <div class="card-title"><span>📅 הזמנות<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="הוסף כל הזמנה עם שם ותאריך, למשל מסעדה, כרטיסים או פעילות. הרשימה מסודרת לפי תאריך, והעבר מוצג בהיר." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <div id="res-msg" class="message-box"></div>
@@ -773,7 +816,7 @@
         <div id="ui-people-settings" class="scroll-list short"></div>
         <div class="scroll-hint" data-for="ui-people-settings"></div>
         <div class="add-row">
-          <input type="text" id="inp-new-person" class="text-input" placeholder="שם חדש (לדוגמה: דנה ויוסי)" onkeydown="if(event.key==='Enter') addPerson()">
+          <input type="text" id="inp-new-person" maxlength="40" class="text-input" placeholder="שם חדש (לדוגמה: דנה ויוסי)" onkeydown="if(event.key==='Enter') addPerson()">
           <button class="primary-btn" onclick="addPerson()">➕ הוסף</button>
         </div>
       </div>
@@ -933,7 +976,7 @@
 
     function money(amount, code) {
       const r = rateOf(code);
-      const sign = amount < 0 ? '-' : '';
+      const sign = amount < 0 && Math.round(Math.abs(amount) * Math.pow(10, r.decimals)) > 0 ? '-' : '';   // never "-¥0"
       const sep = /\p{L}$/u.test(r.symbol) ? ' ' : ''; // "Ft 1,000" but "¥1,000"
       return sign + r.symbol + sep + fmt(Math.abs(amount), 0, r.decimals);
     }
@@ -1064,6 +1107,8 @@
       return o;
     }
 
+    const RES_FIELDS = ['kind', 'time', 'airline', 'flightNumber', 'from', 'to', 'arrivalDate', 'arrivalTime', 'confirmation', 'passengers',
+      'returnDate', 'returnTime', 'pickupPlace', 'pickupAddress', 'returnPlace', 'returnAddress', 'company', 'address', 'city', 'provider', 'category', 'people', 'passengersCount'];
     function normalize(d) {
       const base = makeDefault();
       if (!d || typeof d !== 'object') return base;
@@ -1126,20 +1171,49 @@
       out.expenses = (Array.isArray(d.expenses) ? d.expenses : [])
         .filter(e => e && validNum(e.amount))
         .map(e => ({ ...e, id: String(e.id || newId()), currency: DEFAULT_RATES[e.currency] ? e.currency : cur }));
+      out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות'; });
       out.splits = (Array.isArray(d.splits) ? d.splits : [])
-        .filter(x => x && validNum(x.amount))
-        .map(x => ({ ...x, id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur }));
+        .filter(x => x && validNum(x.amount) && typeof x.person === 'string' && x.person.trim())
+        .map(x => ({ ...x, person: x.person.trim(), note: typeof x.note === 'string' ? x.note : '', category: typeof x.category === 'string' ? x.category : 'שונות', id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur }));
+      const seenHotelIds = new Set();
       out.hotels = (Array.isArray(d.hotels) ? d.hotels : base.hotels)
-        .map(h => ({ ...h, currency: DEFAULT_RATES[h.currency] ? h.currency : 'JPY' }));
+        .filter(h => h && typeof h === 'object')
+        .map(h => {
+          let id = String(h.id || newId());
+          while (seenHotelIds.has(id)) id = newId();
+          seenHotelIds.add(id);
+          return { ...h, id, name: typeof h.name === 'string' ? h.name : '', basePrice: Number(h.basePrice) || 0, currency: DEFAULT_RATES[h.currency] ? h.currency : 'JPY' };
+        });
       out.hotels.forEach(h => {  // older data only had free text such as "3-6 בנובמבר": turn it into real dates when possible
-        if (!ISO_DATE.test(h.checkIn || '') || !ISO_DATE.test(h.checkOut || '')) {
+        const realDate = v => ISO_DATE.test(v || '') && dateToIso(isoToDate(v)) === v;   // rejects 2026-02-30
+        if (!realDate(h.checkIn) || !realDate(h.checkOut)) {
           const g = parseHotelText(h.dates);
           if (g) { h.checkIn = g.checkIn; h.checkOut = g.checkOut; } else { delete h.checkIn; delete h.checkOut; }
         }
       });
       out.reservations = (Array.isArray(d.reservations) ? d.reservations : [])
-        .filter(r => r && typeof r.name === 'string' && r.name.trim() && ISO_DATE.test(r.date || ''))
-        .map(r => ({ id: String(r.id || newId()), name: r.name.trim().slice(0, 80), date: r.date }));
+        .filter(r => r && typeof r.name === 'string' && r.name.trim() && ISO_DATE.test(r.date || '') && dateToIso(isoToDate(r.date)) === r.date)
+        .map(r => {
+          const o = { id: String(r.id || newId()), name: r.name.trim().slice(0, 80), date: r.date };
+          RES_FIELDS.forEach(k => { if (typeof r[k] === 'string' && r[k]) o[k] = r[k].slice(0, 200); });
+          if (typeof r.price === 'number' && r.price > 0 && r.price <= 1e9 && DEFAULT_RATES[r.currency]) { o.price = r.price; o.currency = r.currency; }
+          return o;
+        });
+
+      // car rentals used to live with the hotels: they belong in the reservations list now (with their payment, if recorded)
+      out.hotels = out.hotels.filter(h => {
+        if (h.kind !== 'car') return true;
+        if (!ISO_DATE.test(h.checkIn || '')) return false;
+        const r = { id: h.id, kind: 'car', name: (h.name || 'השכרת רכב').slice(0, 80), date: h.checkIn };
+        if (h.checkOut) r.returnDate = h.checkOut;
+        if (h.pickupTime) r.time = h.pickupTime;
+        ['returnTime', 'pickupPlace', 'pickupAddress', 'returnPlace', 'returnAddress', 'company', 'confirmation'].forEach(k => { if (typeof h[k] === 'string' && h[k]) r[k] = h[k]; });
+        const price = h.basePrice > 0 ? h.basePrice : h.finalPrice > 0 ? h.finalPrice : 0;
+        if (price && DEFAULT_RATES[h.currency]) { r.price = price; r.currency = h.currency; }
+        out.expenses.forEach(e => { if (e.hotelId === h.id) { e.resId = h.id; delete e.hotelId; } });
+        if (!out.reservations.some(x => x.id === r.id)) out.reservations.push(r);
+        return false;
+      });
 
       // v3 migration: link existing hotel expenses to their hotel so they can be undone
       out.hotels.forEach(h => {
@@ -1163,6 +1237,7 @@
       } catch (e) {
         console.error('Stored data is corrupted', e);
         try { localStorage.setItem(STORAGE_KEY + '_corrupt_backup', raw); } catch (_) {}
+        window.__loadProblem = true;
         return makeDefault();
       }
     }
@@ -1176,17 +1251,44 @@
       takeDailySnapshot();
       updateTime();
       setInterval(updateTime, 60000);
+      initBookingsUi();
       renderAll();
+      if (window.__loadProblem) setTimeout(() => notifyDialog('⚠️ הנתונים השמורים היו פגומים', 'לא ניתן היה לקרוא את הנתונים השמורים, והאפליקציה התחילה נקייה. עותק של הנתונים הפגומים נשמר במכשיר. אם יש לך קובץ גיבוי, ייבא אותו בהגדרות.'), 400);
+      if (persistFailed) showStorageBanner();
       refreshRates(); // no-op when offline, switched off, or updated in the last 12 hours
     }
 
+    let persistFailed = false;
+    function showStorageBanner() {
+      if (document.getElementById('storage-banner')) return;
+      const b = document.createElement('div');
+      b.id = 'storage-banner';
+      b.setAttribute('role', 'alert');
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9000;background:#b91c1c;color:#fff;padding:8px 12px;font-size:.85rem;text-align:center;font-weight:700';
+      b.textContent = '⚠️ השמירה במכשיר נכשלה. הנתונים לא יישמרו אחרי סגירה. ייצא גיבוי בהגדרות.';
+      document.body.appendChild(b);
+    }
     function persist() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        persistFailed = false;
+        const b = document.getElementById('storage-banner'); if (b) b.remove();
+        return true;
       } catch (e) {
         console.error(e);
-        showMsg('expense-msg', 'שגיאה בשמירה במכשיר! ייצא גיבוי.', 'error');
+        persistFailed = true;
+        if (document.body) showStorageBanner();
+        return false;
       }
+    }
+    // another tab/window changed the data: take it instead of overwriting it with stale data on the next save
+    window.addEventListener('storage', e => {
+      if (e.key !== STORAGE_KEY || !e.newValue || typeof appData === 'undefined') return;
+      try { appData = normalize(JSON.parse(e.newValue)); wallet(); renderAll(); } catch (_) {}
+    });
+    function notifyDialog(title, text) {
+      const ov = openDialog(`<h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p><div class="dialog-actions"><button class="primary-btn" data-act="ok">הבנתי</button></div>`);
+      ov.querySelector('[data-act=ok]').onclick = () => ov.remove();
     }
 
     function saveData() {
@@ -1195,22 +1297,25 @@
     }
 
     function renderAll() {
-      updateHeader();
-      updateBalances();
-      updateTotals();
-      renderExpenses();
-      renderHotels();
-      renderSummary();
-      renderDashboard();
-      renderSplits();
-      renderPeoplePicker();
-      renderPeopleSettings();
-      renderReservations();
-      renderConverter();
-      renderExpDay();
-      renderPayAutoSettings();
-      requestAnimationFrame(updateScrollHints);
-      renderBackupUi();
+      [
+        () => updateHeader(),
+        () => updateBalances(),
+        () => updateTotals(),
+        () => renderExpenses(),
+        () => renderHotels(),
+        () => renderSummary(),
+        () => renderDashboard(),
+        () => renderSplits(),
+        () => renderPeoplePicker(),
+        () => renderPeopleSettings(),
+        () => renderReservations(),
+        () => renderToday(),
+        () => renderConverter(),
+        () => renderExpDay(),
+        () => renderPayAutoSettings(),
+        () => requestAnimationFrame(updateScrollHints),
+        () => renderBackupUi()
+      ].forEach(fn => { try { fn(); } catch (err) { console.error(err); } });   // one broken section must never blank the others
     }
 
     // The five most-used currencies come first (shekel on top); the rest follow by region, without repeats
@@ -1331,7 +1436,7 @@
       if (!key) return '';
       const w = wallet(code);
       const warn = w[key] < amount ? `שים לב: יתרת ${WALLET_NAME[key]} ירדה למינוס.` : '';
-      w[key] -= amount;
+      w[key] = Math.round((w[key] - amount) * 1e6) / 1e6;
       return warn;
     }
     const refundNoteFor = payment => WALLET_KEY[payment] ? ` הסכום יוחזר ליתרת ${WALLET_NAME[WALLET_KEY[payment]]}.` : '';
@@ -1412,6 +1517,7 @@
       if (v !== 'today' && v !== 'yesterday') {
         if (!ISO_DATE.test(v || '')) return;
         const t = dateToIso(new Date());
+        if (v > t) v = t;
         v = v === t ? 'today' : v === addDaysIso(t, -1) ? 'yesterday' : v;
       }
       expDay = v;
@@ -1488,8 +1594,9 @@
       const on = document.getElementById('setting-payauto-on').checked;
       const cash = parseFloat(document.getElementById('setting-payauto-cash').value);
       const laya = parseFloat(document.getElementById('setting-payauto-laya').value);
+      if ((isNaN(cash) || isNaN(laya) || cash < 0 || laya < 0) && !on) { showMsg('payauto-msg', 'אנא הזן סכומים חיוביים', 'error'); renderPayAutoSettings(); return; }
       if (on && (isNaN(cash) || isNaN(laya) || cash < 0 || laya < 0)) { showMsg('payauto-msg', 'אנא הזן סכומים חיוביים', 'error'); renderPayAutoSettings(); return; }
-      if (on && laya < cash) { showMsg('payauto-msg', 'הסכום של LAYA חייב להיות גדול או שווה לסכום של המזומן', 'error'); renderPayAutoSettings(); return; }
+      if (laya < cash) { showMsg('payauto-msg', 'הסכום של LAYA חייב להיות גדול או שווה לסכום של המזומן', 'error'); renderPayAutoSettings(); return; }
       pa.on = on;
       if (!isNaN(cash)) pa.cashMax = cash;
       if (!isNaN(laya)) pa.layaMax = laya;
@@ -1542,9 +1649,11 @@
 
     function saveExpense() {
       const amount = parseFloat(document.getElementById('inp-amount').value);
-      if (!amount || amount <= 0) { showMsg('expense-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (!amount || amount <= 0 || !isFinite(amount)) { showMsg('expense-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (amount > 1e9) { showMsg('expense-msg', 'הסכום גדול מדי', 'error'); return; }
 
       const code = expCode();
+      if (Math.round(amount * Math.pow(10, rateOf(code).decimals)) === 0) { showMsg('expense-msg', 'הסכום קטן מדי עבור המטבע', 'error'); return; }
       const dayIso = expDayIso();
       if (!ISO_DATE.test(dayIso)) { showMsg('expense-msg', 'אנא בחר תאריך', 'error'); return; }
       const category = selectedVal('cat-grid');
@@ -1579,7 +1688,8 @@
         return;
       }
 
-      const displayList = appData.expenses;   // all of them: the list scrolls inside its card
+      // all of them, newest date first (imported bookings carry their own dates); the list scrolls inside its card
+      const displayList = appData.expenses.slice().sort((a, b) => (b.date || '') > (a.date || '') ? 1 : (b.date || '') < (a.date || '') ? -1 : 0);
 
       listEl.innerHTML = displayList.map(exp => `
         <div class="expense-item">
@@ -1592,6 +1702,7 @@
             <div class="exp-main">${money(exp.amount, exp.currency)}</div>
             ${exp.currency === 'ILS' ? '' : `<div class="exp-sub">${ilsStr(toIls(exp.amount, exp.currency, exp.payment))}</div>`}
           </div>
+          <button class="edit-btn" data-id="${escapeHtml(exp.id)}" onclick="editExpense(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>
           <button class="del-btn" data-id="${escapeHtml(exp.id)}" onclick="deleteExpense(this.dataset.id)" aria-label="מחק" title="מחק">🗑️</button>
         </div>
       `).join('');
@@ -1618,12 +1729,13 @@
 
     // Removes an expense, refunds the wallet, and un-pays a linked hotel
     function removeExpenseRecord(exp) {
+      if (!appData.expenses.some(e => e.id === exp.id)) return;   // already removed (e.g. two dialogs confirmed): never refund twice
       const key = WALLET_KEY[exp.payment];
-      if (key) wallet(exp.currency)[key] += exp.amount;
+      if (key) { const w = wallet(exp.currency); w[key] = Math.round((w[key] + exp.amount) * 1e6) / 1e6; }
 
       if (exp.hotelId) {
         const h = appData.hotels.find(x => x.id === exp.hotelId);
-        if (h) { h.paid = false; h.finalPrice = null; }
+        if (h) { h.paid = false; h.finalPrice = null; delete h.payment; }
       }
       appData.expenses = appData.expenses.filter(e => e.id !== exp.id);
     }
@@ -1632,7 +1744,8 @@
       const exp = appData.expenses.find(e => e.id === id);
       if (!exp) return;
       const refundNote = refundNoteFor(exp.payment);
-      const hotelNote = exp.hotelId ? ' המלון יחזור לסטטוס "ממתין".' : '';
+      const linked = exp.hotelId ? appData.hotels.find(h => h.id === exp.hotelId) : null;
+      const hotelNote = exp.hotelId ? (linked && linked.kind === 'car' ? ' השכרת הרכב תחזור לסטטוס "ממתין".' : ' המלון יחזור לסטטוס "ממתין".') : '';
       confirmDialog({
         title: 'מחיקת הוצאה',
         text: `למחוק את "${exp.note}" (${money(exp.amount, exp.currency)})?${refundNote}${hotelNote}`,
@@ -1651,7 +1764,8 @@
       let amount = parseFloat(document.getElementById('inp-split-amount').value);
       const person = selectedPerson;
 
-      if (!amount || amount <= 0) { showMsg('split-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (!amount || amount <= 0 || !isFinite(amount) || amount > 1e9) { showMsg('split-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (Math.round(amount * Math.pow(10, rateOf(curCode()).decimals)) === 0) { showMsg('split-msg', 'הסכום קטן מדי עבור המטבע', 'error'); return; }
       if (!person) { showMsg('split-msg', 'אנא בחר שם (אפשר להוסיף שמות בהגדרות)', 'error'); return; }
 
       const isPlus = document.querySelector('#split-type-toggle .active-plus') !== null;
@@ -1816,38 +1930,40 @@
       }
       listEl.innerHTML = sortedHotels().map(h => {
         const hid = escapeHtml(h.id);
-        const name = escapeHtml(h.name);
+        const name = (h.kind === 'car' ? '🚗 ' : '') + escapeHtml(h.name);
         const dates = escapeHtml(hotelDates(h));
+        const extra = bookingExtraHtml(h);
 
         if (h.paid) {
           paid[h.currency] = (paid[h.currency] || 0) + (h.finalPrice || 0);
           return `
             <div class="hotel-card paid">
               <div class="hotel-header">
-                <div><div class="hotel-name">${name}</div><div class="hotel-dates">${dates}</div></div>
+                <div><div class="hotel-name">${name}</div><div class="hotel-dates">${dates}</div>${extra}</div>
                 <div class="badge-paid">✔️ חויב</div>
               </div>
               <div class="hotel-footer" style="border-top:none; padding-top:0;">
                 <div style="font-size:0.8rem; color:var(--text-muted);">סכום סופי: <strong style="color:var(--text-main);">${money(h.finalPrice, h.currency)}</strong>${h.payment ? ' • ' + escapeHtml(h.payment) : ''}${paidDateLabel(h) ? ' • ' + escapeHtml(paidDateLabel(h)) : ''}</div>
                 <button class="link-btn" style="width:auto; padding:4px 8px; color:var(--accent-red);" data-id="${hid}" onclick="unpayHotel(this.dataset.id)" title="מוחק את ההוצאה ומחזיר את המלון לסטטוס ממתין">בטל חיוב</button>
               </div>
-            <div class="hotel-remove"><button class="link-btn" data-id="${hid}" onclick="removeHotel(this.dataset.id)" title="הסרת המלון מהרשימה">🗑️ הסר מלון</button></div>
+            <div class="hotel-remove"><button class="link-btn" data-id="${hid}" onclick="editHotel(this.dataset.id)" title="עריכת פרטי ההזמנה">✏️ ערוך</button><button class="link-btn" data-id="${hid}" onclick="removeHotel(this.dataset.id)" title="הסרה מהרשימה">🗑️ הסר ${h.kind === 'car' ? 'רכב' : 'מלון'}</button></div>
             </div>
           `;
         }
 
         pending[h.currency] = (pending[h.currency] || 0) + h.basePrice;
         const draft = hotelDrafts[h.id] || {};
-        const amtVal = draft.amount !== undefined ? draft.amount : h.basePrice;
-        const payVal = draft.payment || 'אשראי';
+        const amtVal = draft.amount !== undefined ? draft.amount : (h.basePrice > 0 ? h.basePrice : '');
+        const foreignCur = h.currency !== curCode();     // cash/LAYA wallets are per currency: a foreign-currency booking is paid by card
+        const payVal = foreignCur ? 'אשראי' : (draft.payment || 'אשראי');
         const dateVal = ISO_DATE.test(draft.date || '') ? draft.date : dateToIso(new Date());   // default: today
         return `
           <div class="hotel-card">
             <div class="hotel-header">
-              <div><div class="hotel-name">${name}</div><div class="hotel-dates">${dates}</div></div>
+              <div><div class="hotel-name">${name}</div><div class="hotel-dates">${dates}</div>${extra}</div>
               <div class="badge-pending">⏳ ממתין לחיוב</div>
             </div>
-            <div style="font-size:0.8rem; margin-bottom:8px;">הזמנה מקורית: ${money(h.basePrice, h.currency)}</div>
+            <div style="font-size:0.8rem; margin-bottom:8px;">הזמנה מקורית: ${h.basePrice > 0 ? money(h.basePrice, h.currency) : 'מחיר לא ידוע'}</div>
 
             <div style="display:flex; align-items:center; gap:8px; font-size:0.8rem; margin-bottom:10px;">
               <span>סכום סופי לחיוב (${escapeHtml(rateOf(h.currency).symbol)}):${tipHtml(TIPS.hotelAmt)}</span>
@@ -1864,18 +1980,40 @@
             <div class="hotel-footer">
               <span style="display:flex; align-items:center; gap:2px;"><select id="hotel-pay-${hid}" class="pay-select" data-id="${hid}" onchange="setHotelDraft(this.dataset.id, 'payment', this.value)">
                 <option value="אשראי" ${payVal === 'אשראי' ? 'selected' : ''}>💳 אשראי</option>
-                <option value="LAYA" ${payVal === 'LAYA' ? 'selected' : ''}>💳 LAYA</option>
-                <option value="מזומן" ${payVal === 'מזומן' ? 'selected' : ''}>💵 מזומן</option>
+                ${foreignCur ? '' : `<option value="LAYA" ${payVal === 'LAYA' ? 'selected' : ''}>💳 LAYA</option>
+                <option value="מזומן" ${payVal === 'מזומן' ? 'selected' : ''}>💵 מזומן</option>`}
               </select>${tipHtml(TIPS.hotelPay)}</span>
               <button class="primary-btn" style="width:auto; padding:6px 12px; font-size:0.8rem; margin-top:0;" data-id="${hid}" onclick="payHotel(this.dataset.id)">אשר חיוב סופי</button>
             </div>
-            <div class="hotel-remove"><button class="link-btn" data-id="${hid}" onclick="removeHotel(this.dataset.id)" title="הסרת המלון מהרשימה">🗑️ הסר מלון</button></div>
+            <div class="hotel-remove"><button class="link-btn" data-id="${hid}" onclick="editHotel(this.dataset.id)" title="עריכת פרטי ההזמנה">✏️ ערוך</button><button class="link-btn" data-id="${hid}" onclick="removeHotel(this.dataset.id)" title="הסרה מהרשימה">🗑️ הסר ${h.kind === 'car' ? 'רכב' : 'מלון'}</button></div>
           </div>
         `;
       }).join('');
 
       document.getElementById('ui-hotel-pending').innerText = sumsToString(pending);
       document.getElementById('ui-hotel-paid').innerText = sumsToString(paid);
+    }
+
+    // ---------- Google Maps navigation + booking details ----------
+    const mapsUrl = q => 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q);
+    function navLink(q, label) {
+      return q ? `<a class="nav-link" href="${escapeHtml(mapsUrl(q))}" target="_blank" rel="noopener">🧭 ${escapeHtml(label)}</a>` : '';
+    }
+    function bookingExtraHtml(h) {
+      const meta = [];
+      if (h.kind === 'car') {
+        if (h.pickupTime || h.pickupPlace) meta.push('איסוף: ' + [h.pickupTime, h.pickupPlace].filter(Boolean).join(' · '));
+        if (h.returnTime || h.returnPlace) meta.push('החזרה: ' + [h.returnTime, h.returnPlace].filter(Boolean).join(' · '));
+      }
+      if (h.confirmation) meta.push('אישור: ' + h.confirmation + (h.provider ? ' (' + h.provider + ')' : ''));
+      let links = '';
+      if (h.kind === 'car') {
+        const pick = h.pickupAddress || h.pickupPlace, ret = h.returnAddress || h.returnPlace;
+        links = navLink(pick, 'ניווט לאיסוף') + (ret && ret !== pick ? navLink(ret, 'ניווט להחזרה') : '');
+      } else {
+        links = navLink(h.address || [h.name, h.city].filter(Boolean).join(', '), 'ניווט למלון');
+      }
+      return (meta.length ? `<div class="bk-meta">${meta.map(escapeHtml).join('<br>')}</div>` : '') + (links ? `<div>${links}</div>` : '');
     }
 
     function toggleHotelForm(force) {
@@ -1885,7 +2023,7 @@
       document.getElementById('hotel-add-toggle').style.display = open ? 'none' : 'block';
       if (open) {
         document.getElementById('new-hotel-currency').value = curCode();
-        const lastOut = appData.hotels.map(h => h.checkOut).filter(Boolean).sort().pop();  // next stay usually starts when the last one ends
+        const lastOut = appData.hotels.filter(h => h.kind !== 'car').map(h => h.checkOut).filter(Boolean).sort().pop();  // next stay usually starts when the last one ends
         if (lastOut && !document.getElementById('new-hotel-in').value) {
           document.getElementById('new-hotel-in').value = lastOut;
           hotelInChanged();
@@ -1911,12 +2049,13 @@
       if (!name) { showMsg('hotel-msg', 'אנא הזן שם מלון', 'error'); return; }
       if (!ISO_DATE.test(checkIn) || !ISO_DATE.test(checkOut)) { showMsg('hotel-msg', 'אנא בחר תאריך כניסה ותאריך יציאה', 'error'); return; }
       if (checkOut <= checkIn) { showMsg('hotel-msg', 'תאריך היציאה חייב להיות אחרי תאריך הכניסה', 'error'); return; }
-      if (!price || price <= 0) { showMsg('hotel-msg', 'אנא הזן מחיר הזמנה חוקי', 'error'); return; }
+      if (!price || price <= 0 || !isFinite(price) || price > 1e9) { showMsg('hotel-msg', 'אנא הזן מחיר הזמנה חוקי', 'error'); return; }
       if (!DEFAULT_RATES[currency]) { showMsg('hotel-msg', 'אנא בחר מטבע', 'error'); return; }
 
-      appData.hotels.push({ id: newId(), name, dates: hotelRangeLabel(checkIn, checkOut), checkIn, checkOut, basePrice: price, currency, paid: false, finalPrice: null });
+      const address = document.getElementById('new-hotel-address').value.trim().slice(0, 200);
+      appData.hotels.push({ id: newId(), name, address, dates: hotelRangeLabel(checkIn, checkOut), checkIn, checkOut, basePrice: price, currency, paid: false, finalPrice: null });
       hotelOutTouched = false;
-      ['new-hotel-name', 'new-hotel-in', 'new-hotel-out', 'new-hotel-price'].forEach(id => document.getElementById(id).value = '');
+      ['new-hotel-name', 'new-hotel-address', 'new-hotel-in', 'new-hotel-out', 'new-hotel-price'].forEach(id => document.getElementById(id).value = '');
       toggleHotelForm(false);
       saveData();
       showMsg('hotel-msg', `"${name}" נוסף לרשימה`);
@@ -1928,11 +2067,11 @@
       const exp = h.paid ? appData.expenses.find(e => e.hotelId === id) : null;
       let text = `להסיר את "${h.name}"${hotelDates(h) ? ' (' + hotelDates(h) + ')' : ''} מהרשימה?`;
       if (exp) {
-        text += ` המלון כבר חויב: ההוצאה של ${money(exp.amount, exp.currency)} תימחק מהסיכום` +
+        text += ` ${h.kind === 'car' ? 'ההזמנה' : 'המלון'} כבר חויב${h.kind === 'car' ? 'ה' : ''}: ההוצאה של ${money(exp.amount, exp.currency)} תימחק מהסיכום` +
                 (WALLET_KEY[exp.payment] ? ' והסכום יוחזר ליתרת ' + WALLET_NAME[WALLET_KEY[exp.payment]] + '.' : '.');
       }
       confirmDialog({
-        title: 'הסרת מלון', text, okLabel: 'הסר', danger: true,
+        title: h.kind === 'car' ? 'הסרת השכרת רכב' : 'הסרת מלון', text, okLabel: 'הסר', danger: true,
         onOk: () => {
           if (exp) removeExpenseRecord(exp);
           appData.hotels = appData.hotels.filter(x => x.id !== id);
@@ -1968,8 +2107,8 @@
       h.payment = paymentMethod;
 
       appData.expenses.unshift({
-        id: newId(), amount: finalAmt, currency: h.currency, category: 'מלון',
-        payment: paymentMethod, note: `חיוב מלון: ${h.name}`,
+        id: newId(), amount: finalAmt, currency: h.currency, category: h.kind === 'car' ? 'תחבורה' : 'מלון',
+        payment: paymentMethod, note: `${h.kind === 'car' ? 'השכרת רכב' : 'חיוב מלון'}: ${h.name}`,
         date: chargeDate.toISOString(), hotelId: h.id
       });
 
@@ -1988,7 +2127,7 @@
       const h = appData.hotels.find(x => x.id === id);
       if (!h) return;
       confirmDialog({
-        title: 'ביטול חיוב מלון',
+        title: h.kind === 'car' ? 'ביטול חיוב רכב' : 'ביטול חיוב מלון',
         text: `לבטל את החיוב של ${h.name}? ההוצאה תימחק${WALLET_KEY[h.payment] ? ' והסכום יוחזר ליתרת ' + WALLET_NAME[WALLET_KEY[h.payment]] : ''}.`,
         okLabel: 'בטל חיוב', danger: true,
         onOk: () => {
@@ -2007,20 +2146,35 @@
       const ov = openDialog(`
         <h3>💵 משיכת מזומן</h3>
         <p>הזן סכום ב-${escapeHtml(code)} שמשכת מכספומט כדי להוסיף ליתרה:</p>
-        <input type="number" id="custom-cash-input" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:16px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
+        <input type="number" id="custom-cash-input" data-el="amt" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:12px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
+        <div class="field-label" style="margin-top:0;">עמלות (רשות) – נרשמות כהוצאה</div>
+        <div class="dlg-row">
+          <label class="field-label" style="margin-top:2px;">🏧 עמלת הכספומט (${escapeHtml(rateOf(code).symbol)})<input type="number" data-el="atm" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>
+          ${code === 'ILS' ? '' : `<label class="field-label" style="margin-top:2px;">🏦 עמלת הבנק (₪)<input type="number" data-el="bank" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>`}
+        </div>
+        ${code === 'JPY' ? '<p style="font-size:0.72rem; margin:4px 0 12px;">כספומט ביפן (7-Eleven, דואר יפן) גובה בדרך כלל ¥110–330. עמלת הבנק מופיעה בדף החשבון.</p>' : ''}
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">הוסף מזומן</button>
         </div>
       `);
+      const q = k => ov.querySelector(`[data-el="${k}"]`);
+      const bad = el => { el.style.outline = '2px solid #ef4444'; el.focus(); };
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
-        const val = parseFloat(document.getElementById('custom-cash-input').value);
-        if (!isNaN(val) && val > 0) {
-          wallet(code).cash += val;
-          saveData();
-        }
+        const val = parseFloat(q('amt').value);
+        if (isNaN(val) || val <= 0 || val > 1e9) { bad(q('amt')); return; }   // stay open until a valid amount
+        const fee = el => { if (!el || el.value.trim() === '') return 0; const f = parseFloat(el.value); return f >= 0 && f <= 1e6 ? f : NaN; };
+        const atm = fee(q('atm')), bank = fee(q('bank'));
+        if (isNaN(atm)) { bad(q('atm')); return; }
+        if (isNaN(bank)) { bad(q('bank')); return; }
+        wallet(code).cash = Math.round((wallet(code).cash + val) * 1e6) / 1e6;
+        const now = new Date().toISOString();
+        if (atm > 0) appData.expenses.unshift({ id: newId(), amount: atm, currency: code, category: 'שונות', payment: 'אשראי', note: `🏧 עמלת כספומט (משיכה של ${money(val, code)})`, date: now });
+        if (bank > 0) appData.expenses.unshift({ id: newId(), amount: bank, currency: 'ILS', category: 'שונות', payment: 'אשראי', note: '🏦 עמלת בנק על משיכה', date: now });
+        saveData();
         ov.remove();
+        if (atm > 0 || bank > 0) showMsg('expense-msg', 'המזומן נוסף והעמלות נרשמו כהוצאה');
       };
     }
 
@@ -2037,11 +2191,10 @@
       `);
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
-        const val = parseFloat(document.getElementById('custom-laya-input').value);
-        if (!isNaN(val) && val > 0) {
-          wallet(code).laya += val;
-          saveData();
-        }
+        const val = parseFloat(ov.querySelector('input').value);
+        if (isNaN(val) || val <= 0 || val > 1e9) { ov.querySelector('input').style.outline = '2px solid #ef4444'; ov.querySelector('input').focus(); return; }   // stay open until a valid amount
+        wallet(code).laya = Math.round((wallet(code).laya + val) * 1e6) / 1e6;
+        saveData();
         ov.remove();
       };
     }
@@ -2056,18 +2209,20 @@
     function loadSuica() {
       const amount = parseFloat(document.getElementById('suica-load-amount').value);
       const msg = document.getElementById('suica-msg');
-      if (isNaN(amount) || amount <= 0) return;
+      const amtEl = document.getElementById('suica-load-amount');
+      if (isNaN(amount) || amount <= 0 || amount > 1e9) { msg.textContent = 'הזן סכום לטעינה'; msg.style.display = 'block'; amtEl.focus(); return; }
 
       const w = wallet();
       const src = document.getElementById('suica-source').value === 'cash' ? 'cash' : 'laya';   // default: loaded from the LAYA balance
       if (w[src] >= amount) {
-        w[src] -= amount;
-        w.suica += amount;
+        w[src] = Math.round((w[src] - amount) * 1e6) / 1e6;
+        w.suica = Math.round((w.suica + amount) * 1e6) / 1e6;
         msg.style.display = 'none';
         document.getElementById('suica-load-panel').style.display = 'none';
         document.getElementById('suica-load-amount').value = '';
         saveData();
       } else {
+        msg.textContent = 'אין מספיק יתרה!';
         msg.style.display = 'block';
       }
     }
@@ -2149,7 +2304,8 @@
       if (!total || !list.length) { el.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; padding:8px 0;">אין הוצאות להצגה עדיין.</div>'; return; }
       const todayIso = dateToIso(new Date());
       const todayV = (list.find(x => x.day === todayIso) || { v: 0 }).v;
-      const avg = list.reduce((t, x) => t + x.v, 0) / list.length;   // average over the days shown
+      const past = list.filter(x => x.day <= todayIso), avgList = past.length ? past : list;
+      const avg = avgList.reduce((t, x) => t + x.v, 0) / avgList.length;   // average over days so far (future prepaid bookings don't dilute it)
       const legend = SUMMARY_CATS.filter(c => cats[c] > 0).map(c =>
         `<div data-dtip="${escapeHtml(`${c} · ${ilsStr(cats[c], 0)} · ${Math.round(cats[c] / total * 100)}%`)}"><i style="background:${DASH_COLORS[c]}"></i>${CAT_ICONS[c] || ''} ${escapeHtml(c)}<span class="v">${escapeHtml(ilsStr(cats[c], 0))}</span><span class="p">${Math.round(cats[c] / total * 100)}%</span></div>`).join('');
       el.innerHTML =
@@ -2180,12 +2336,12 @@
     function renderSummary() {
       const code = curCode();
       const byCat = {};
-      SUMMARY_CATS.forEach(c => byCat[c] = { foreign: 0, ils: 0 });
+      SUMMARY_CATS.forEach(c => byCat[c] = { byCur: {}, ils: 0 });
 
       appData.expenses.forEach(e => {
         const key = byCat[e.category] ? e.category : 'שונות';
         byCat[key].ils += toIls(e.amount, e.currency, e.payment);
-        if (e.currency === code) byCat[key].foreign += e.amount;
+        byCat[key].byCur[e.currency] = (byCat[key].byCur[e.currency] || 0) + e.amount;   // every currency, e.g. "¥8,000 + $1,000"
       });
 
       let totalIls = 0;
@@ -2197,8 +2353,8 @@
           <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--card-border);">
             <span>${CAT_ICONS[cat] || ''} ${cat}</span>
             <span style="text-align:left;">
-              <strong style="color:var(--primary);">${money(v.foreign, code)}</strong>
-              ${code === 'ILS' && Math.abs(v.ils - v.foreign) < 0.005 ? '' : `<div style="font-size:0.75rem; color:var(--text-muted);">${ilsStr(v.ils)}</div>`}
+              <strong style="color:var(--primary);">${escapeHtml(sumsToString(Object.fromEntries(Object.entries(v.byCur).sort(([a], [b]) => (b === code) - (a === code)))))}</strong>
+              ${Object.keys(v.byCur).length === 1 && v.byCur.ILS !== undefined && Math.abs(v.ils - v.byCur.ILS) < 0.005 ? '' : `<div style="font-size:0.75rem; color:var(--text-muted);">${ilsStr(v.ils)}</div>`}
             </span>
           </div>`;
       }
@@ -2308,7 +2464,9 @@
     }
 
     function resetManualRate() {
-      delete rateOf(curCode()).manual;
+      const r = rateOf(curCode());
+      delete r.manual;
+      if (DEFAULT_RATES[curCode()]) { r.ils = DEFAULT_RATES[curCode()].ils; r.usd = DEFAULT_RATES[curCode()].usd; if (curCode() === 'ILS') r.ils = 1; }   // fall back to the built-in rate right away; a live update replaces it when online
       saveData();
       refreshRatesNow();
     }
@@ -2367,7 +2525,13 @@
       return n > 0 ? `${range} · ${n === 1 ? 'לילה אחד' : n + ' לילות'}` : range;
     }
     function hotelDates(h) {
-      return ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '') ? hotelRangeLabel(h.checkIn, h.checkOut) : (h.dates || '');
+      if (!(ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || ''))) return h.dates || '';
+      if (h.kind !== 'car') return hotelRangeLabel(h.checkIn, h.checkOut);
+      let days = nightsBetween(h.checkIn, h.checkOut);
+      if (h.pickupTime && h.returnTime && h.returnTime > h.pickupTime) days++;   // past the pickup hour = another rental day
+      days = Math.max(1, days);
+      const base = h.checkIn === h.checkOut ? reservationDateLabel(h.checkIn).top : hotelRangeLabel(h.checkIn, h.checkOut).split(' · ')[0];
+      return `${base} · ${days === 1 ? 'יום אחד' : days + ' ימים'}`;
     }
     function sortedHotels() {  // by check-in, then check-out; hotels without real dates go last (keeping their order)
       return appData.hotels.map((h, i) => ({ h, i })).sort((a, b) => {
@@ -2412,15 +2576,23 @@
     function removeReservation(id) {
       const r = appData.reservations.find(x => x.id === id);
       if (!r) return;
+      const exp = appData.expenses.find(e => e.resId === id);
+      let text = `למחוק את "${r.name}" (${reservationDateLabel(r.date).top})?`;
+      if (exp) text += ` ההוצאה של ${money(exp.amount, exp.currency)} שנרשמה עבורה תימחק מהסיכום.`;
       confirmDialog({
-        title: 'מחיקת הזמנה', text: `למחוק את "${r.name}" (${reservationDateLabel(r.date).top})?`, okLabel: 'מחק', danger: true,
-        onOk: () => { appData.reservations = appData.reservations.filter(x => x.id !== id); saveData(); }
+        title: 'מחיקת הזמנה', text, okLabel: 'מחק', danger: true,
+        onOk: () => {
+          if (exp) removeExpenseRecord(exp);
+          appData.reservations = appData.reservations.filter(x => x.id !== id);
+          saveData();
+        }
       });
     }
     function renderReservations() {
       const listEl = document.getElementById('ui-res-list');
       if (!listEl) return;
-      const list = appData.reservations.slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name, 'he'));
+      const list = appData.reservations.slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 :
+        (a.time || '') < (b.time || '') ? -1 : (a.time || '') > (b.time || '') ? 1 : a.name.localeCompare(b.name, 'he'));
       document.getElementById('res-count-title').textContent = `רשימת הזמנות${list.length ? ' (' + list.length + ')' : ''}`;
       if (!list.length) { listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding:16px;">אין הזמנות עדיין.</div>'; return; }
       const today = dateToIso(new Date());
@@ -2428,10 +2600,754 @@
         const l = reservationDateLabel(r.date);
         return `<div class="res-row${r.date < today ? ' past' : r.date === today ? ' today' : ''}">
           <div class="res-date">${escapeHtml(l.top)}<small>${r.date === today ? 'היום' : escapeHtml(l.day)}</small></div>
-          <div class="res-name">${escapeHtml(r.name)}</div>
+          <div class="res-name">${escapeHtml(resIcon(r) + r.name)}${resSubHtml(r)}</div>
+          <button data-id="${escapeHtml(r.id)}" onclick="editReservation(this.dataset.id)" aria-label="ערוך הזמנה" title="עריכה">✏️</button>
           <button data-id="${escapeHtml(r.id)}" onclick="removeReservation(this.dataset.id)" aria-label="מחק הזמנה" title="מחיקת ההזמנה">🗑️</button>
         </div>`;
       }).join('');
+    }
+
+    function resIcon(r) {
+      if (r.kind === 'car') return '🚗 ';
+      if (r.kind === 'activity') return (ACT_ICON[r.category] || '🎫') + ' ';
+      return '';   // flights carry ✈️ in their name; manual entries have none
+    }
+    function resExpenseCategory(r) {
+      if (r.kind === 'flight' || r.kind === 'car') return 'תחבורה';
+      if (r.kind === 'activity') return r.category === 'restaurant' ? 'אוכל' : r.category === 'transport' ? 'תחבורה' : 'שונות';
+      return 'שונות';
+    }
+    function resSubHtml(r) {
+      const bits = [], lines = [];
+      let links = '';
+      if (r.kind === 'flight') {
+        if (r.time) bits.push('המראה ' + r.time);
+        if (r.arrivalTime) bits.push('נחיתה ' + r.arrivalTime + (r.arrivalDate && r.arrivalDate !== r.date ? ' (' + reservationDateLabel(r.arrivalDate).top + ')' : ''));
+        if (r.airline) bits.push(r.airline);
+        const pax = Number(r.passengersCount) || (r.passengers ? r.passengers.split(', ').filter(Boolean).length : 0);
+        if (pax) bits.push(pax === 1 ? 'נוסע אחד' : pax + ' נוסעים');
+      } else if (r.kind === 'car') {
+        const days = r.returnDate ? hotelDates({ kind: 'car', checkIn: r.date, checkOut: r.returnDate, pickupTime: r.time, returnTime: r.returnTime }).split(' · ').pop() : '';
+        lines.push('איסוף: ' + [r.time, r.pickupPlace].filter(Boolean).join(' · ') + (days ? ' (' + days + ')' : ''));
+        if (r.returnDate || r.returnPlace) lines.push('החזרה: ' + [r.returnDate && r.returnDate !== r.date ? reservationDateLabel(r.returnDate).top : '', r.returnTime, r.returnPlace].filter(Boolean).join(' · '));
+        const pick = r.pickupAddress || r.pickupPlace, ret = r.returnAddress || r.returnPlace;
+        links = navLink(pick, 'ניווט לאיסוף') + (ret && ret !== pick ? navLink(ret, 'ניווט להחזרה') : '');
+      } else if (r.kind === 'activity') {
+        if (r.time) bits.push('שעה ' + r.time);
+        if (r.people) bits.push(r.people + ' אנשים');
+        if (r.provider) bits.push(r.provider);
+        // a train/bus ticket without an address has no single place to navigate to
+        if (r.address || r.category !== 'transport') links = navLink(r.address || [r.name, r.city].filter(Boolean).join(', '), 'ניווט');
+      } else {   // typed by hand: time and address are optional (set via ✏️)
+        if (r.time) bits.push('שעה ' + r.time);
+        if (r.address) links = navLink(r.address, 'ניווט');
+      }
+      if (r.confirmation) bits.push('אישור: ' + r.confirmation);
+      const charged = appData.expenses.some(e => e.resId === r.id);
+      if (charged) bits.push('💳 נרשם כהוצאה');
+      else if (r.price) bits.push('לתשלום: ' + money(r.price, r.currency));
+      else if (r.kind === 'flight' && r.confirmation) {
+        const payer = appData.reservations.find(o => o !== r && o.kind === 'flight' && o.confirmation === r.confirmation && (o.price || appData.expenses.some(e => e.resId === o.id)));
+        if (payer) bits.push('המחיר כלול בכרטיס של ' + (payer.flightNumber || 'הטיסה הראשונה'));
+      }
+      const action = !charged && r.price ? `<button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" onclick="chargeReservation(this.dataset.id)">💳 רשום תשלום</button>` : '';
+      const text = [...lines, bits.join(' · ')].filter(Boolean);
+      return (text.length ? `<div class="res-sub">${text.map(escapeHtml).join('<br>')}</div>` : '') + (links || action ? `<div>${links}${action}</div>` : '');
+    }
+    // Record a reservation's payment (prepaid on import, or later: e.g. a car paid at pickup)
+    function chargeReservation(id) {
+      const r = appData.reservations.find(x => x.id === id);
+      if (!r || !r.price || appData.expenses.some(e => e.resId === id)) return;
+      const sameCur = r.currency === curCode();   // cash/LAYA wallets are per currency: other currencies are paid by card
+      const ov = openDialog(`
+        <h3>💳 רישום תשלום</h3>
+        <p>${escapeHtml(resIcon(r) + r.name)}</p>
+        <label class="field-label">סכום ששולם (${escapeHtml(rateOf(r.currency).symbol)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(r.price)}"></label>
+        <label class="field-label">תאריך התשלום<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${dateToIso(new Date())}" max="9999-12-31"></label>
+        <label class="field-label">אמצעי תשלום<select class="select-input" data-el="pay">
+          <option value="אשראי">💳 אשראי</option>
+          ${sameCur ? '<option value="LAYA">💳 LAYA</option><option value="מזומן">💵 מזומן</option>' : ''}
+        </select></label>
+        ${sameCur ? '' : `<p style="font-size:0.75rem;">במטבע ${escapeHtml(r.currency)} אפשר לרשום רק תשלום באשראי.</p>`}
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">רשום</button>
+        </div>`);
+      const q = k => ov.querySelector(`[data-el="${k}"]`);
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const amt = parseFloat(q('amt').value), iso = q('date').value, pay = q('pay').value;
+        if (!(amt > 0) || amt > 1e9) { q('amt').style.outline = '2px solid #ef4444'; q('amt').focus(); return; }
+        if (!ISO_DATE.test(iso)) { q('date').style.outline = '2px solid #ef4444'; return; }
+        if (appData.expenses.some(e => e.resId === id)) { ov.remove(); return; }
+        const warn = spendFrom(pay, r.currency, amt);
+        appData.expenses.unshift({ id: newId(), amount: amt, currency: r.currency, category: resExpenseCategory(r), payment: pay,
+          note: r.kind === 'flight' ? r.name.replace(/^✈️\s*/, 'טיסה ') : r.kind === 'car' ? `השכרת רכב: ${r.name}` : r.name,
+          date: (iso === dateToIso(new Date()) ? new Date() : isoToDate(iso)).toISOString(), resId: id });
+        ov.remove();
+        saveData();
+        showMsg('res-msg', warn ? 'התשלום נרשם. ' + warn : 'התשלום נרשם כהוצאה', warn ? 'warn' : 'ok');
+      };
+    }
+
+    // ---------- Bookings import (Gemini -> JSON -> preview -> add) ----------
+    const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    function initBookingsUi() {
+      const m = document.getElementById('bk-month'), y = document.getElementById('bk-year');
+      if (!m || m.options.length) return;
+      m.innerHTML = HE_MONTHS.map((n, i) => `<option value="${i}">${n}</option>`).join('');
+      const now = new Date();
+      m.value = String(now.getMonth());
+      y.value = now.getFullYear();
+    }
+    function openBookingsImport() {
+      switchTab('reservations', document.getElementById('nav-reservations'));
+      const d = document.getElementById('bk-details');
+      d.open = true;
+      setTimeout(() => document.getElementById('bk-card').scrollIntoView({ block: 'start', behavior: 'smooth' }), 50);
+    }
+    function geminiPrompt(monthIdx, year) {
+      const period = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+      const mon = EN_MONTHS[monthIdx], prevMon = EN_MONTHS[(monthIdx + 11) % 12];
+      return `Search my Gmail for all my travel bookings whose TRAVEL dates fall in ${mon} ${year}: flights, hotels, car rentals, and any other reservations (restaurants, attractions, museums, tours, shows, events, activities, train/bus tickets and transfers).
+
+Important:
+- The booking emails can be from ANY date, often many months or more than a year earlier. Do not limit the search to emails received in ${mon} ${year}.
+- Also include a flight that departs in the last days of ${prevMon} if it arrives in ${mon} or belongs to the same trip.
+- Search in English and in Hebrew, with terms such as: booking confirmation, reservation, itinerary, e-ticket, eticket, ticket receipt, PNR, car rental, voucher, tickets, table reservation, tour, אישור הזמנה, הזמנה, כרטיס טיסה, כרטיס אלקטרוני, קבלה, השכרת רכב, מלון, מסעדה, כרטיסים, סיור.
+- Check emails from airlines (e.g. El Al, Israir, Arkia and foreign airlines), booking sites (Booking.com, Agoda, Expedia, Airbnb, Hotels.com, Trip.com), Israeli travel agencies (e.g. Issta, Gulliver, Ophir Tours, Eshet Tours), credit card travel services, car rental companies (e.g. Toyota Rent a Car, Times, Nippon Rent-A-Car, Hertz, Avis, Rentalcars), and ticket/activity/restaurant platforms (e.g. Klook, KKday, GetYourGuide, Viator, TableCheck, OpenTable, Tabelog, Omakase, official attraction sites, JR / Shinkansen).
+- Read PDF attachments (e-tickets, itinerary receipts, vouchers) when the email body has no details.
+- If a booking was changed, use the latest version. Skip cancelled bookings.
+
+Return ONLY valid JSON, with no text before or after it and no code fences, in exactly this format:
+
+{
+  "type": "trip-bookings",
+  "version": 1,
+  "period": "${period}",
+  "bookings": [
+    { "kind": "hotel", "name": "", "address": "", "city": "", "country": "",
+      "checkIn": "YYYY-MM-DD", "checkOut": "YYYY-MM-DD",
+      "price": 0, "currency": "JPY", "payment": "prepaid",
+      "confirmation": "", "provider": "" },
+    { "kind": "flight", "airline": "", "flightNumber": "",
+      "from": "TLV", "to": "NRT",
+      "departure": "YYYY-MM-DDTHH:MM", "arrival": "YYYY-MM-DDTHH:MM",
+      "price": 0, "currency": "USD", "payment": "prepaid",
+      "confirmation": "", "passengers": ["", ""], "passengersCount": 2,
+      "pricePerPerson": null, "priceSource": "invoice" },
+    { "kind": "car", "company": "",
+      "pickupPlace": "", "pickupAddress": "", "pickup": "YYYY-MM-DDTHH:MM",
+      "returnPlace": "", "returnAddress": "", "return": "YYYY-MM-DDTHH:MM",
+      "price": 0, "currency": "JPY", "payment": "pay_later",
+      "confirmation": "" },
+    { "kind": "activity", "category": "restaurant|attraction|tour|show|transport|other",
+      "name": "", "address": "", "city": "",
+      "date": "YYYY-MM-DD", "time": "HH:MM",
+      "people": 2, "price": 0, "currency": "JPY", "payment": "prepaid",
+      "confirmation": "", "provider": "" }
+  ]
+}
+
+Rules:
+- One entry per booking. One entry per flight leg (outbound and return are separate entries).
+- Use kind "activity" for everything that is not a flight, hotel or car rental (restaurants, attractions, tours, shows, tickets, trains, buses, transfers).
+- If one ticket price covers several legs, put the full price on the first leg and null on the others.
+- FLIGHT PRICES: find the airline's invoice / tax invoice / receipt / payment confirmation for the booking (in Hebrew: חשבונית, חשבונית מס, קבלה, אישור תשלום), often a separate email or a PDF attachment from the airline or agency. price = the TOTAL amount charged for ALL passengers on the booking, including taxes and fees. Do NOT use a per-person fare as price. List every passenger in "passengers" and set "passengersCount". If only a per-person fare is shown, set price to null and put that fare in "pricePerPerson". priceSource = "invoice", "receipt", "confirmation" or "fare" (where the price came from).
+- For every booking with several people (rooms, tickets, tables), price is the total for everyone, not per person.
+- price = total cost of the booking as a plain number (no currency symbols, no thousands separators), in the currency shown in the email. currency = 3-letter ISO code (JPY, ILS, USD, EUR...).
+- payment = "prepaid" if already charged, "pay_later" if paid at the hotel or at pickup, "unknown" if not clear.
+- Dates are YYYY-MM-DD. Times are 24-hour HH:MM, local time at that place.
+- address = full street address as written in the email, for hotels, car pickup/return and activities.
+- If a value is not in the email, use null. Never guess or invent values.
+- If nothing is found, return the same structure with an empty "bookings" list.`;
+    }
+    function copyGeminiPrompt() {
+      const m = parseInt(document.getElementById('bk-month').value, 10);
+      let y = parseInt(document.getElementById('bk-year').value, 10);
+      if (!(y >= 2000 && y <= 2100)) { showMsg('bk-msg', 'אנא הזן שנה תקינה', 'error'); return; }
+      const text = geminiPrompt(m, y);
+      const fallback = () => {   // clipboard blocked (e.g. opened as a local file): show the text to copy by hand
+        const ov = openDialog(`<h3>📋 הפרומפט ל-Gemini</h3><p>סמן הכל והעתק:</p><textarea class="text-input" readonly style="width:100%; min-height:220px; direction:ltr; text-align:left; font-size:0.72rem;"></textarea><div class="dialog-actions"><button class="primary-btn" data-act="ok">סגור</button></div>`);
+        ov.querySelector('.dialog').classList.add('wide');
+        const ta = ov.querySelector('textarea'); ta.value = text; ta.focus(); ta.select();
+        ov.querySelector('[data-act=ok]').onclick = () => ov.remove();
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => showMsg('bk-msg', `הפרומפט ל${HE_MONTHS[m]} ${y} הועתק. הדבק אותו ב-Gemini.`), fallback);
+      } else fallback();
+    }
+
+    // ---- Reading Gemini's answer: tolerant of fences, prose around the JSON, smart quotes, trailing commas ----
+    const cutChars = (str, n) => [...str].slice(0, n).join('');        // never splits an emoji in half
+    const bkStr = (v, n = 120) => typeof v === 'string' ? cutChars(v.trim(), n) : (typeof v === 'number' ? String(v) : '');
+    function lenientParse(str) {
+      try { return { v: JSON.parse(str) }; } catch (e1) {
+        const fixed = str
+          .replace(/(^|[,{\[\s])\/\/[^"\n]*$/gm, '$1')        // // comments at the end of a line (not inside "https://...")
+          .replace(/,(\s*[}\]])/g, '$1');                     // trailing commas
+        try { return { v: JSON.parse(fixed) }; } catch (e2) { return { err: e2.message }; }
+      }
+    }
+    function findBookings(v, depth = 0) {
+      if (depth > 4 || v === null || typeof v !== 'object') return null;
+      if (Array.isArray(v)) return v.length === 0 || v.some(x => x && typeof x === 'object' && 'kind' in x) ? v : null;
+      if (Array.isArray(v.bookings)) return v.bookings;
+      if (typeof v.kind === 'string') return [v];                         // a single booking on its own
+      for (const k in v) { const r = findBookings(v[k], depth + 1); if (r) return r; }
+      return null;
+    }
+    function balancedFrom(t, start) {   // the JSON value starting at t[start], matching brackets outside strings
+      const open = t[start], close = open === '{' ? '}' : ']';
+      let depth = 0, inStr = false, esc = false;
+      for (let i = start; i < t.length; i++) {
+        const ch = t[i];
+        if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+        if (ch === '"') inStr = true;
+        else if (ch === '{' || ch === '[') depth++;
+        else if (ch === '}' || ch === ']') { depth--; if (depth === 0) return ch === close ? t.slice(start, i + 1) : null; }
+      }
+      return null;
+    }
+    function extractBookings(text) {   // -> { list } or { error }
+      const clean = String(text || '').replace(/[“”„‟″]/g, '"').replace(/[‘’]/g, "'");
+      const fences = [...clean.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)].map(m => m[1]);
+      let lastErr = '';
+      for (const chunk of [...fences, clean]) {
+        let tries = 0;
+        for (let i = 0; i < chunk.length && tries < 60; i++) {
+          if (chunk[i] !== '{' && chunk[i] !== '[') continue;
+          tries++;
+          const cand = balancedFrom(chunk, i);
+          if (!cand) continue;
+          const r = lenientParse(cand);
+          if (r.err) { lastErr = r.err; continue; }
+          const list = findBookings(r.v);
+          if (list) return { list };
+          i += cand.length - 1;              // valid JSON but not bookings (e.g. "{note}" text): skip past it
+        }
+      }
+      return { error: lastErr };
+    }
+
+    function bkDate(v) {   // many shapes -> { date: 'YYYY-MM-DD', time: 'HH:MM' | '' }
+      const s0 = bkStr(v, 60);
+      if (!s0) return null;
+      const timeOf = str => {
+        const t = /(?:^|[T\s,])(\d{1,2}):(\d{2})/.exec(str);
+        return t && +t[1] <= 23 && +t[2] <= 59 ? t[1].padStart(2, '0') + ':' + t[2] : '';
+      };
+      let y, mo, d, m;
+      if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s0))) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+      else if ((m = /^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/.exec(s0))) { d = +m[1]; mo = +m[2]; y = +m[3]; }   // Israeli order: day/month/year
+      else if (/[a-z]{3}/i.test(s0)) {
+        const dt = new Date(s0.replace(/\s*(\d{1,2}:\d{2}).*$/, ''));
+        if (isNaN(dt)) return null;
+        y = dt.getFullYear(); mo = dt.getMonth() + 1; d = dt.getDate();
+      } else return null;
+      const iso = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (y < 2000 || y > 2100 || dateToIso(isoToDate(iso)) !== iso) return null;
+      return { date: iso, time: timeOf(s0.slice(m ? m[0].length - 0 : 0)) || timeOf(s0) };
+    }
+
+    const CUR_ALIASES = { '¥': 'JPY', '円': 'JPY', 'YEN': 'JPY', '₪': 'ILS', 'NIS': 'ILS', 'ש"ח': 'ILS', 'ש״ח': 'ILS', 'שח': 'ILS',
+      '$': 'USD', 'US$': 'USD', 'USD$': 'USD', '€': 'EUR', '£': 'GBP', '₩': 'KRW', '฿': 'THB' };
+    function bkCurrency(cur, price) {
+      let c = bkStr(cur, 10).toUpperCase().replace(/\s+/g, '');
+      if (CUR_ALIASES[c]) c = CUR_ALIASES[c];
+      if (DEFAULT_RATES[c]) return { code: c, raw: c };
+      if (!c && typeof price === 'string') {      // "¥84,500" / "84,500 JPY"
+        const iso = /\b([A-Z]{3})\b/.exec(price.toUpperCase());
+        if (iso && DEFAULT_RATES[iso[1]]) return { code: iso[1], raw: iso[1] };
+        for (const sym in CUR_ALIASES) if (price.includes(sym)) return { code: CUR_ALIASES[sym], raw: sym };
+      }
+      return { code: null, raw: c };
+    }
+    function bkPrice(v) {
+      let n;
+      if (typeof v === 'number') n = v;
+      else if (typeof v === 'string') {
+        const t = v.trim();
+        if (/^-?\d+(\.\d+)?e[+-]?\d+$/i.test(t)) n = Number(t);
+        else {
+          let x = t.replace(/[^\d.,\-]/g, '');
+          if (/^\d{1,3}(\.\d{3})+$/.test(x)) x = x.replace(/\./g, '');                      // 84.500  -> 84500
+          else if (x.includes(',') && x.includes('.')) x = x.lastIndexOf(',') > x.lastIndexOf('.')
+            ? x.replace(/\./g, '').replace(',', '.')                                             // 1.234,56 -> 1234.56
+            : x.replace(/,/g, '');                                                               // 1,234.56 -> 1234.56
+          else if (x.includes(',')) x = /^\d{1,3}(,\d{3})+$/.test(x) ? x.replace(/,/g, '') : x.replace(',', '.');
+          n = parseFloat(x);
+        }
+      } else n = NaN;
+      return isFinite(n) && n > 0 && n <= 1e9 ? n : null;
+    }
+    function bkPayment(v) {
+      const p = bkStr(v, 80).toLowerCase();
+      if (/not paid|unpaid|pay[_ ]?later|later|at (the )?(hotel|property|pickup|desk|counter|check-?in)|on arrival|on site|upon|due|payable|pay at|to be paid|לא שולם|בהגעה|במקום/.test(p)) return 'pay_later';
+      if (/deposit|partial|partly|מקדמה|חלקי/.test(p)) return 'unknown';
+      if (/prepaid|paid|charged|שולם/.test(p)) return 'prepaid';
+      return 'unknown';
+    }
+    function bkKind(v) {
+      const k = bkStr(v, 40).toLowerCase();
+      if (/flight|plane|טיסה/.test(k)) return 'flight';
+      if (/hotel|stay|lodging|airbnb|accommodation|apartment|ryokan|hostel|guest|\binn\b|vacation rental|motel|resort|מלון|דירה|צימר|אכסני/.test(k)) return 'hotel';
+      if (/\bcar\b|car[_ -]?rental|rental[_ -]?car|רכב/.test(k)) return 'car';
+      if (/restaurant|dining|dinner|lunch|breakfast|table|bar|cafe|attraction|ticket|tour|museum|show|concert|event|activit|experience|class|workshop|spa|onsen|park|teamlab|train|rail|shinkansen|bus|ferry|transfer|cruise|other|מסעדה|ארוחה|אטרקציה|כרטיס|סיור|הופעה|פעילות|מופע|רכבת|אוטובוס|העברה/.test(k)) return 'activity';
+      return '';
+    }
+    const normName = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const flightKey = (conf, fn, from, to, date) => 'flight|' + (conf || '') + '|' + (fn || (from && to ? from + '-' + to : '')) + '|' + (date || '');
+    const stayKey = (kind, conf, name, checkIn) => kind + '|' + (conf ? 'c:' + conf : 'n:' + normName(name)) + '|' + (checkIn || '');
+    const stayNameKey = (kind, name, checkIn) => kind + '|n:' + normName(name) + '|' + (checkIn || '');
+
+    function actCategory(...vals) {   // restaurant | transport | attraction
+      const t = vals.map(v => bkStr(v, 60).toLowerCase()).join(' ');
+      if (/restaurant|dining|dinner|lunch|breakfast|table|bar|cafe|izakaya|sushi|מסעדה|ארוחה/.test(t)) return 'restaurant';
+      if (/train|rail|shinkansen|bus|ferry|transfer|jr pass|רכבת|אוטובוס|העברה/.test(t)) return 'transport';
+      return 'attraction';
+    }
+    const ACT_ICON = { restaurant: '🍽️', transport: '🚄', attraction: '🎫' };
+    const actKey = (conf, name, date, time) => 'act|' + (conf ? 'c:' + conf : 'n:' + normName(name)) + '|' + (date || '') + '|' + (time || '');
+    const actNameKey = (name, date) => 'act|n:' + normName(name) + '|' + (date || '');
+
+    function parseBookingItem(b) {
+      const it = { kind: bkKind(b && b.kind), problems: [], notes: [], src: b };
+      if (!b || typeof b !== 'object' || !it.kind) {
+        it.problems.push('סוג הזמנה לא מזוהה');
+        it.title = '❓ ' + ([bkStr(b && b.kind, 30), bkStr(b && (b.name || b.company || b.airline), 50)].filter(Boolean).join(' · ') || 'פריט לא ידוע');
+        return it;
+      }
+      it.price = bkPrice(b.price);
+      const paxList = Array.isArray(b.passengers) ? b.passengers.map(x => bkStr(x, 40)).filter(Boolean) : [];
+      const paxN = Math.max(paxList.length, Math.round(Number(b.passengersCount) || 0), Math.round(Number(b.people) || 0));
+      const perPerson = bkPrice(b.pricePerPerson);
+      if (!it.price && perPerson && paxN >= 1) {   // only a per-person fare was found: total = fare × travellers
+        it.price = Math.round(perPerson * paxN * 100) / 100;
+        it.notes.push(paxN > 1 ? `מחיר לנוסע × ${paxN}` : 'מחיר לנוסע');
+      }
+      it.paxCount = paxN;
+      const src = bkStr(b.priceSource, 20).toLowerCase();
+      if (it.price && it.kind === 'flight' && src && !/invoice|receipt/.test(src)) it.notes.push('המחיר לא נלקח מחשבונית – בדוק את הסכום');
+      const cur = bkCurrency(b.currency, b.price || b.pricePerPerson);
+      it.currency = cur.code;
+      if (it.price && !it.currency) { it.notes.push(cur.raw ? `מטבע ${cur.raw} לא נתמך – יתווסף בלי מחיר` : 'חסר מטבע – יתווסף בלי מחיר'); it.price = null; }
+      else if (!it.price) it.notes.push('אין מחיר');
+      if (it.price && it.currency && rateOf(it.currency).decimals === 0 && it.price % 1) it.notes.push('מחיר עם שבר במטבע בלי אגורות – בדוק');
+      it.payment = bkPayment(b.payment);
+      it.confirmation = bkStr(b.confirmation, 60);
+
+      if (it.kind === 'flight') {
+        const dep = bkDate(b.departure || b.date), arr = bkDate(b.arrival);
+        it.flightNumber = bkStr(b.flightNumber, 20).replace(/\s+/g, '').toUpperCase();
+        it.from = bkStr(b.from, 40).toUpperCase(); it.to = bkStr(b.to, 40).toUpperCase();
+        it.airline = bkStr(b.airline, 60);
+        it.passengers = paxList.join(', ');
+        if (paxN) it.passengersCount = String(paxN);
+        if (!dep) it.problems.push('חסר תאריך המראה');
+        else { it.date = dep.date; it.time = dep.time; }
+        if (arr) { it.arrivalDate = arr.date; it.arrivalTime = arr.time; }
+        it.title = cutChars(`✈️ ${[it.flightNumber || it.airline || 'טיסה', it.from && it.to ? it.from + '→' + it.to : ''].filter(Boolean).join(' ')}`, 80);
+        it.when = dep ? `${reservationDateLabel(dep.date).top}${dep.time ? ' ' + dep.time : ''}` : '';
+        it.key = flightKey(it.confirmation, it.flightNumber, it.from, it.to, it.date);
+      } else if (it.kind === 'activity') {
+        const at = bkDate(b.date || b.start || b.dateTime || b.datetime);
+        it.category = actCategory(b.category, b.kind, b.name);
+        it.name = bkStr(b.name, 80);
+        if (!it.name) it.problems.push('חסר שם');
+        if (!at) it.problems.push('חסר תאריך');
+        else {
+          it.date = at.date;
+          const t = /^(\d{1,2}):(\d{2})/.exec(bkStr(b.time, 10));
+          it.time = at.time || (t && +t[1] <= 23 && +t[2] <= 59 ? t[1].padStart(2, '0') + ':' + t[2] : '');
+        }
+        it.address = bkStr(b.address, 200); it.city = bkStr(b.city, 60); it.provider = bkStr(b.provider, 40);
+        it.people = bkStr(b.people, 10);
+        it.title = ACT_ICON[it.category] + ' ' + (it.name || '?');
+        it.when = at ? `${reservationDateLabel(at.date).top}${it.time ? ' ' + it.time : ''}` : '';
+        it.key = actKey(it.confirmation, it.name, it.date, it.time);
+        it.nameKey = actNameKey(it.name, it.date);
+      } else {
+        const car = it.kind === 'car';
+        const a = bkDate(car ? b.pickup : b.checkIn), z = bkDate(car ? b.return : b.checkOut);
+        it.name = car ? cutChars([bkStr(b.company, 60) || 'השכרת רכב', bkStr(b.pickupPlace, 60)].filter(Boolean).join(' · '), 80)
+                      : bkStr(b.name, 80);
+        if (!it.name) it.problems.push('חסר שם');
+        if (!a || !z) it.problems.push(car ? 'חסר תאריך איסוף או החזרה' : 'חסר תאריך כניסה או יציאה');
+        else if (car ? z.date < a.date : z.date <= a.date) it.problems.push(car ? 'ההחזרה לפני האיסוף' : 'היציאה לא אחרי הכניסה');
+        else { it.checkIn = a.date; it.checkOut = z.date; }
+        if (car) {
+          it.pickupTime = a ? a.time : ''; it.returnTime = z ? z.time : '';
+          it.pickupPlace = bkStr(b.pickupPlace, 120); it.pickupAddress = bkStr(b.pickupAddress, 200);
+          it.returnPlace = bkStr(b.returnPlace, 120); it.returnAddress = bkStr(b.returnAddress, 200);
+          it.company = bkStr(b.company, 60);
+        } else {
+          it.address = bkStr(b.address, 200); it.city = bkStr(b.city, 60); it.provider = bkStr(b.provider, 40);
+          if (!it.address) it.notes.push('אין כתובת – הניווט ישתמש בשם המלון');
+        }
+        it.title = (car ? '🚗 ' : '🏨 ') + (it.name || '?');
+        it.when = it.checkIn ? hotelDates({ kind: it.kind, checkIn: it.checkIn, checkOut: it.checkOut }) : '';
+        it.key = stayKey(it.kind, it.confirmation, it.name, it.checkIn);
+        it.nameKey = stayNameKey(it.kind, it.name, it.checkIn);
+      }
+      return it;
+    }
+    function existingBookingKeys() {
+      const keys = new Set(), names = new Set();
+      appData.hotels.forEach(h => {
+        keys.add(stayKey('hotel', h.confirmation, h.name, h.checkIn));
+        names.add(stayNameKey('hotel', h.name, h.checkIn));
+      });
+      appData.reservations.forEach(r => {
+        if (r.kind === 'flight') keys.add(flightKey(r.confirmation, r.flightNumber, r.from, r.to, r.date));
+        else if (r.kind === 'car') { keys.add(stayKey('car', r.confirmation, r.name, r.date)); names.add(stayNameKey('car', r.name, r.date)); }
+        else { keys.add(actKey(r.confirmation, r.name, r.date, r.time)); names.add(actNameKey(r.name, r.date)); }   // activities and manual entries
+      });
+      keys.names = names;
+      return keys;
+    }
+
+    let pendingBookings = [];
+    function previewBookings() {
+      const raw = document.getElementById('bk-paste').value;
+      if (!raw.trim()) { showMsg('bk-msg', 'הדבק קודם את התשובה של Gemini', 'error'); return; }
+      const found = extractBookings(raw), list = found.list;
+      if (!list) {
+        showMsg('bk-msg', found.error
+          ? 'ה-JSON שהודבק לא תקין (' + found.error.slice(0, 80) + '). בקש מ-Gemini להחזיר JSON תקין בלבד, והדבק שוב.'
+          : 'לא נמצאו הזמנות בטקסט. ודא שהעתקת את כל התשובה של Gemini.', 'error');
+        return;
+      }
+      if (!list.length) { showMsg('bk-msg', 'Gemini לא מצא הזמנות לחודש הזה', 'warn'); return; }
+      if (list.length > 200) { showMsg('bk-msg', 'יותר מדי הזמנות בבת אחת (מקסימום 200)', 'error'); return; }
+
+      const have = existingBookingKeys(), seen = new Set();
+      pendingBookings = list.map(parseBookingItem);
+      pendingBookings.forEach(it => {
+        if (!it.problems.length && (have.has(it.key) || seen.has(it.key))) it.problems.push('כבר קיים ברשימה');
+        else if (!it.problems.length && it.nameKey && have.names.has(it.nameKey)) it.maybeDup = true;
+        else if (!it.problems.length && it.kind === 'activity' && appData.reservations.some(r => !r.kind && r.date === it.date &&
+          (normName(r.name).includes(normName(it.name)) || normName(it.name).includes(normName(r.name))))) it.maybeDup = true;   // typed by hand earlier
+        seen.add(it.key);
+        it.prepaid = !!it.price && (it.payment === 'prepaid' || (it.kind === 'flight' && it.payment === 'unknown'));
+      });
+      // a return leg without a price whose ticket was priced on another leg: say so instead of "no price"
+      pendingBookings.forEach(it => {
+        if (it.kind !== 'flight' || it.price || !it.confirmation) return;
+        const payer = pendingBookings.find(o => o !== it && o.kind === 'flight' && o.price && o.confirmation === it.confirmation) ||
+                      appData.reservations.find(r => r.kind === 'flight' && r.confirmation === it.confirmation && (r.price || appData.expenses.some(e => e.resId === r.id)));
+        if (!payer) return;
+        it.notes = it.notes.filter(n => n !== 'אין מחיר');
+        it.notes.unshift('המחיר כלול בכרטיס של ' + (payer.flightNumber || 'הטיסה הראשונה'));
+      });
+      const ok = pendingBookings.filter(it => !it.problems.length).length;
+
+      const rows = pendingBookings.map((it, i) => {
+        const bad = it.problems.length > 0;
+        const price = it.price ? money(it.price, it.currency) : '';
+        return `<div class="bk-row${bad ? ' bad' : ''}">
+          <input type="checkbox" data-i="${i}" ${bad ? 'disabled' : it.maybeDup ? '' : 'checked'} aria-label="הוסף">
+          <div class="bk-main">
+            <div><strong>${escapeHtml(it.title)}</strong></div>
+            <div class="bk-meta">${escapeHtml([it.when, price, it.kind === 'flight' && it.paxCount ? (it.paxCount === 1 ? 'נוסע אחד' : it.paxCount + ' נוסעים') : '', it.confirmation ? 'אישור ' + it.confirmation : ''].filter(Boolean).join(' · '))}</div>
+            ${bad ? `<div class="bk-warn">⛔ ${escapeHtml(it.problems.join(', '))}</div>` : ''}
+            ${!bad && it.maybeDup ? `<div class="bk-warn">⚠️ ייתכן שכבר קיים (אותו שם ותאריך) – סמן רק אם זו הזמנה נוספת</div>` : ''}
+            ${!bad && it.notes.length ? `<div class="bk-meta">ℹ️ ${escapeHtml(it.notes.join(', '))}</div>` : ''}
+            ${!bad && it.price ? `<label class="bk-prepaid"><input type="checkbox" data-pre="${i}" ${it.prepaid ? 'checked' : ''}> שולם מראש (נרשם כהוצאה באשראי)</label>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      const ov = openDialog(`
+        <h3>📥 הזמנות שנמצאו (${pendingBookings.length})</h3>
+        <p>סמן מה להוסיף. מלונות ייכנסו לטאב המלונות; טיסות, רכב, מסעדות, אטרקציות וכרטיסים לרשימת ההזמנות.</p>
+        <div>${rows}</div>
+        <div class="dialog-actions" style="margin-top:14px;">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok" ${ok ? '' : 'disabled'}>הוסף</button>
+        </div>`);
+      ov.querySelector('.dialog').classList.add('wide');
+      const okBtn = ov.querySelector('[data-act=ok]');
+      const count = () => { const n = ov.querySelectorAll('input[data-i]:checked').length; okBtn.textContent = n ? `הוסף ${n}` : 'הוסף'; okBtn.disabled = !n; };
+      ov.querySelectorAll('input[data-i]').forEach(c => c.onchange = count);
+      count();
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      okBtn.onclick = () => {
+        const chosen = [...ov.querySelectorAll('input[data-i]:checked')].map(c => {
+          const it = pendingBookings[+c.dataset.i];
+          const pre = ov.querySelector(`input[data-pre="${c.dataset.i}"]`);
+          it.prepaid = !!(pre && pre.checked && it.price);
+          return it;
+        });
+        ov.remove();
+        addBookings(chosen);
+      };
+    }
+
+    function addBookings(items) {
+      const have = existingBookingKeys();
+      let hotels = 0, cars = 0, flights = 0, acts = 0, expenses = 0;
+      // the user may tick a "maybe already exists" row on purpose: only exact keys block adding
+      const prepaidExpense = (it, r, category, note) => {
+        if (!it.prepaid) return;
+        appData.expenses.unshift({ id: newId(), amount: it.price, currency: it.currency, category, payment: 'אשראי',
+          note, date: isoToDate(r.date).toISOString(), resId: r.id });
+        expenses++;
+      };
+      items.forEach(it => {
+        if (it.problems.length || have.has(it.key)) return;   // never add twice
+        have.add(it.key);
+        if (it.kind === 'hotel') {
+          const h = { id: newId(), name: it.name, checkIn: it.checkIn, checkOut: it.checkOut, dates: hotelRangeLabel(it.checkIn, it.checkOut),
+            basePrice: it.price || 0, currency: it.currency || curCode(), paid: false, finalPrice: null };
+          ['address', 'city', 'provider', 'confirmation'].forEach(k => { if (it[k]) h[k] = it[k]; });
+          if (it.prepaid) {
+            h.paid = true; h.finalPrice = it.price; h.payment = 'אשראי';
+            appData.expenses.unshift({ id: newId(), amount: it.price, currency: it.currency, category: 'מלון', payment: 'אשראי',
+              note: `חיוב מלון: ${it.name}`, date: isoToDate(it.checkIn).toISOString(), hotelId: h.id });
+            expenses++;
+          }
+          appData.hotels.push(h);
+          hotels++;
+          return;
+        }
+        // flights, car rentals, attractions/restaurants/tickets: all in the reservations list
+        const r = { id: newId(), kind: it.kind, date: it.kind === 'car' ? it.checkIn : it.date };
+        if (it.price && it.currency) { r.price = it.price; r.currency = it.currency; }
+        if (it.confirmation) r.confirmation = it.confirmation;
+        if (it.kind === 'flight') {
+          r.name = cutChars(it.title, 80);
+          ['time', 'airline', 'flightNumber', 'from', 'to', 'arrivalDate', 'arrivalTime', 'passengers', 'passengersCount'].forEach(k => { if (it[k]) r[k] = it[k]; });
+          prepaidExpense(it, r, 'תחבורה', `טיסה ${[it.flightNumber, it.from && it.to ? it.from + '→' + it.to : ''].filter(Boolean).join(' ')}`.trim());
+          flights++;
+        } else if (it.kind === 'car') {
+          r.name = it.name;
+          r.returnDate = it.checkOut;
+          if (it.pickupTime) r.time = it.pickupTime;
+          ['returnTime', 'pickupPlace', 'pickupAddress', 'returnPlace', 'returnAddress', 'company'].forEach(k => { if (it[k]) r[k] = it[k]; });
+          prepaidExpense(it, r, 'תחבורה', `השכרת רכב: ${it.name}`);
+          cars++;
+        } else {
+          r.name = it.name;
+          r.category = it.category;
+          ['time', 'address', 'city', 'provider', 'people'].forEach(k => { if (it[k]) r[k] = it[k]; });
+          prepaidExpense(it, r, resExpenseCategory(r), it.name);
+          acts++;
+        }
+        appData.reservations.push(r);
+      });
+      if (!(hotels + cars + flights + acts)) { showMsg('bk-msg', 'לא נוסף דבר (ההזמנות כבר קיימות)', 'warn'); return; }
+      saveData();
+      document.getElementById('bk-paste').value = '';
+      const parts = [hotels && `${hotels} מלונות`, flights && `${flights} טיסות`, cars && `${cars} השכרות רכב`, acts && `${acts} הזמנות נוספות`].filter(Boolean).join(', ');
+      showMsg('bk-msg', `נוספו ${parts}.${expenses ? ` ${expenses} נרשמו כהוצאה ששולמה מראש.` : ''}`);
+    }
+
+    // ---------- Today card (home screen) ----------
+    function todayItems(day) {
+      const items = [];
+      const add = (sort, time, title, sub, links) => items.push({ sort, time, title, sub, links });
+      appData.hotels.forEach(h => {
+        if (!ISO_DATE.test(h.checkIn || '') || !ISO_DATE.test(h.checkOut || '')) return;
+        const nav = navLink(h.address || [h.name, h.city].filter(Boolean).join(', '), 'ניווט למלון');
+        if (h.checkOut === day) add('00:00', '', `🧳 צ'ק-אאוט: ${h.name}`, '', nav);
+        if (h.checkIn === day) add('23:58', '', `🏨 צ'ק-אין והלילה: ${h.name}`, h.confirmation ? 'אישור: ' + h.confirmation : '', nav);
+        else if (h.checkIn < day && day < h.checkOut) add('23:59', '', `🛏️ הלילה: ${h.name}`, '', nav);
+      });
+      appData.reservations.forEach(r => {
+        if (r.date === day) {
+          if (r.kind === 'flight') add(r.time || '12:00', r.time, r.name, [r.time ? 'המראה ' + r.time : '', r.arrivalTime ? 'נחיתה ' + r.arrivalTime : '', r.confirmation ? 'אישור ' + r.confirmation : ''].filter(Boolean).join(' · '), '');
+          else if (r.kind === 'car') add(r.time || '12:00', r.time, `🚗 איסוף רכב: ${r.name}`, r.confirmation ? 'אישור ' + r.confirmation : '', navLink(r.pickupAddress || r.pickupPlace, 'ניווט לאיסוף'));
+          else add(r.time || '12:00', r.time, resIcon(r) + r.name, [r.people ? r.people + ' אנשים' : '', r.confirmation ? 'אישור ' + r.confirmation : ''].filter(Boolean).join(' · '),
+            r.kind === 'activity' && (r.address || r.category !== 'transport') ? navLink(r.address || [r.name, r.city].filter(Boolean).join(', '), 'ניווט') : r.address ? navLink(r.address, 'ניווט') : '');
+        }
+        if (r.kind === 'flight' && r.arrivalDate === day && r.date !== day) add(r.arrivalTime || '12:00', r.arrivalTime, `🛬 נחיתה: ${r.name.replace(/^✈️\s*/, '')}`, '', '');
+        if (r.kind === 'car' && r.returnDate === day && r.date !== day)
+          add(r.returnTime || '12:00', r.returnTime, `🚗 החזרת רכב: ${r.name}`, '', navLink(r.returnAddress || r.returnPlace || r.pickupAddress || r.pickupPlace, 'ניווט להחזרה'));
+      });
+      return items.sort((a, b) => a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0);
+    }
+    function nextUpcoming(day) {   // the first thing still ahead, for days with nothing booked
+      const c = [];
+      appData.hotels.forEach(h => { if (ISO_DATE.test(h.checkIn || '') && h.checkIn > day) c.push({ date: h.checkIn, time: '', title: `🏨 ${h.name}` }); });
+      appData.reservations.forEach(r => { if (r.date > day) c.push({ date: r.date, time: r.time || '', title: resIcon(r) + r.name }); });
+      c.sort((a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1);
+      return c[0] || null;
+    }
+    function renderToday() {
+      const el = document.getElementById('today-card');
+      if (!el) return;
+      const day = dateToIso(new Date()), l = reservationDateLabel(day);
+      const items = todayItems(day);
+      if (items.length) {
+        el.innerHTML = `<div class="card-title"><span>📍 היום · ${escapeHtml(l.day)} ${escapeHtml(l.top)}</span></div>` + items.map(it => `
+          <div class="t-row"><div class="t-time">${escapeHtml(it.time || '')}</div>
+            <div class="t-main">${escapeHtml(it.title)}${it.sub ? `<div class="t-sub">${escapeHtml(it.sub)}</div>` : ''}${it.links ? `<div>${it.links}</div>` : ''}</div></div>`).join('');
+        el.style.display = '';
+        return;
+      }
+      const n = nextUpcoming(day);
+      if (!n) { el.style.display = 'none'; el.innerHTML = ''; return; }
+      const nl = reservationDateLabel(n.date), days = nightsBetween(day, n.date);
+      el.innerHTML = `<div class="card-title"><span>🗓️ הבא בתור</span><span style="font-size:0.75rem; color:var(--text-muted); font-weight:400;">${days === 1 ? 'מחר' : 'בעוד ' + days + ' ימים'}</span></div>
+        <div class="t-row"><div class="t-time">${escapeHtml(n.time)}</div><div class="t-main">${escapeHtml(n.title)}<div class="t-sub">${escapeHtml(nl.day + ' ' + nl.top)}</div></div></div>`;
+      el.style.display = '';
+    }
+
+    // ---------- Editing ----------
+    const optionHtml = (vals, cur, label = v => v) => vals.map(v => `<option value="${escapeHtml(v)}" ${v === cur ? 'selected' : ''}>${escapeHtml(label(v))}</option>`).join('');
+    const markBad = el => { el.style.outline = '2px solid #ef4444'; el.focus(); };
+
+    function editExpense(id) {
+      const e = appData.expenses.find(x => x.id === id);
+      if (!e) return;
+      const d = new Date(e.date), iso = isNaN(d) ? dateToIso(new Date()) : dateToIso(d);
+      const maxDay = iso > dateToIso(new Date()) ? iso : dateToIso(new Date());   // prepaid bookings are dated on their travel day
+      const pays = ['אשראי', 'מזומן', 'LAYA'].concat(e.currency === 'JPY' || e.payment === 'Suica' ? ['Suica'] : []);
+      if (!pays.includes(e.payment)) pays.push(e.payment);
+      const cats = Object.keys(CAT_ICONS); if (!cats.includes(e.category)) cats.push(e.category);
+      const ov = openDialog(`
+        <h3>✏️ עריכת הוצאה</h3>
+        <label class="field-label">סכום (${escapeHtml(rateOf(e.currency).symbol)} · ${escapeHtml(e.currency)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(e.amount)}"></label>
+        <label class="field-label">תיאור<input type="text" class="text-input" data-el="note" maxlength="120" value="${escapeHtml(e.note)}"></label>
+        <div class="dlg-row">
+          <label class="field-label">קטגוריה<select class="select-input" data-el="cat">${optionHtml(cats, e.category, c => (CAT_ICONS[c] || '') + ' ' + c)}</select></label>
+          <label class="field-label">תשלום<select class="select-input" data-el="pay">${optionHtml(pays, e.payment)}</select></label>
+        </div>
+        <label class="field-label">תאריך<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${iso}" max="${maxDay}"></label>
+        ${e.hotelId ? '<p style="font-size:0.75rem;">ההוצאה מקושרת למלון: הסכום הסופי של המלון יתעדכן בהתאם.</p>' : ''}
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">שמור</button>
+        </div>`);
+      const q = k => ov.querySelector(`[data-el="${k}"]`);
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const amt = parseFloat(q('amt').value), note = q('note').value.trim(), cat = q('cat').value, pay = q('pay').value, day = q('date').value;
+        if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(e.currency).decimals)) === 0) { markBad(q('amt')); return; }
+        if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); return; }
+        if (!appData.expenses.includes(e)) { ov.remove(); return; }
+        // undo the old payment, then apply the new one: wallets stay exact even when amount or method changed
+        const oldKey = WALLET_KEY[e.payment];
+        if (oldKey) { const w = wallet(e.currency); w[oldKey] = Math.round((w[oldKey] + e.amount) * 1e6) / 1e6; }
+        const warn = spendFrom(pay, e.currency, amt);
+        e.amount = amt; e.payment = pay; e.category = cat; e.note = note || cat;
+        if (day !== iso) e.date = (day === dateToIso(new Date()) ? new Date() : isoToDate(day)).toISOString();
+        if (e.hotelId) { const h = appData.hotels.find(x => x.id === e.hotelId); if (h) { h.finalPrice = amt; h.payment = pay; } }
+        ov.remove();
+        saveData();
+        showMsg('expense-msg', warn ? 'ההוצאה עודכנה. ' + warn : 'ההוצאה עודכנה', warn ? 'warn' : 'ok');
+      };
+    }
+
+    function editHotel(id) {
+      const h = appData.hotels.find(x => x.id === id);
+      if (!h) return;
+      const ov = openDialog(`
+        <h3>✏️ עריכת מלון</h3>
+        <label class="field-label">שם<input type="text" class="text-input" data-el="name" maxlength="80" value="${escapeHtml(h.name)}"></label>
+        <label class="field-label">כתובת (לניווט)<input type="text" class="text-input" data-el="addr" maxlength="200" value="${escapeHtml(h.address || '')}"></label>
+        <div class="dlg-row">
+          <label class="field-label">כניסה<input type="date" class="text-input" data-el="in" style="direction:ltr;" value="${escapeHtml(h.checkIn || '')}"></label>
+          <label class="field-label">יציאה<input type="date" class="text-input" data-el="out" style="direction:ltr;" value="${escapeHtml(h.checkOut || '')}"></label>
+        </div>
+        ${h.paid ? '<p style="font-size:0.75rem;">המלון כבר חויב: את הסכום ששולם עורכים ברשימת ההוצאות (✏️).</p>' : `
+        <div class="dlg-row">
+          <label class="field-label">מחיר ההזמנה<input type="number" class="text-input" data-el="price" inputmode="decimal" style="direction:ltr;" value="${h.basePrice > 0 ? escapeHtml(h.basePrice) : ''}" placeholder="לא ידוע"></label>
+          <label class="field-label">מטבע<select class="select-input" data-el="cur">${currencyOptionsHtml()}</select></label>
+        </div>`}
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">שמור</button>
+        </div>`);
+      const q = k => ov.querySelector(`[data-el="${k}"]`);
+      if (q('cur')) q('cur').value = h.currency;
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const name = q('name').value.trim().replace(/\s+/g, ' '), ci = q('in').value, co = q('out').value;
+        if (!name) { markBad(q('name')); return; }
+        if (!ISO_DATE.test(ci)) { markBad(q('in')); return; }
+        if (!ISO_DATE.test(co) || co <= ci) { markBad(q('out')); return; }
+        let price = h.basePrice, cur = h.currency;
+        if (!h.paid) {
+          const raw = q('price').value.trim();
+          price = raw === '' ? 0 : parseFloat(raw);
+          if (!(price >= 0) || price > 1e9) { markBad(q('price')); return; }
+          cur = DEFAULT_RATES[q('cur').value] ? q('cur').value : h.currency;
+        }
+        const oldName = h.name;
+        Object.assign(h, { name, checkIn: ci, checkOut: co, dates: hotelRangeLabel(ci, co), basePrice: price, currency: cur });
+        const addr = q('addr').value.trim(); if (addr) h.address = addr; else delete h.address;
+        const exp = appData.expenses.find(x => x.hotelId === h.id);
+        if (exp && exp.note === `חיוב מלון: ${oldName}`) exp.note = `חיוב מלון: ${name}`;
+        delete hotelDrafts[h.id];
+        ov.remove();
+        saveData();
+        showMsg('hotel-msg', 'המלון עודכן');
+      };
+    }
+
+    function editReservation(id) {
+      const r = appData.reservations.find(x => x.id === id);
+      if (!r) return;
+      const charged = appData.expenses.some(e => e.resId === id);
+      const car = r.kind === 'car', act = r.kind === 'activity', fl = r.kind === 'flight';
+      const ov = openDialog(`
+        <h3>✏️ עריכת הזמנה</h3>
+        <label class="field-label">שם<input type="text" class="text-input" data-el="name" maxlength="80" value="${escapeHtml(r.name)}"></label>
+        <div class="dlg-row">
+          <label class="field-label">${car ? 'תאריך איסוף' : fl ? 'תאריך המראה' : 'תאריך'}<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${escapeHtml(r.date)}"></label>
+          <label class="field-label">${car ? 'שעת איסוף' : fl ? 'שעת המראה' : 'שעה (רשות)'}<input type="time" class="text-input" data-el="time" style="direction:ltr;" value="${escapeHtml(r.time || '')}"></label>
+        </div>
+        ${car ? `<div class="dlg-row">
+          <label class="field-label">תאריך החזרה<input type="date" class="text-input" data-el="rdate" style="direction:ltr;" value="${escapeHtml(r.returnDate || '')}"></label>
+          <label class="field-label">שעת החזרה<input type="time" class="text-input" data-el="rtime" style="direction:ltr;" value="${escapeHtml(r.returnTime || '')}"></label>
+        </div>
+        <label class="field-label">כתובת איסוף (לניווט)<input type="text" class="text-input" data-el="addr" maxlength="200" value="${escapeHtml(r.pickupAddress || '')}"></label>
+        <label class="field-label">כתובת החזרה (לניווט)<input type="text" class="text-input" data-el="raddr" maxlength="200" value="${escapeHtml(r.returnAddress || '')}"></label>` : ''}
+        ${act || !r.kind ? `<label class="field-label">כתובת (רשות, לניווט)<input type="text" class="text-input" data-el="addr" maxlength="200" value="${escapeHtml(r.address || '')}"></label>` : ''}
+        ${!charged && r.kind ? `<div class="dlg-row">
+          <label class="field-label">מחיר (רשות)<input type="number" class="text-input" data-el="price" inputmode="decimal" style="direction:ltr;" value="${r.price ? escapeHtml(r.price) : ''}"></label>
+          <label class="field-label">מטבע<select class="select-input" data-el="cur">${currencyOptionsHtml()}</select></label>
+        </div>` : charged ? '<p style="font-size:0.75rem;">התשלום כבר נרשם: את הסכום עורכים ברשימת ההוצאות (✏️).</p>' : ''}
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">שמור</button>
+        </div>`);
+      const q = k => ov.querySelector(`[data-el="${k}"]`);
+      if (q('cur')) q('cur').value = r.currency || curCode();
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const name = q('name').value.trim().replace(/\s+/g, ' '), date = q('date').value, time = q('time').value;
+        if (!name) { markBad(q('name')); return; }
+        if (!ISO_DATE.test(date)) { markBad(q('date')); return; }
+        if (time && !/^\d{2}:\d{2}$/.test(time)) { markBad(q('time')); return; }
+        let rdate = '', rtime = '';
+        if (car) {
+          rdate = q('rdate').value; rtime = q('rtime').value;
+          if (rdate && (!ISO_DATE.test(rdate) || rdate < date)) { markBad(q('rdate')); return; }
+        }
+        let price = r.price, cur = r.currency;
+        if (q('price')) {
+          const raw = q('price').value.trim();
+          price = raw === '' ? 0 : parseFloat(raw);
+          if (!(price >= 0) || price > 1e9) { markBad(q('price')); return; }
+          cur = q('cur').value;
+        }
+        r.name = cutChars(name, 80); r.date = date;
+        if (time) r.time = time; else delete r.time;
+        if (car) {
+          if (rdate) r.returnDate = rdate; else delete r.returnDate;
+          if (rtime) r.returnTime = rtime; else delete r.returnTime;
+          const a1 = q('addr').value.trim(), a2 = q('raddr').value.trim();
+          if (a1) r.pickupAddress = a1; else delete r.pickupAddress;
+          if (a2) r.returnAddress = a2; else delete r.returnAddress;
+        } else if (q('addr')) { const a = q('addr').value.trim(); if (a) r.address = a; else delete r.address; }
+        if (q('price')) { if (price > 0 && DEFAULT_RATES[cur]) { r.price = price; r.currency = cur; } else { delete r.price; delete r.currency; } }
+        ov.remove();
+        saveData();
+        showMsg('res-msg', 'ההזמנה עודכנה');
+      };
     }
 
     // ---------- Currency converter ----------
@@ -2479,7 +3395,8 @@
     const BACKUP_REMIND_MS = 24 * 60 * 60 * 1000;
     let backupSnoozed = false;
 
-    const hasUserData = () => appData.expenses.length > 0 || appData.splits.length > 0 || appData.hotels.some(h => h.paid) || appData.reservations.length > 0;
+    const hasUserData = () => appData.expenses.length > 0 || appData.splits.length > 0 || appData.reservations.length > 0 ||
+      appData.hotels.some(h => h.paid || !DEFAULT_HOTELS.some(d => d.id === h.id));   // any hotel/car the user added counts
     function dayKey(d = new Date()) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
@@ -2516,7 +3433,7 @@
       try {
         const d = JSON.parse(json), cur = d.settings && DEFAULT_RATES[d.settings.currency] ? d.settings.currency : 'JPY';
         const w = (d.balances && d.balances[cur]) || {};
-        return `${(d.expenses || []).length} הוצאות · ${(d.splits || []).length} קיזוזים\nמזומן ${money(w.cash || 0, cur)} · LAYA ${money(w.laya || 0, cur)} · Suica ${money(w.suica || 0, cur)}`;
+        return `${(d.expenses || []).length} הוצאות · ${(d.hotels || []).length} מלונות/רכב · ${(d.reservations || []).length} הזמנות · ${(d.splits || []).length} קיזוזים\nמזומן ${money(w.cash || 0, cur)} · LAYA ${money(w.laya || 0, cur)} · Suica ${money(w.suica || 0, cur)}`;
       }
       catch (e) { return ''; }
     }
@@ -2598,7 +3515,8 @@
 
     function updateFee() {
       const fee = parseFloat(document.getElementById('setting-fee').value);
-      appData.settings.fee = isNaN(fee) || fee < 0 ? 0 : fee;
+      if (isNaN(fee) || fee < 0 || fee > 100) { showMsg('settings-msg', 'עמלה חייבת להיות בין 0 ל-100', 'error'); renderAll(); return; }
+      appData.settings.fee = fee;
       saveData();
     }
 
@@ -2606,8 +3524,8 @@
       const ils = curCode() === 'ILS' ? 1 : parseFloat(document.getElementById('setting-rate-ils').value);
       const usd = parseFloat(document.getElementById('setting-rate-usd').value);
       const r = appData.settings.rates[curCode()];
-      if (!(ils > 0) || !(usd > 0)) {
-        showMsg('settings-msg', 'שער חייב להיות מספר חיובי', 'error');
+      if (!(ils > 0) || !(usd > 0) || ils > 1e7 || usd > 1e7 || ils < 1e-6 || usd < 1e-6) {
+        showMsg('settings-msg', 'שער חייב להיות מספר חיובי וסביר', 'error');
         updateHeader();
         return;
       }
@@ -2671,18 +3589,20 @@
       appData.expenses.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(e => {
         used.add(e.currency);
         rows.push(['הוצאה', localDateTime(e.date), '', e.note, e.category, e.payment, e.amount, e.currency, ...conv(e.amount, e.currency, e.payment), '',
-          [e.hotelId ? 'חיוב מלון' : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
+          [e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? 'טיסה' : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
       });
       sortedHotels().forEach(h => {
         used.add(h.currency);
         const amount = h.paid ? h.finalPrice : h.basePrice;
+        const car = h.kind === 'car';
         const nights = h.checkIn && h.checkOut ? nightsBetween(h.checkIn, h.checkOut) : '';
-        rows.push(['מלון', h.checkIn || '', h.checkOut || '', h.name, 'מלון', h.paid ? (h.payment || '') : '', amount, h.currency,
+        rows.push([car ? 'השכרת רכב' : 'מלון', h.checkIn || '', h.checkOut || '', h.name, car ? 'תחבורה' : 'מלון', h.paid ? (h.payment || '') : '', amount, h.currency,
           ...conv(amount, h.currency, h.paid ? h.payment : ''), h.paid ? 'חויב' : 'ממתין לחיוב',
-          [nights ? `${nights} לילות` : (h.dates || ''), `הזמנה מקורית ${h.basePrice} ${h.currency}`].join(' · ')]);
+          [car ? hotelDates(h) : (nights ? `${nights} לילות` : (h.dates || '')), h.basePrice ? `הזמנה מקורית ${h.basePrice} ${h.currency}` : '', h.confirmation ? `אישור ${h.confirmation}` : ''].filter(Boolean).join(' · ')]);
       });
       appData.reservations.slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name, 'he')).forEach(r => {
-        rows.push(['הזמנה', r.date, '', r.name, '', '', '', '', '', '', '', '']);
+        rows.push([r.kind === 'flight' ? 'טיסה' : r.kind === 'car' ? 'השכרת רכב' : 'הזמנה', r.date + (r.time ? ' ' + r.time : ''), r.arrivalDate ? r.arrivalDate + (r.arrivalTime ? ' ' + r.arrivalTime : '') : '', r.name, '', '',
+          r.price || '', r.price ? r.currency : '', '', '', '', [r.airline, r.confirmation ? `אישור ${r.confirmation}` : ''].filter(Boolean).join(' · ')]);
       });
       appData.splits.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(x => {
         used.add(x.currency);
@@ -2725,15 +3645,21 @@
         let parsed;
         try { parsed = JSON.parse(reader.result); }
         catch (e) { showMsg('settings-msg', 'הקובץ אינו JSON תקין', 'error'); return; }
-        const data = normalize(parsed);
+        const looksRight = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+          ['expenses', 'settings', 'balances', 'hotels', 'splits'].some(k => k in parsed);
+        if (!looksRight) { showMsg('settings-msg', 'זה לא קובץ גיבוי של האפליקציה', 'error'); return; }
+        let data;
+        try { data = normalize(parsed); } catch (e) { showMsg('settings-msg', 'מבנה הקובץ לא תקין', 'error'); return; }
         confirmDialog({
           title: 'ייבוא גיבוי',
-          text: `הגיבוי מכיל ${data.expenses.length} הוצאות ו-${data.splits.length} קיזוזים. הנתונים הנוכחיים יוחלפו. להמשיך?`,
+          text: `הגיבוי מכיל ${data.expenses.length} הוצאות, ${data.hotels.length} מלונות, ${data.reservations.length} הזמנות ו-${data.splits.length} קיזוזים. הנתונים הנוכחיים יוחלפו. להמשיך?`,
           okLabel: 'ייבא',
           onOk: () => {
             saveSafetyCopy('לפני ייבוא');
+            const prev = appData;
             appData = data;
             wallet();
+            if (!persist()) { appData = prev; persist(); renderAll(); showMsg('settings-msg', 'הייבוא נכשל: אין מספיק מקום לשמירה במכשיר. הנתונים הקודמים נשמרו.', 'error'); return; }
             saveData();
             showMsg('settings-msg', 'הגיבוי יובא בהצלחה!');
           }
@@ -2854,6 +3780,7 @@
 
     // ---------- UI utilities ----------
     function openDialog(innerHtml) {
+      document.querySelectorAll('body > .overlay').forEach(o => o.remove());   // only one dialog at a time
       const overlay = document.createElement('div');
       overlay.className = 'overlay';
       overlay.innerHTML = `<div class="dialog">${innerHtml}</div>`;
@@ -2898,6 +3825,7 @@
     function updateTime() {
       const timeEl = document.getElementById('ui-current-time');
       if (timeEl) timeEl.innerText = '📅 ' + dateLabel(new Date().toISOString());
+      if (typeof appData !== 'undefined' && appData) try { renderToday(); } catch (_) {}   // the day changes at midnight
     }
 
     // ---------- PWA: install, offline, mobile quirks ----------
@@ -2952,18 +3880,10 @@
       )).catch(() => {});
     }
 
-    // Android: offline mode via sw.js uploaded next to this page.
-    // iPhone: online only (by choice) – the app opens with internet; data is still stored on the phone.
+    // Offline mode (Android and iPhone): sw.js uploaded next to this page keeps a copy of the app on the phone.
     function setupOfflineMode() {
       const sw = 'serviceWorker' in navigator ? navigator.serviceWorker : null;
 
-      if (isIOS) {
-        // Remove any offline worker/cache left from an earlier version
-        if (sw) sw.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
-        if (window.caches) caches.keys().then(ks => ks.filter(k => k.startsWith('trip-tracker')).forEach(k => caches.delete(k))).catch(() => {});
-        setOfflineStatus('🌐 באייפון האפליקציה נפתחת עם אינטרנט. כל הנתונים נשמרים בטלפון.');
-        return;
-      }
       if (location.protocol === 'file:' || location.protocol === 'content:') {
         // Opened straight from the phone's storage: no website needed, nothing to download later
         setOfflineStatus('📁 האפליקציה פועלת מהקובץ בטלפון, בלי אינטרנט בכלל. הנתונים נשמרים בדפדפן – אל תנקה נתוני אתרים, ויצא גיבוי מדי פעם.');
@@ -2998,7 +3918,7 @@
       }
 
       // Hide the bottom bar while the on-screen keyboard is open (iPhone and Android)
-      const isField = el => el && el.matches && el.matches('input:not([type=file]):not([type=checkbox]):not([type=radio]), select, textarea');
+      const isField = el => el && el.matches && el.matches('input:not([type=file]):not([type=checkbox]):not([type=radio]):not([readonly]), select, textarea:not([readonly])');
       document.addEventListener('focusin', e => { if (isField(e.target)) document.body.classList.add('kb-open'); });
       document.addEventListener('focusout', () => setTimeout(() => {
         if (!isField(document.activeElement)) document.body.classList.remove('kb-open');

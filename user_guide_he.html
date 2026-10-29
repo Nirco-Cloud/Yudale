@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>מדריך למשתמש · מעקב הוצאות טיול</title>
+<style>
+  :root {
+    --bg:#f3f4f6; --card:#ffffff; --border:#e5e7eb; --text:#111827; --muted:#6b7280;
+    --primary:#2563eb; --primary-soft:#dbeafe; --gold:#b7791f; --gold-soft:#fef3c7;
+    --green:#047857; --green-soft:#d1fae5; --red:#b91c1c; --red-soft:#fee2e2; --code:#f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0b0f19; --card:#12151e; --border:#2a3142; --text:#f3f4f6; --muted:#9ca3af;
+      --primary:#60a5fa; --primary-soft:#1e3a8a55; --gold:#f6c453; --gold-soft:#78350f55;
+      --green:#34d399; --green-soft:#06402d88; --red:#fca5a5; --red-soft:#7f1d1d66; --code:#1b2030;
+    }
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+  body {
+    margin:0; background:var(--bg); color:var(--text); line-height:1.7; font-size:17px;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Hebrew","Segoe UI","Arial Hebrew",Arial,system-ui,sans-serif;
+    padding-inline:max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-left));
+    padding-bottom:calc(48px + env(safe-area-inset-bottom));
+  }
+  .wrap { max-width:760px; margin-inline:auto; }
+
+  /* header */
+  .hero { padding:28px 0 8px; text-align:start; }
+  .hero h1 { margin:0 0 6px; font-size:1.75rem; line-height:1.3; }
+  .hero h1 .nick { color:var(--gold); }
+  .hero p { margin:0; color:var(--muted); font-size:.98rem; }
+  .badge { display:inline-block; background:var(--primary-soft); color:var(--primary); border-radius:999px; padding:2px 12px; font-weight:700; font-size:.82rem; margin-bottom:10px; }
+
+  /* table of contents */
+  nav.toc { position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0 8px; margin-inline:-4px; }
+  nav.toc .row { display:flex; gap:8px; overflow-x:auto; padding:2px 4px 6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  nav.toc .row::-webkit-scrollbar { display:none; }
+  nav.toc a { flex:0 0 auto; text-decoration:none; color:var(--text); background:var(--card); border:1px solid var(--border); border-radius:999px; padding:6px 14px; font-size:.88rem; white-space:nowrap; }
+  nav.toc a:active { background:var(--primary-soft); }
+
+  /* sections */
+  section { background:var(--card); border:1px solid var(--border); border-radius:18px; padding:18px 18px 8px; margin:14px 0; scroll-margin-top:64px; }
+  section.iphone { border-color:var(--primary); box-shadow:0 0 0 1px var(--primary) inset; }
+  h2 { margin:0 0 10px; font-size:1.3rem; line-height:1.4; display:flex; align-items:center; gap:10px; }
+  h2 .ico { font-size:1.5rem; line-height:1; }
+  h3 { margin:20px 0 6px; font-size:1.05rem; }
+  p { margin:8px 0; }
+  ul, ol { margin:8px 0; padding-inline-start:1.5em; }
+  li { margin:6px 0; }
+  li::marker { color:var(--primary); font-weight:700; }
+
+  /* steps */
+  ol.steps { list-style:none; counter-reset:s; padding:0; }
+  ol.steps > li { counter-increment:s; position:relative; padding-inline-start:44px; min-height:34px; margin:12px 0; }
+  ol.steps > li::before { content:counter(s); position:absolute; inset-inline-start:0; top:0; width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.95rem; }
+
+  /* callouts */
+  .note { border-radius:14px; padding:12px 14px; margin:14px 0; border:1px solid transparent; }
+  .note b:first-child { display:block; margin-bottom:2px; }
+  .note.tip  { background:var(--green-soft); border-color:var(--green); }
+  .note.warn { background:var(--gold-soft);  border-color:var(--gold); }
+  .note.stop { background:var(--red-soft);   border-color:var(--red); }
+  .note.info { background:var(--primary-soft); border-color:var(--primary); }
+
+  /* inline UI chips (mimic app buttons) */
+  .btn { display:inline-flex; align-items:center; gap:6px; background:var(--code); border:1px solid var(--border); border-radius:10px; padding:1px 10px; font-weight:600; font-size:.92em; white-space:nowrap; }
+  .btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .btn.green { background:var(--green); color:#fff; border-color:var(--green); }
+  .tab { display:inline-flex; align-items:center; gap:6px; background:var(--primary-soft); color:var(--primary); border-radius:10px; padding:1px 10px; font-weight:700; white-space:nowrap; }
+  .ltr { direction:ltr; unicode-bidi:isolate; display:inline-block; }
+  bdi { unicode-bidi:isolate; }
+
+  /* tables */
+  .tbl { overflow-x:auto; margin:10px 0; border:1px solid var(--border); border-radius:12px; }
+  table { border-collapse:collapse; width:100%; font-size:.95rem; }
+  th, td { text-align:start; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background:var(--code); font-weight:700; white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  td.n, th.n { white-space:nowrap; }
+
+  /* tiers bar */
+  .tiers { display:flex; border-radius:12px; overflow:hidden; margin:12px 0 4px; font-weight:700; font-size:.9rem; text-align:center; }
+  .tiers div { padding:10px 4px; color:#fff; }
+  .tiers .t1 { flex:1; background:#059669; } .tiers .t2 { flex:4; background:#7c3aed; } .tiers .t3 { flex:3; background:#2563eb; }
+  .tiers-scale { display:flex; justify-content:space-between; color:var(--muted); font-size:.8rem; padding-inline:2px; }
+
+  details { border-top:1px solid var(--border); padding:10px 0; }
+  details:first-of-type { border-top:0; }
+  summary { cursor:pointer; font-weight:700; list-style:none; display:flex; gap:8px; align-items:center; }
+  summary::-webkit-details-marker { display:none; }
+  summary::before { content:"◂"; color:var(--primary); transition:transform .15s; }
+  details[open] > summary::before { transform:rotate(-90deg); }
+
+  footer { color:var(--muted); font-size:.85rem; text-align:center; margin:22px 0 0; }
+  @media print { nav.toc { display:none; } section { break-inside:avoid; } body { background:#fff; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="badge">📱 מדריך מותאם לאייפון ולאייפד</span>
+  <h1>טיול יפן 2026 <span class="nick">· יודל'ה 💰</span></h1>
+  <p>מדריך למשתמש: התקנה, הזנת הוצאות, ארנקים, מלונות, קיזוזים, גיבוי ופתרון תקלות.</p>
+</header>
+
+<nav class="toc" aria-label="תוכן עניינים"><div class="row">
+  <a href="#about">💰 מה זו האפליקציה</a>
+  <a href="#install">📲 התקנה באייפון</a>
+  <a href="#setup">⚙️ הגדרה ראשונה</a>
+  <a href="#today">📍 היום</a>
+  <a href="#expense">➕ הוצאה</a>
+  <a href="#wallets">💵 ארנקים</a>
+  <a href="#hotels">🏨 מלונות</a>
+  <a href="#reservations">📅 הזמנות</a>
+  <a href="#import">📥 ייבוא מ-Gemini</a>
+  <a href="#converter">💱 המרה</a>
+  <a href="#splits">⚖️ קיזוזים</a>
+  <a href="#summary">📊 סיכום</a>
+  <a href="#backup">🛟 גיבוי</a>
+  <a href="#newtrip">🧳 טיול חדש</a>
+  <a href="#trouble">🔧 תקלות</a>
+</div></nav>
+
+<!-- ======================= ABOUT ======================= -->
+<section id="about">
+  <h2><span class="ico">💰</span> מה זו האפליקציה</h2>
+  <p>האפליקציה רושמת הוצאות בטיול, מחשבת אותן בשקלים ובדולרים, ועוקבת אחרי מזומן, כרטיס <bdi>LAYA</bdi>, כרטיס <bdi>Suica</bdi> ומלונות. כל הנתונים נשמרים <b>בטלפון עצמו</b> ולא נשלחים לשום שרת.</p>
+
+  <div class="note info"><b>שלושה כללים לאייפון</b>
+    <ol>
+      <li>פותחים תמיד ב-<bdi>Safari</bdi> ומהאייקון במסך הבית, <b>לא</b> מתוך אפליקציית "קבצים".</li>
+      <li>הנתונים שייכים למכשיר ולדפדפן: מה שהוזן באייפון לא מופיע בטלפון אחר או באייפד.</li>
+      <li>רק קובץ גיבוי (<bdi>JSON</bdi>) ששמור גם מחוץ למכשיר מגן מאיבוד הנתונים.</li>
+    </ol>
+  </div>
+
+  <h3>שבע הלשוניות בתחתית המסך</h3>
+  <div class="tbl"><table>
+    <tr><th>לשונית</th><th>מה עושים בה</th></tr>
+    <tr><td><span class="tab">🏠 ראשי</span></td><td>יתרות, "היום" (מה מתוכנן), הוספת הוצאה, הוצאות אחרונות</td></tr>
+    <tr><td><span class="tab">🏨 מלונות</span></td><td>רשימת מלונות, ניווט וחיוב סופי</td></tr>
+    <tr><td><span class="tab">📅 הזמנות</span></td><td>טיסות, השכרות רכב, מסעדות, אטרקציות וכרטיסים, וייבוא מ-<bdi>Gemini</bdi></td></tr>
+    <tr><td><span class="tab">💱 המרה</span></td><td>המרת סכום בין מטבעות</td></tr>
+    <tr><td><span class="tab">📊 סיכום</span></td><td>דשבורד, סיכום לפי קטגוריות וייצוא <bdi>CSV</bdi></td></tr>
+    <tr><td><span class="tab">⚖️ קיזוזים</span></td><td>חובות וזיכויים בין חברים</td></tr>
+    <tr><td><span class="tab">⚙️ הגדרות</span></td><td>מטבע, שערים, שמות, גיבוי וטיול חדש</td></tr>
+  </table></div>
+
+  <div class="note tip"><b>כפתורי ⓘ</b>
+    ליד רוב הכותרות יש כפתור ⓘ. לחיצה עליו מציגה הסבר קצר על אותו שדה. שלוש תיבות היתרות בראש המסך הראשי הן יוצאות דופן: אין בהן ⓘ, ובמקומו מופיע סימן <b>＋</b> בפינה.</div>
+</section>
+
+<!-- ======================= INSTALL ======================= -->
+<section id="install" class="iphone">
+  <h2><span class="ico">📲</span> התקנה באייפון ובאייפד</h2>
+  <p>מתקינים פעם אחת, ומאותו רגע פותחים את האפליקציה מהאייקון במסך הבית.</p>
+
+  <ol class="steps">
+    <li>פתחו את כתובת האפליקציה ב-<bdi>Safari</bdi>.</li>
+    <li>הקישו על כפתור השיתוף: ריבוע עם חץ כלפי מעלה. באייפון הוא בתחתית המסך, באייפד בשורה העליונה.</li>
+    <li>גללו בתפריט והקישו על <span class="btn">➕ הוספה למסך הבית</span> <small>(<bdi dir="ltr" style="white-space:nowrap">Add to Home Screen</bdi>)</small>.</li>
+    <li>אם מופיע מתג "פתח כאפליקציית אינטרנט", השאירו אותו מופעל, ואשרו את השם.</li>
+    <li>הקישו <span class="btn">הוסף</span>, סגרו את <bdi>Safari</bdi>, ומעכשיו פתחו רק מהאייקון.</li>
+  </ol>
+
+  <div class="note stop"><b>⛔ לא לפתוח מאפליקציית "קבצים"</b>
+    התצוגה המקדימה של "קבצים" לא מריצה את האפליקציה. סימן מזהה: רק שדה הסכום מגיב, וכפתורי הקטגוריה והתשלום לא עובדים. הפתרון: לפתוח את הכתובת ב-<bdi>Safari</bdi>.</div>
+
+  <div class="note warn"><b>⚠️ הנתונים נשמרים לפי דפדפן</b>
+    מה שהוזן ב-<bdi>Safari</bdi> רגיל לא בהכרח מופיע באייקון שבמסך הבית. הזינו נתונים רק דרך האייקון. אם כבר הזנתם משהו ב-<bdi>Safari</bdi>, ייצאו גיבוי <bdi>JSON</bdi> וייבאו אותו באייקון (ראו <a href="#backup">גיבוי</a>).</div>
+
+  <div class="note tip"><b>✈️ עובד גם בלי אינטרנט</b>
+    אחרי הפתיחה הראשונה מהאייקון <b>עם אינטרנט</b>, האפליקציה נשמרת בטלפון ונפתחת גם במצב טיסה. ב-<span class="tab">⚙️ הגדרות</span>, בכרטיס "ניהול נתונים", מופיע ✅ כשהעותק נשמר. בדקו את זה לפני הטיסה: מצב טיסה ← פתחו את האייקון.</div>
+
+  <div class="note info"><b>🤖 באנדרואיד (Samsung)</b>
+    פותחים את אותה כתובת ב-<bdi>Chrome</bdi> ומקישים <span class="btn">📲 התקן אפליקציה</span> (או בתפריט ⋮ ← "התקנת אפליקציה"). מעבירים נתונים מקובץ קיים בעזרת ייצוא <bdi>JSON</bdi> וייבוא באפליקציה המותקנת.</div>
+
+  <div class="note info"><b>ℹ️ למה דווקא האייקון?</b>
+    iOS עלול למחוק נתוני אתר שלא נעשה בהם שימוש כשבוע בדפדפן. אפליקציה שהוספה למסך הבית לא כפופה לכך. זו עוד סיבה להשתמש באייקון ולגבות.</div>
+</section>
+
+<!-- ======================= SETUP ======================= -->
+<section id="setup">
+  <h2><span class="ico">⚙️</span> הגדרה ראשונה</h2>
+  <p>האפליקציה נפתחת נקייה, בלי מלונות ובלי שמות. מומלץ להגדיר לפי הסדר הזה, מהאייקון שבמסך הבית.</p>
+
+  <ol class="steps">
+    <li><b>מטבע:</b> בלשונית <span class="tab">⚙️ הגדרות</span>, תחת <b>"מטבע טיול נוכחי"</b>, בחרו את המטבע. ברירת המחדל: ין (<bdi>JPY</bdi>).</li>
+    <li><b>שערים:</b> לחצו <span class="btn">🔄 עדכן שערים עכשיו</span> (דורש אינטרנט), או הזינו שער ידנית. שער שהוזן ידנית לא מתעדכן אוטומטית, ואפשר לחזור אליו ב-<span class="btn">↩️ חזור לשער אוטומטי</span>.</li>
+    <li><b>עמלת אשראי:</b> הזינו את אחוז עמלת ההמרה של הכרטיס שלכם, בדרך כלל 1% עד 3%.</li>
+    <li><b>שמות לקיזוז:</b> בכרטיס <b>"👥 שמות לקיזוז"</b> הוסיפו את שמות החברים. בהתחלה הרשימה ריקה.</li>
+    <li><b>אמצעי תשלום אוטומטי:</b> בכרטיס <b>"💳 אמצעי תשלום אוטומטי"</b> אפשר להפעיל או לכבות את המתג ולשנות את הסכומים (ברירת מחדל: 100 ו-500 ש"ח).</li>
+    <li><b>מלונות:</b> בלשונית <span class="tab">🏨 מלונות</span> לחצו <span class="btn">➕ הוסף מלון</span>, מלאו שם, תאריך כניסה, תאריך יציאה, מחיר ומטבע, ולחצו <span class="btn primary">שמור מלון</span>.</li>
+    <li><b>יתרות פתיחה:</b> בלשונית <span class="tab">🏠 ראשי</span> לחצו על <b>💵 מזומן</b> או <b>💳 LAYA</b> כדי להוסיף את הסכום שמשכתם או טענתם.</li>
+  </ol>
+
+  <div class="note tip"><b>✅ שם הטיול</b>
+    הכותרת נקבעת אוטומטית לפי המטבע, למשל "טיול אירופה 2026". אפשר לכתוב שם משלכם בכרטיס <b>"🧳 שם הטיול"</b>; השנה נשארת בסופו.</div>
+</section>
+
+<!-- ======================= EXPENSE ======================= -->
+<section id="today">
+  <h2><span class="ico">📍</span> כרטיס "היום"</h2>
+  <p>בלשונית <span class="tab">🏠 ראשי</span>, מתחת ליתרות, מופיע כרטיס עם כל מה שמתוכנן להיום, מסודר לפי שעה:</p>
+  <ul>
+    <li>🧳 צ'ק-אאוט מהמלון, 🏨 צ'ק-אין, ו-🛏️ המלון של הלילה</li>
+    <li>✈️ טיסות ו-🛬 נחיתות, 🚗 איסוף והחזרת רכב</li>
+    <li>🍽️ מסעדות, 🎫 אטרקציות וכרטיסים, וכל הזמנה אחרת של היום</li>
+  </ul>
+  <p>ליד כל מקום יש כפתור <span class="btn">🧭 ניווט</span> שפותח את <bdi>Google Maps</bdi> עם המקום כיעד. ביום בלי תוכניות מוצג <b>"🗓️ הבא בתור"</b>: הדבר הבא שמתוכנן ובעוד כמה ימים.</p>
+</section>
+
+<section id="expense">
+  <h2><span class="ico">➕</span> הזנת הוצאה</h2>
+  <p>בלשונית <span class="tab">🏠 ראשי</span>, בכרטיס <b>"➕ הוספת הוצאה חדשה"</b>. בדרך כלל זה שלוש פעולות: סכום, קטגוריה, שמור.</p>
+
+  <ol class="steps">
+    <li><b>סכום:</b> הקלידו את הסכום במטבע שמוצג בצד השדה. שילמתם במטבע אחר? הקישו על המטבע שבצד השדה ובחרו אחר. הבחירה חלה על ההוצאה הזו בלבד. מתחת לשדה מוצגת העלות בשקלים ובדולרים.</li>
+    <li><b>📅 מתי?</b> <span class="btn">היום</span> נבחר אוטומטית. אפשר להקיש <span class="btn">אתמול</span> או <span class="btn">📅 אחר</span> ולבחור תאריך מלוח השנה.</li>
+    <li><b>קטגוריה:</b>
+      <span class="btn">🍜 אוכל</span> <span class="btn">🛍️ קניות</span> <span class="btn">🚄 תחבורה</span> <span class="btn">🎫 שונות</span></li>
+    <li><b>אמצעי תשלום:</b>
+      <span class="btn">💵 מזומן</span> <span class="btn">💳 אשראי</span> <span class="btn">💳 LAYA</span> <span class="btn">🐧 Suica</span>
+      <br>האפליקציה בוחרת בעצמה (ראו למטה). הקשה שלכם גוברת על הבחירה האוטומטית.</li>
+    <li><b>הערה:</b> אופציונלי, למשל "ראמן בשינג'וקו".</li>
+    <li>הקישו <span class="btn primary">שמור הוצאה</span>.</li>
+  </ol>
+
+  <p>אחרי השמירה המטבע חוזר למטבע הטיול והתאריך חוזר להיום, כך שההוצאה הבאה מתחילה נקייה.</p>
+
+  <h3>בחירת אמצעי התשלום האוטומטית</h3>
+  <p>הבחירה נקבעת לפי שווי ההוצאה בשקלים, לפני עמלת אשראי ובכל מטבע:</p>
+  <div class="tiers"><div class="t1">💵 מזומן</div><div class="t2">💳 LAYA</div><div class="t3">💳 אשראי</div></div>
+  <div class="tiers-scale"><span>0</span><span>100 ₪</span><span>500 ₪</span><span>↑</span></div>
+  <p><small>הסכומים אפשר לשנות ב: <span class="tab">⚙️ הגדרות</span> ← "אמצעי תשלום אוטומטי". כשהמתג כבוי, ברירת המחדל תמיד מזומן.</small></p>
+
+  <h3>איך כל אמצעי תשלום משפיע</h3>
+  <div class="tbl"><table>
+    <tr><th>אמצעי</th><th>יתרה</th><th>עמלה</th></tr>
+    <tr><td>💵 מזומן</td><td>יורד מיתרת המזומן</td><td>אין</td></tr>
+    <tr><td>💳 LAYA</td><td>יורד מיתרת LAYA</td><td>כבר כלולה, בלי תוספת</td></tr>
+    <tr><td>🐧 Suica</td><td>יורד מיתרת Suica</td><td>אין</td></tr>
+    <tr><td>💳 אשראי</td><td>לא משנה יתרות</td><td>נוספת עמלת ההמרה שהגדרתם</td></tr>
+  </table></div>
+
+  <h3>📋 הוצאות אחרונות: עריכה ומחיקה</h3>
+  <p>הרשימה מתחת לטופס מסודרת לפי תאריך (החדש למעלה) וניתנת לגלילה.</p>
+  <ul>
+    <li><b>✏️ עריכה:</b> משנים סכום, תיאור, קטגוריה, אמצעי תשלום או תאריך. היתרות מתעדכנות לבד: אם שיניתם ממזומן ל-<bdi>LAYA</bdi>, המזומן חוזר והסכום יורד מ-<bdi>LAYA</bdi>. עריכת חיוב של מלון מעדכנת גם את הסכום הסופי של המלון.</li>
+    <li><b>🗑️ מחיקה:</b> סכום ששולם במזומן, ב-<bdi>LAYA</bdi> או ב-<bdi>Suica</bdi> חוזר ליתרה, והוצאת מלון חוזרת לסטטוס "ממתין".</li>
+  </ul>
+</section>
+
+<!-- ======================= WALLETS ======================= -->
+<section id="wallets">
+  <h2><span class="ico">💵</span> ארנקים ויתרות</h2>
+  <p>בראש המסך הראשי שלוש יתרות, תמיד במטבע הטיול הנוכחי. לכל מטבע יתרות נפרדות. בכל תיבה מופיע סימן <b>＋</b>, ומתחת לתיבות שורת הסבר: לחצו על יתרה כדי להוסיף כסף. אפשר ללחוץ בכל מקום בתיבה.</p>
+
+  <div class="tbl"><table>
+    <tr><th>יתרה</th><th>איך מוסיפים כסף</th></tr>
+    <tr><td>💵 מזומן</td><td>הקישו על הכפתור, הזינו את הסכום שמשכתם מהכספומט ולחצו <span class="btn">הוסף מזומן</span>. אפשר גם להזין <b>🏧 עמלת כספומט</b> (ביפן בדרך כלל ¥110–330) ו-<b>🏦 עמלת בנק</b> בשקלים. העמלות נרשמות כהוצאה, כדי שהעלות האמיתית של המזומן תיספר.</td></tr>
+    <tr><td>💳 LAYA</td><td>הקישו, הזינו את הסכום שטענתם ולחצו <span class="btn">הוסף ליתרה</span></td></tr>
+    <tr><td>🐧 Suica</td><td>הקישו, בחרו מקור (<b>💳 יתרת LAYA</b> או <b>💵 מזומן</b>), הזינו סכום ולחצו <span class="btn">טען</span></td></tr>
+  </table></div>
+
+  <div class="note tip"><b>שדות סכום מתחילים ריקים</b> בכל טעינה והמרה (מזומן, <bdi>LAYA</bdi>, <bdi>Suica</bdi> והמרת מטבע). פשוט מקלידים את הסכום, בלי למחוק ערך קודם.</div>
+
+  <p>טעינת <bdi>Suica</bdi> מורידה את הסכום מהמקור שבחרתם ומוסיפה אותו לכרטיס. אם אין מספיק יתרה תופיע ההודעה "אין מספיק יתרה!" ושום דבר לא ישתנה.</p>
+
+  <div class="note info"><b>♻️ יתרה לא תואמת למציאות?</b>
+    ב-<span class="tab">⚙️ הגדרות</span>, בכרטיס "איפוס יתרות", אפשר לאפס את <b>💳 LAYA</b> או את <b>🐧 Suica</b> ל-0. ההוצאות הקיימות לא נמחקות, ולפני האיפוס נשמר עותק לשחזור.</div>
+</section>
+
+<!-- ======================= HOTELS ======================= -->
+<section id="hotels">
+  <h2><span class="ico">🏨</span> מלונות וחיוב</h2>
+  <p>בלשונית <span class="tab">🏨 מלונות</span> מופיעים כל המלונות, מסודרים לפי תאריך כניסה. מלון נספר בסך ההוצאות רק אחרי שאישרתם חיוב סופי. עד אז הוא מוצג כסכום משוריין.</p>
+
+  <h3>הוספת מלון</h3>
+  <ol class="steps">
+    <li>לחצו <span class="btn">➕ הוסף מלון</span>.</li>
+    <li>מלאו שם, כתובת (רשות, בשביל הניווט), תאריך כניסה, תאריך יציאה, מחיר ההזמנה ומטבע.</li>
+    <li>לחצו <span class="btn primary">שמור מלון</span>.</li>
+  </ol>
+
+  <h3>אישור חיוב סופי</h3>
+  <p>בכרטיס של מלון בסטטוס <b>⏳ ממתין לחיוב</b>:</p>
+  <ol class="steps">
+    <li><b>סכום סופי לחיוב:</b> ברירת המחדל היא מחיר ההזמנה. עדכנו אם החיוב בפועל שונה.</li>
+    <li><b>תאריך החיוב:</b> ברירת המחדל היום. בחרו את התאריך שבו באמת חויבתם.</li>
+    <li>בחרו אמצעי תשלום: <b>💳 אשראי</b>, <b>💳 LAYA</b> או <b>💵 מזומן</b>.</li>
+    <li>הקישו <span class="btn primary">אשר חיוב סופי</span>. נוצרת הוצאה בקטגוריית "מלון".</li>
+  </ol>
+
+  <p>בכרטיס של מלון ששולם מוצגים הסכום הסופי, אמצעי התשלום ותאריך החיוב. אם טעיתם, הקישו <span class="btn">בטל חיוב</span>: ההוצאה נמחקת, הסכום חוזר ליתרה והמלון חוזר להיות ממתין. להסרת מלון מהרשימה הקישו <span class="btn">🗑️ הסר מלון</span> ואשרו.</p>
+
+  <h3>ניווט ועריכה</h3>
+  <ul>
+    <li><span class="btn">🧭 ניווט למלון</span> פותח את <bdi>Google Maps</bdi> עם המלון כיעד. אם אין כתובת, החיפוש הוא לפי שם המלון והעיר.</li>
+    <li><span class="btn">✏️ ערוך</span> משנה שם, כתובת ותאריכים, ולמלון שעוד לא חויב גם מחיר ומטבע. במלון שחויב, את הסכום ששולם עורכים ברשימת ההוצאות.</li>
+    <li>מלון שמחירו לא ידוע מוצג "מחיר לא ידוע", ושדה הסכום לחיוב מתחיל ריק.</li>
+    <li>מלון במטבע שאינו מטבע הטיול משלמים באשראי בלבד, כי יתרות המזומן ו-<bdi>LAYA</bdi> נפרדות לכל מטבע.</li>
+  </ul>
+
+  <div class="note tip"><b>💡 סכומים בראש הלשונית</b>
+    "סה"כ משוריין (ממתין)" ו"סה"כ חויב בפועל" מראים במבט אחד כמה כבר שולם וכמה עוד צפוי.</div>
+</section>
+
+<!-- ======================= RESERVATIONS ======================= -->
+<section id="reservations">
+  <h2><span class="ico">📅</span> הזמנות</h2>
+  <p>בלשונית <span class="tab">📅 הזמנות</span> נמצאות כל ההזמנות שאינן מלון, מסודרות לפי תאריך ושעה. העבר מוצג בצבע בהיר.</p>
+  <div class="tbl"><table>
+    <tr><th>סוג</th><th>מה מוצג</th></tr>
+    <tr><td>✈️ טיסה</td><td>שעת המראה ונחיתה, חברה, מספר נוסעים, מספר אישור. בכרטיס הלוך-חזור המחיר רשום פעם אחת, ובטיסת החזור כתוב "המחיר כלול בכרטיס של…"</td></tr>
+    <tr><td>🚗 השכרת רכב</td><td>איסוף (שעה, מקום, מספר ימים) והחזרה, עם <span class="btn">🧭 ניווט לאיסוף</span> ו-<span class="btn">🧭 ניווט להחזרה</span></td></tr>
+    <tr><td>🍽️ מסעדה · 🎫 אטרקציה · 🚄 רכבת</td><td>שעה, מספר אנשים, אתר ההזמנה (<bdi>Klook</bdi>, <bdi>TableCheck</bdi>…), מספר אישור ו-<span class="btn">🧭 ניווט</span></td></tr>
+    <tr><td>✍️ הזמנה ידנית</td><td>שם ותאריך, ואחרי עריכה גם שעה וכתובת לניווט</td></tr>
+  </table></div>
+
+  <h3>הוספה ידנית</h3>
+  <p>הקלידו שם, בחרו תאריך ולחצו <span class="btn primary">➕ הוסף הזמנה</span>. שעה וכתובת מוסיפים אחר כך ב-✏️.</p>
+
+  <h3>תשלום על הזמנה</h3>
+  <ul>
+    <li>הזמנה <b>ששולמה מראש</b> נרשמת כהוצאה באשראי כבר בייבוא, ומסומנת "💳 נרשם כהוצאה".</li>
+    <li>הזמנה <b>לתשלום במקום</b> (למשל רכב שמשלמים באיסוף) מציגה "לתשלום" וכפתור <span class="btn">💳 רשום תשלום</span>. בחלון אפשר לתקן את הסכום, לבחור תאריך ולבחור אשראי, <bdi>LAYA</bdi> או מזומן. היתרה מתעדכנת. הזמנה במטבע אחר משלמים באשראי בלבד.</li>
+    <li>מחיקת הזמנה מוחקת גם את ההוצאה שלה, ומחזירה מזומן או <bdi>LAYA</bdi> ליתרה.</li>
+  </ul>
+  <p><b>✏️ עריכה:</b> שם, תאריך ושעה; לרכב גם תאריך ושעת החזרה וכתובות; ומחיר, כל עוד התשלום לא נרשם.</p>
+</section>
+
+<!-- ======================= IMPORT ======================= -->
+<section id="import">
+  <h2><span class="ico">📥</span> ייבוא הזמנות מ-Gemini</h2>
+  <p><bdi>Gemini</bdi> מחובר ל-<bdi>Gmail</bdi> שלכם ויודע למצוא את מיילי האישור. האפליקציה נותנת לו פרומפט מוכן, ואתם מדביקים בחזרה את התשובה.</p>
+  <ol class="steps">
+    <li>בלשונית <span class="tab">📅 הזמנות</span> פתחו את <b>"📥 ייבוא הזמנות מ-Gemini"</b> (יש קיצור גם בלשונית המלונות).</li>
+    <li>בחרו חודש ושנה של <b>הנסיעה</b>, ולחצו <span class="btn">📋 העתק פרומפט ל-Gemini</span>.</li>
+    <li>הדביקו ב-<bdi>Gemini</bdi>. כשהוא עונה, העתיקו את <b>כל</b> התשובה.</li>
+    <li>חזרו לאפליקציה, הדביקו בתיבה ולחצו <span class="btn primary">🔍 בדוק והוסף</span>.</li>
+    <li>ברשימה שנפתחת סמנו מה להוסיף. אפשר להוריד את הסימון "שולם מראש" מכל הזמנה. לחצו <span class="btn primary">הוסף</span>.</li>
+  </ol>
+  <div class="tbl"><table>
+    <tr><th>מה נמצא</th><th>לאן זה נכנס</th></tr>
+    <tr><td>🏨 מלונות</td><td>לשונית המלונות, עם כתובת, מספר אישור וניווט</td></tr>
+    <tr><td>✈️ טיסות · 🚗 רכב · 🍽️ 🎫 🚄 הזמנות אחרות</td><td>לשונית ההזמנות</td></tr>
+    <tr><td>הזמנה ששולמה מראש</td><td>גם הוצאה באשראי, בתאריך הנסיעה (טיסה ורכב: תחבורה; מסעדה: אוכל; אטרקציה: שונות)</td></tr>
+  </table></div>
+  <div class="note info"><b>🛡️ הגנות</b>
+    הזמנה שכבר קיימת מסומנת באפור ולא תתווסף שוב. הזמנה שנראית דומה למשהו שהקלדתם ידנית (אותו שם ותאריך) מסומנת ⚠️ ולא מסומנת להוספה. הזמנה עם בעיה (למשל תאריך חסר) מוצגת עם הסיבה ולא ניתן להוסיף אותה.</div>
+  <div class="note tip"><b>💡 אם Gemini לא מצא משהו</b>
+    <ul>
+      <li>כתבו לו מתי הזמנתם, למשל: "הטיסה לטוקיו הוזמנה בסוף 2025, חפש גם מיילים ישנים ובעברית".</li>
+      <li>לטיסות הוא מתבקש למצוא את <b>החשבונית</b> מחברת התעופה, והמחיר הוא <b>הסכום הכולל לכל הנוסעים</b>. אם הוא מצא רק מחיר לנוסע, האפליקציה מכפילה במספר הנוסעים ומציינת זאת. אם המחיר לא נלקח מחשבונית, תופיע הערה לבדוק אותו.</li>
+      <li>טעות בסכום? מוחקים את ההזמנה (ההוצאה נמחקת איתה) ומייבאים שוב, או מתקנים ב-✏️.</li>
+    </ul></div>
+</section>
+</section>
+
+<!-- ======================= CONVERTER ======================= -->
+<section id="converter">
+  <h2><span class="ico">💱</span> המרת מטבע</h2>
+  <p>בלשונית <span class="tab">💱 המרה</span> אפשר להמיר סכום בין מטבעות, לדוגמה לבדוק כמה שקלים שווה מחיר בחנות. שדה הסכום מתחיל ריק, ועד שמקלידים מספר התוצאה מציגה "—". ההמרה משתמשת בשערי האפליקציה (אוטומטיים או ידניים) ולא כוללת עמלת אשראי.</p>
+</section>
+
+<!-- ======================= SPLITS ======================= -->
+<section id="splits">
+  <h2><span class="ico">⚖️</span> קיזוזים בין חברים</h2>
+  <p>בלשונית <span class="tab">⚖️ קיזוזים</span> רושמים מי חייב למי. הקיזוזים לא משפיעים על סך ההוצאות ועל יתרות המזומן. קודם צריך להוסיף שמות ב-<span class="tab">⚙️ הגדרות</span> ← "שמות לקיזוז".</p>
+
+  <ol class="steps">
+    <li><b>סוג:</b> <span class="btn">➕ לזכותי (חייבים לי)</span> כששילמתם בשביל אחרים, או <span class="btn">➖ לחובתי (אני חייב)</span> כשאחרים שילמו בשבילכם.</li>
+    <li><b>סכום</b> במטבע הטיול.</li>
+    <li><b>קטגוריה:</b> <span class="btn">🍜 אוכל</span> <span class="btn">⛽ דלק</span> <span class="btn">🎫 שונות</span></li>
+    <li><b>שם:</b> בחרו מהרשימה (אפשר לגלול הצידה).</li>
+    <li>כתבו תיאור, למשל "ארוחת צהריים", והקישו <span class="btn primary">שמור קיזוז</span>.</li>
+  </ol>
+
+  <p>כרטיס <b>"👥 מאזן לפי אדם"</b> מציג את הסכום נטו לכל אדם, בנפרד לכל מטבע. "מאוזן" אומר שאין חוב פתוח. מתחתיו <b>"📋 רשימת קיזוזים"</b> עם כל הרישומים.</p>
+</section>
+
+<!-- ======================= SUMMARY ======================= -->
+<section id="summary">
+  <h2><span class="ico">📊</span> סיכום ודשבורד</h2>
+  <p>בלשונית <span class="tab">📊 סיכום</span>:</p>
+  <ul>
+    <li><b>📈 דשבורד הוצאות:</b> עוגה לפי קטגוריות וגרף לפי ימים (התאריכים בפורמט יום/חודש). הסכומים בשקלים, כולל עמלת אשראי. הקישו על פרוסה או עמודה כדי לראות את הסכום המדויק.</li>
+    <li><b>📊 סיכום לפי קטגוריות:</b> הסכום הגדול מציג כל מטבע שבו שילמתם בקטגוריה (למשל <bdi dir="ltr">¥8,000 + $1,000</bdi>), והקטן מתחתיו הוא הסה"כ בשקלים.</li>
+    <li><b>📄 ייצוא סיכום:</b> מוריד קובץ <bdi>CSV</bdi> לפתיחה באקסל או בגיליון. בראשו סה"כ הוצאות בפועל וסה"כ לכל קטגוריה, ואחריהם כל ההוצאות, המלונות, ההזמנות, הקיזוזים, היתרות והשערים.</li>
+  </ul>
+  <div class="note warn"><b>⚠️ ה-CSV הוא לא גיבוי</b>
+    אי אפשר לשחזר ממנו את האפליקציה. לגיבוי משתמשים בקובץ <bdi>JSON</bdi>.</div>
+</section>
+
+<!-- ======================= BACKUP ======================= -->
+<section id="backup" class="iphone">
+  <h2><span class="ico">🛟</span> גיבוי ושחזור באייפון</h2>
+  <p>יש שני סוגי גיבוי, והם שונים מאוד.</p>
+
+  <div class="tbl"><table>
+    <tr><th></th><th>גיבוי אוטומטי פנימי</th><th>קובץ גיבוי (JSON)</th></tr>
+    <tr><td><b>איפה נשמר</b></td><td>בתוך הדפדפן, ליד הנתונים עצמם</td><td>קובץ בתיקיית ההורדות של המכשיר</td></tr>
+    <tr><td><b>כמה</b></td><td>עותק יומי, 7 ימים אחרונים, ועותק ביטחון לפני פעולות גדולות</td><td>כמה שתרצו</td></tr>
+    <tr><td><b>מגן מפני</b></td><td>טעות: מחיקה בטעות, רצון לחזור יום אחורה</td><td>אובדן או איפוס המכשיר, ומחיקת נתוני הדפדפן</td></tr>
+    <tr><td><b>לא מגן מפני</b></td><td>מחיקת נתוני האתר, איבוד המכשיר</td><td>כלום, אם ההעתק גם מחוץ למכשיר</td></tr>
+  </table></div>
+
+  <h3>ייצוא קובץ גיבוי</h3>
+  <ol class="steps">
+    <li>ב-<span class="tab">⚙️ הגדרות</span> לחצו <span class="btn">📥 ייצוא נתונים (JSON)</span> או <span class="btn">📥 גבה לקובץ עכשיו</span>. אפשר גם ללחוץ <b>"גבה עכשיו"</b> בתזכורת היומית.</li>
+    <li>בשאלה "להוריד?" ש-<bdi>Safari</bdi> מציג, אשרו.</li>
+    <li>לחצו על חץ ההורדה בשורת הכתובת כדי לראות או לפתוח את הקובץ.</li>
+    <li>הקובץ נשמר באפליקציית "קבצים" בתיקייה <b>הורדות</b> (<bdi>Downloads</bdi>).</li>
+  </ol>
+
+  <div class="note warn"><b>⚠️ איפה זה נשמר?</b>
+    ברירת המחדל בדרך כלל ב-<bdi>iCloud Drive</bdi>, כלומר עותק גם בענן. לבדיקה: <b>הגדרות ← Safari ← הורדות</b>. אם נבחר "באייפון" או "באייפד", הקובץ נשאר במכשיר בלבד ואינו מגן מאובדנו.</div>
+
+  <div class="note tip"><b>✅ הרגל מומלץ</b>
+    אחרי כל גיבוי, שלחו את הקובץ לעצמכם במייל, או העתיקו אותו ל-<bdi>iCloud Drive</bdi> או ל-<bdi>Google Drive</bdi>. בטיול כדאי לגבות כל כמה ימים ובכל פעם שנוספו הרבה הוצאות.</div>
+
+  <h3>שחזור מגיבוי</h3>
+  <ol class="steps">
+    <li>ב-<span class="tab">⚙️ הגדרות</span> לחצו <span class="btn">📤 ייבוא מגיבוי (JSON)</span>.</li>
+    <li>בחרו את הקובץ מאפליקציית "קבצים".</li>
+    <li>אשרו. <b>הייבוא מחליף את כל הנתונים הנוכחיים</b> בנתוני הקובץ.</li>
+  </ol>
+  <p>לשחזור קל יותר, בכרטיס <b>"🛟 גיבוי אוטומטי"</b> מופיעה רשימת העותקים הפנימיים ובכל שורה כפתור <span class="btn">שחזר</span>.</p>
+</section>
+
+<!-- ======================= NEW TRIP ======================= -->
+<section id="newtrip">
+  <h2><span class="ico">🧳</span> התחלת טיול חדש</h2>
+  <p>ב-<span class="tab">⚙️ הגדרות</span>, בכרטיס <b>"💾 ניהול נתונים"</b>, לחצו <span class="btn green">🧳 התחלת טיול חדש</span>. האשף עובד בשלושה שלבים:</p>
+  <ol class="steps">
+    <li><b>גיבוי (חובה):</b> שומרים קובץ גיבוי של הטיול הנוכחי לפני שממשיכים.</li>
+    <li><b>הטיול:</b> בוחרים מטבע, שם ושנה לטיול החדש.</li>
+    <li><b>אישור:</b> מאשרים את ההתחלה מחדש.</li>
+  </ol>
+  <p>הוצאות, קיזוזים, מלונות, הזמנות ויתרות מתאפסים. ההגדרות נשמרות: עמלה, שמות לקיזוז ואמצעי התשלום האוטומטי. שערים שהוזנו ידנית חוזרים לשערים אוטומטיים, ולפני הכול נשמר עותק ביטחון "לפני טיול חדש".</p>
+</section>
+
+<!-- ======================= TROUBLESHOOTING ======================= -->
+<section id="trouble" class="iphone">
+  <h2><span class="ico">🔧</span> בעיות נפוצות באייפון ופתרונן</h2>
+
+  <details open>
+    <summary>רק שדה הסכום עובד, הכפתורים לא מגיבים</summary>
+    <p>כנראה פתחתם את הקובץ מתוך אפליקציית "קבצים". פתחו את כתובת האפליקציה ב-<bdi>Safari</bdi>, או את האייקון ממסך הבית.</p>
+  </details>
+
+  <details>
+    <summary>הנתונים נעלמו או שהאפליקציה נפתחת ריקה</summary>
+    <ul>
+      <li>ייתכן שפתחתם דפדפן אחר, או <bdi>Safari</bdi> רגיל במקום האייקון. לכל אחד נתונים נפרדים.</li>
+      <li>ייתכן שנמחקו נתוני האתר: <b>הגדרות ← Safari ← נקה היסטוריה ונתוני אתרים</b> מוחק אותם. גלישה פרטית לא שומרת נתונים בין הפעלות.</li>
+      <li>הפתרון: ייבוא מקובץ גיבוי <bdi>JSON</bdi> (ראו <a href="#backup">גיבוי</a>).</li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>הקובץ לא ירד בעת הגיבוי</summary>
+    <ul>
+      <li>חפשו את חץ ההורדה בשורת הכתובת של <bdi>Safari</bdi> ואשרו.</li>
+      <li>בדקו ב-<b>הגדרות ← Safari ← הורדות</b> לאיזו תיקייה הקבצים נשמרים, ואז חפשו אותה באפליקציית "קבצים".</li>
+      <li>אם עדיין אין קובץ, אל תמחקו נתונים. ספרו לי ואוסיף שיתוף דרך גיליון השיתוף של iOS.</li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>השערים נראים לא נכונים</summary>
+    <p>בלשונית <span class="tab">⚙️ הגדרות</span> לחצו <span class="btn">🔄 עדכן שערים עכשיו</span> (דרוש אינטרנט). שער שסומן "✋ הוזן ידנית" לא מתעדכן אוטומטית; לחצו <span class="btn">↩️ חזור לשער אוטומטי</span>. ללא אינטרנט נשארים השערים האחרונים ששמורים בטלפון.</p>
+  </details>
+
+  <details>
+    <summary>פתחתי את האפליקציה בלי אינטרנט</summary>
+    <p>אחרי פתיחה אחת עם אינטרנט, האפליקציה נפתחת גם בלי חיבור והנתונים זמינים. שערי מטבע לא יתעדכנו עד שיהיה חיבור, וגרסה חדשה לא תיטען. בפתיחה הראשונה בטלפון חדש נדרש אינטרנט. מומלץ לבדוק פעם אחת במצב טיסה לפני הנסיעה.</p>
+  </details>
+
+  <details>
+    <summary>העליתי גרסה חדשה והיא לא מופיעה</summary>
+    <p>סגרו את האפליקציה לגמרי (החלקה כלפי מעלה במעבר בין אפליקציות) ופתחו שוב. עדכון הגרסה לא מוחק נתונים.</p>
+  </details>
+
+  <details>
+    <summary>רוצים נתונים גם באייפד וגם באייפון</summary>
+    <p>אין סנכרון אוטומטי בין מכשירים. ייצאו גיבוי <bdi>JSON</bdi> מהמכשיר הראשון (למשל לשלוח במייל או לשמור ב-<bdi>iCloud Drive</bdi>) וייבאו אותו במכשיר השני. שימו לב: הייבוא מחליף את הנתונים שבמכשיר השני.</p>
+  </details>
+</section>
+
+<footer>מדריך לגרסת האייפון והאייפד · הנתונים נשארים רק אצלכם במכשיר</footer>
+</div>
+</body>
+</html>
