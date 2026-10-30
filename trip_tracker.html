@@ -169,6 +169,97 @@
     .conv-table div { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--card-border); font-size: 0.88rem; }
     .conv-table span { direction: ltr; font-weight: 700; }
     .swap-btn { display: block; margin: -4px auto 8px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--card-border); background: var(--card-bg); font-size: 1.2rem; cursor: pointer; }
+    /* ---- daily list (statement style) ---- */
+  .dl-sub { font-weight: 600; font-size: .78rem; color: var(--text-muted); direction: ltr; unicode-bidi: isolate; }
+  .dl-num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+
+  /* summary */
+  .dl-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .dl-stat { background: var(--input-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 9px 8px 8px; min-height: 64px; text-align: right; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  button.dl-stat { cursor: pointer; }
+  button.dl-stat:active { background: var(--nav-active-bg); }
+  .dl-stat-k { font-size: .72rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-stat-v { font-size: 1.12rem; font-weight: 800; line-height: 1.2; }
+  .dl-stat-s { font-size: .7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-good { color: var(--accent-green); font-weight: 700; }
+  .dl-over { color: var(--accent-amber); font-weight: 700; }
+
+  .dl-prepaid-note { margin-top: 10px; display: flex; align-items: center; gap: 8px; font-size: .78rem; color: var(--text-muted); padding: 8px 10px; border: 1px dashed var(--input-border); border-radius: var(--radius-md); line-height: 1.35; }
+  .dl-prepaid-note b { color: var(--text-main); }
+
+  .dl-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 14px 0 6px; font-size: .72rem; color: var(--text-muted); align-items: center; }
+  .dl-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dl-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .dl-budget-key { display: inline-block; width: 2px; height: 11px; background: var(--text-muted); opacity: .7; border-radius: 1px; }
+
+  /* list */
+  .dl-list { list-style: none; margin: 0 -8px; }
+  .dl-item { border-top: 1px solid var(--card-border); }
+  .dl-item:first-child { border-top: 0; }
+  .dl-row { width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: right; cursor: pointer; display: grid; grid-template-columns: 54px minmax(0, 1fr) auto 14px; grid-template-areas: "date bar amt chev" "date pre pre pre"; column-gap: 10px; row-gap: 3px; align-items: center; min-height: 52px; padding: 8px 8px; border-radius: var(--radius-md); -webkit-tap-highlight-color: transparent; }
+  .dl-row:active { background: var(--nav-active-bg); }
+  .dl-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .dl-date { grid-area: date; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+  .dl-dd { font-weight: 800; font-size: .95rem; }
+  .dl-wd { font-size: .72rem; color: var(--text-muted); }
+  .dl-bar { grid-area: bar; position: relative; height: 12px; border-radius: 6px; background: var(--input-bg); box-shadow: inset 0 0 0 1px var(--card-border); }
+  .dl-fill { position: absolute; inset-block: 0; right: 0; display: flex; gap: 1.5px; border-radius: 6px; overflow: hidden; }
+  .dl-fill i { display: block; height: 100%; min-width: 3px; }
+  .dl-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-right: -1px; background: var(--text-muted); opacity: .55; border-radius: 1px; }
+  .dl-amt { grid-area: amt; font-weight: 800; font-size: .95rem; min-width: 56px; text-align: left; }
+  .dl-amt.dl-zero { color: var(--text-muted); font-weight: 600; }
+  .dl-chev { grid-area: chev; width: 14px; height: 14px; color: var(--text-muted); transition: transform .2s; justify-self: end; }
+  .dl-open > .dl-row .dl-chev { transform: rotate(180deg); }
+  .dl-pre { grid-area: pre; font-size: .74rem; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 2px 10px; }
+  .dl-pre span { white-space: nowrap; }
+
+  /* today */
+  .dl-today > .dl-row { background: var(--nav-active-bg); box-shadow: inset 0 0 0 1.5px var(--primary); }
+  .dl-today, .dl-today + .dl-item { border-top-color: transparent; }
+  .dl-chip { display: inline-block; font-size: .64rem; font-weight: 800; color: #fff; background: var(--primary); border-radius: 999px; padding: 1px 6px; margin-top: 2px; }
+
+  /* expanded day */
+  .dl-detail { margin: 4px 8px 10px; padding: 8px 10px 6px; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: var(--radius-md); }
+  .dl-group .dl-detail { padding-block: 4px; }
+  .dl-detail[hidden] { display: none; }
+  .dl-cats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .dl-cat { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; padding: 4px 9px 4px 8px; border-radius: 999px; background: var(--input-bg); border: 1px solid var(--card-border); }
+  .dl-cat b { font-weight: 800; }
+  .dl-lines { list-style: none; }
+  .dl-line { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: .84rem; padding: 6px 0; border-top: 1px dashed var(--card-border); }
+  .dl-line:first-child { border-top: 0; }
+  .dl-ic { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: .8rem; position: relative; }
+  .dl-ic::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--c); opacity: .18; }
+  .dl-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-line-v { font-weight: 700; }
+  .dl-subhead { font-size: .72rem; font-weight: 700; color: var(--text-muted); margin: 10px 0 2px; }
+  .dl-line.dl-muted { color: var(--text-muted); }
+  .dl-line.dl-muted .dl-line-v { font-weight: 600; }
+  .dl-tag { font-size: .64rem; font-weight: 700; border: 1px solid var(--input-border); color: var(--text-muted); border-radius: 999px; padding: 0 5px; margin-inline-start: 4px; vertical-align: 1px; }
+
+  /* group rows (future / pre-trip) */
+  .dl-group > .dl-row { grid-template-columns: 54px minmax(0, 1fr) auto 14px; grid-template-areas: "date txt amt chev"; }
+  .dl-gicon { grid-area: date; width: 36px; height: 36px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--card-border); display: grid; place-items: center; font-size: 1rem; }
+  .dl-gtxt { grid-area: txt; display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+  .dl-gtxt b { font-size: .88rem; }
+  .dl-gtxt small { font-size: .73rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-group .dl-amt { color: var(--text-muted); font-weight: 700; font-size: .86rem; }
+  .dl-fut { list-style: none; }
+  .dl-fday { display: grid; grid-template-columns: 54px minmax(0, 1fr); column-gap: 10px; padding: 6px 0; border-top: 1px dashed var(--card-border); font-size: .8rem; color: var(--text-muted); align-items: start; }
+  .dl-fday:first-child { border-top: 0; }
+  .dl-fday .dl-dd { font-size: .84rem; font-weight: 700; color: var(--text-main); }
+  .dl-fday .dl-wd { margin-inline-start: 4px; }
+  .dl-fitems { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .dl-fitem { display: flex; justify-content: space-between; gap: 8px; color: var(--text-main); }
+  .dl-fitem .dl-note { min-width: 0; }
+  .dl-fitem .dl-num { color: var(--text-muted); font-weight: 700; flex: none; }
+
+  .dl-empty { text-align: center; padding: 22px 12px 18px; color: var(--text-muted); font-size: .86rem; line-height: 1.5; }
+  .dl-empty div { font-size: 1.8rem; margin-bottom: 4px; }
+  .dl-empty b { color: var(--text-main); display: block; font-size: .95rem; }
+    .dl-sub { font-weight: 600; font-size: .78rem; color: var(--text-muted); }
+    .dl-budget { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; font-size:.78rem; color:var(--text-muted); }
+    .dl-budget button { background:none; border:1px solid var(--card-border); color:var(--primary); font:inherit; font-weight:700; border-radius:999px; padding:6px 12px; min-height:36px; cursor:pointer; }
     .dash-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
     .dash-kpi { border: 1px solid var(--card-border); border-radius: 12px; padding: 8px 4px; text-align: center; min-width: 0; background: var(--input-bg); }
     .dash-kpi small { display: block; font-size: 0.68rem; color: var(--text-muted); }
@@ -1153,7 +1244,8 @@
           tripName: typeof s.tripName === 'string' ? s.tripName.slice(0, 40) : '',
           tripNameAuto: s.tripNameAuto !== false,
           tripYear: Number.isInteger(s.tripYear) && s.tripYear >= 2000 && s.tripYear <= 2100 ? s.tripYear : null,
-          payAuto: normPayAuto(s.payAuto)
+          payAuto: normPayAuto(s.payAuto),
+          dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null
         },
         balances: {},
         expenses: [],
@@ -2319,14 +2411,15 @@
       el.innerHTML =
         `<div class="dash-kpis">` +
           `<div class="dash-kpi"><small>סה"כ</small><b>${escapeHtml(ilsStr(total, 0))}</b></div>` +
-          `<div class="dash-kpi"><small>ממוצע ליום</small><b>${escapeHtml(ilsStr(avg, 0))}</b></div>` +
+          `<div class="dash-kpi"><small>ממוצע ליום בטיול</small><b>${escapeHtml(ilsStr(dayListData().avg || avg, 0))}</b></div>` +
           `<div class="dash-kpi"><small>היום (${ddmm(todayIso)})</small><b>${escapeHtml(ilsStr(todayV, 0))}</b></div>` +
         `</div>` +
         `<div class="dash-title">לפי קטגוריה</div><div class="dash-sub">חלק מסך ההוצאות</div>` +
         dashDonut(cats, total) + `<div class="dash-legend">${legend}</div>` +
-        `<div class="dash-title" style="margin-top:14px">לפי יום</div><div class="dash-sub"><span dir="ltr">${ddmm(list[0].day)} → ${ddmm(list[list.length - 1].day)}</span></div>` +
-        dashDays(list) +
-        `<div class="dash-tip" id="dash-tip">לחץ על פרוסה או עמודה לפרטים</div>`;
+        `<div class="dash-tip" id="dash-tip">לחץ על פרוסה לפרטים</div>` +
+        `<div class="dash-title" style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;"><span>לפי יום</span><span class="dl-sub" id="dl-range"></span></div>` +
+        `<div id="ui-daylist"></div>`;
+      renderDayList();
     }
     function initDashboard() {   // one delegated handler: tap/hover shows the exact amount under the charts
       const card = document.getElementById('dash-card');
@@ -2339,6 +2432,150 @@
       card.addEventListener('focusin', show);
       card.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') show(e); });
     }
+
+    // ---------- Daily list: one row per trip day, bookings kept out of the bars ----------
+    const isBookingExp = e => !!(e.hotelId || e.resId);   // hotels, flights, cars, tickets: shown apart, never in the daily bars
+    function tripRange() {
+      const dates = [];
+      appData.hotels.forEach(h => { if (ISO_DATE.test(h.checkIn || '')) dates.push(h.checkIn); if (ISO_DATE.test(h.checkOut || '')) dates.push(h.checkOut); });
+      appData.reservations.forEach(r => [r.date, r.arrivalDate, r.returnDate].forEach(d => { if (ISO_DATE.test(d || '')) dates.push(d); }));
+      const today = dateToIso(new Date());
+      const dailyDays = appData.expenses.filter(e => !isBookingExp(e)).map(e => { const d = new Date(e.date); return isNaN(d) ? null : dateToIso(d); }).filter(Boolean).sort();
+      if (!dates.length) return { start: dailyDays[0] || today, end: today, fromBookings: false };
+      dates.sort();
+      let end = dates[dates.length - 1];
+      const lastDaily = dailyDays[dailyDays.length - 1];
+      if (lastDaily && lastDaily > end) end = lastDaily;   // spent after the last booking: still part of the trip
+      return { start: dates[0], end, fromBookings: true };
+    }
+    function dayListData() {
+      const today = dateToIso(new Date()), { start, end } = tripRange();
+      const byDay = {};
+      appData.expenses.forEach(e => {
+        const d = new Date(e.date); if (isNaN(d)) return;
+        const k = dateToIso(d);
+        (byDay[k] = byDay[k] || []).push({ e, ils: toIls(e.amount, e.currency, e.payment), cat: SUMMARY_CATS.includes(e.category) ? e.category : 'שונות', booking: isBookingExp(e) });
+      });
+      const last = today < end ? today : end, days = [];
+      if (start <= last) for (let d = start, n = 0; d <= last && n < 400; d = addDaysIso(d, 1), n++) {
+        const all = byDay[d] || [], daily = all.filter(x => !x.booking), pre = all.filter(x => x.booking);
+        const cat = {}; daily.forEach(x => cat[x.cat] = (cat[x.cat] || 0) + x.ils);
+        days.push({ d, daily, pre, cat, total: daily.reduce((t, x) => t + x.ils, 0), preTotal: pre.reduce((t, x) => t + x.ils, 0) });
+      }
+      const future = [];
+      const fStart = today < start ? start : addDaysIso(last, 1);
+      if (fStart <= end) for (let d = fStart, n = 0; d <= end && n < 400; d = addDaysIso(d, 1), n++) future.push({ d, items: byDay[d] || [] });
+      const preTrip = Object.keys(byDay).filter(d => d < start).sort().flatMap(d => byDay[d].filter(x => !x.booking).map(x => ({ ...x, d })));
+      const bookings = [].concat(...Object.values(byDay)).filter(x => x.booking);
+      const total = days.reduce((t, x) => t + x.total, 0);
+      return { today, start, end, days, future, preTrip, bookings, total, avg: days.length ? total / days.length : 0 };
+    }
+    const dayListOpen = new Set();
+    function renderDayList() {
+      const box = document.getElementById('ui-daylist');
+      if (!box) return;
+      const D = dayListData(), budget = appData.settings.dailyBudget || 0;
+      const num = v => `<bdi class="dl-num">${v}</bdi>`, ils = v => ilsStr(v, 0);
+      const wd = d => HE_DAYS[isoToDate(d).getDay()];
+      const cv = c => DASH_COLORS[c] || DASH_COLORS['שונות'];
+      const chev = '<svg class="dl-chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const icon = c => CAT_ICONS[c] || '•';
+      const line = (x, muted) => `<li class="dl-line${muted ? ' dl-muted' : ''}"><span class="dl-ic" style="--c:${cv(x.cat)}" aria-hidden="true">${icon(x.cat)}</span><span class="dl-note">${escapeHtml(x.e.note || x.cat)}</span><span class="dl-line-v">${num(ils(x.ils))}</span></li>`;
+      const rangeEl = document.getElementById('dl-range');
+      if (rangeEl) rangeEl.innerHTML = num(`${ddmm(D.start)} – ${ddmm(D.end)}`);
+      const top = D.days.filter(x => x.total > 0).sort((a, b) => b.total - a.total)[0];
+      const scale = Math.max(top ? top.total : 0, 1);
+      let h = '';
+      if (D.total > 0) {
+        const over = budget && D.avg > budget;
+        h += `<div class="dl-stats">` +
+          `<div class="dl-stat"><span class="dl-stat-k">בטיול עד היום</span><span class="dl-stat-v">${num(ils(D.total))}</span><span class="dl-stat-s">${num(D.days.length)} ימים</span></div>` +
+          `<div class="dl-stat"><span class="dl-stat-k">ממוצע ליום</span><span class="dl-stat-v">${num(ils(D.avg))}</span>${budget ? `<span class="dl-stat-s ${over ? 'dl-over' : 'dl-good'}">${over ? '▲ מעל התקציב' : '✓ בתקציב'}</span>` : ''}</div>` +
+          `<button type="button" class="dl-stat" data-jump="${top.d}"><span class="dl-stat-k">היום הגבוה</span><span class="dl-stat-v">${num(ils(top.total))}</span><span class="dl-stat-s">${num(ddmm(top.d))} · יום ${wd(top.d)}</span></button>` +
+          `</div>`;
+      }
+      if (D.bookings.length) {
+        const bs = D.bookings.reduce((t, x) => t + x.ils, 0);
+        h += `<div class="dl-prepaid-note"><span aria-hidden="true">🔒</span><span><b>${num(ils(bs))}</b> הזמנות (${D.bookings.length}: מלונות, טיסות, רכב, כרטיסים) · מוצגות בשורה אפורה, לא בפסים ולא בממוצע</span></div>`;
+      }
+      h += `<div class="dl-budget"><span>${budget ? `תקציב יומי: <b>${num(ils(budget))}</b>` : 'אין תקציב יומי'}</span><button type="button" data-act="budget">${budget ? '✏️ שנה' : '➕ הגדר תקציב'}</button></div>`;
+      if (D.total > 0) h += `<div class="dl-legend">${SUMMARY_CATS.map(c => `<span><i class="dl-dot" style="background:${cv(c)}"></i>${c}</span>`).join('')}${budget && budget < scale ? '<span><i class="dl-budget-key"></i>תקציב</span>' : ''}</div>`;
+      h += '<ul class="dl-list">';
+      const futItems = D.future.filter(f => f.items.length);
+      if (D.future.length) {
+        const fb = futItems.reduce((t, f) => t + f.items.filter(x => x.booking).reduce((a, x) => a + x.ils, 0), 0);
+        const nb = futItems.reduce((t, f) => t + f.items.filter(x => x.booking).length, 0), isOpen = dayListOpen.has('future');
+        h += `<li class="dl-item dl-group${isOpen ? ' dl-open' : ''}"><button type="button" class="dl-row" data-key="future" aria-expanded="${isOpen}">` +
+          `<span class="dl-gicon" aria-hidden="true">🗓️</span><span class="dl-gtxt"><b>עוד ${num(D.future.length)} ימים בטיול</b><small>${nb ? nb + ' הזמנות ששולמו' : 'אין הזמנות ששולמו'}</small></span>` +
+          `<span class="dl-amt">${fb ? num(ils(fb)) : ''}</span>${chev}</button>` +
+          `<div class="dl-detail"${isOpen ? '' : ' hidden'}><ul class="dl-fut">` +
+          (futItems.length ? futItems.map(f => `<li class="dl-fday"><span><span class="dl-dd">${num(ddmm(f.d))}</span><span class="dl-wd">${wd(f.d)}</span></span><span class="dl-fitems">` +
+            f.items.map(x => `<span class="dl-fitem"><span class="dl-note">${escapeHtml(x.e.note || x.cat)}</span>${num(ils(x.ils))}</span>`).join('') + '</span></li>').join('')
+            : '<li class="dl-fday"><span></span><span>אין הזמנות ששולמו לימים הבאים</span></li>') +
+          '</ul></div></li>';
+      }
+      if (!D.days.length) h += `<li class="dl-item"><div class="dl-empty"><div aria-hidden="true">🧳</div><b>הטיול עוד לא התחיל</b>ההוצאות היומיות יופיעו כאן החל מ־${num(ddmm(D.start))}</div></li>`;
+      else if (!D.total) h += '<li class="dl-item"><div class="dl-empty"><div aria-hidden="true">🧾</div><b>עדיין אין הוצאות בטיול</b>הוסיפו הוצאה והיא תופיע כאן</div></li>';
+      else D.days.slice().reverse().forEach(x => {
+        const isToday = x.d === D.today, isOpen = dayListOpen.has(x.d);
+        const segs = SUMMARY_CATS.filter(c => x.cat[c]).map(c => `<i style="background:${cv(c)};flex:${x.cat[c].toFixed(2)} 0 0"></i>`).join('');
+        const tick = budget && budget < scale ? `<span class="dl-tick" style="right:${(budget / scale * 100).toFixed(1)}%"></span>` : '';
+        const pre = x.pre.length ? `<span class="dl-pre">${x.pre.map(p => `<span>${icon(p.cat)} +${num(ils(p.ils))} הזמנה</span>`).join('')}</span>` : '';
+        h += `<li class="dl-item${isToday ? ' dl-today' : ''}${isOpen ? ' dl-open' : ''}" data-day="${x.d}"><button type="button" class="dl-row" data-key="${x.d}" aria-expanded="${isOpen}" aria-label="${escapeHtml(ddmm(x.d) + ', ' + ils(x.total))}">` +
+          `<span class="dl-date"><span class="dl-dd">${num(ddmm(x.d))}</span>${isToday ? '<span class="dl-chip">היום</span>' : `<span class="dl-wd">יום ${wd(x.d)}</span>`}</span>` +
+          `<span class="dl-bar" aria-hidden="true"><span class="dl-fill" style="width:${(x.total / scale * 100).toFixed(1)}%">${segs}</span>${tick}</span>` +
+          `<span class="dl-amt${x.total ? '' : ' dl-zero'}">${x.total ? num(ils(x.total)) : '—'}</span>${chev}${pre}</button>` +
+          `<div class="dl-detail"${isOpen ? '' : ' hidden'}>` +
+          (x.daily.length ? `<div class="dl-cats">${Object.keys(x.cat).sort((a, b) => x.cat[b] - x.cat[a]).map(c => `<span class="dl-cat"><span aria-hidden="true">${icon(c)}</span>${escapeHtml(c)} <b>${num(ils(x.cat[c]))}</b></span>`).join('')}</div>` +
+            `<ul class="dl-lines">${x.daily.slice().sort((a, b) => b.ils - a.ils).map(y => line(y)).join('')}</ul>` : '<div class="dl-subhead">אין הוצאות יומיות ביום הזה</div>') +
+          (x.pre.length ? `<div class="dl-subhead">הזמנות · לא נכללות בסכום היומי</div><ul class="dl-lines">${x.pre.map(y => line(y, true)).join('')}</ul>` : '') +
+          '</div></li>';
+      });
+      if (D.preTrip.length) {
+        const ps = D.preTrip.reduce((t, x) => t + x.ils, 0), isOpen = dayListOpen.has('pre');
+        h += `<li class="dl-item dl-group${isOpen ? ' dl-open' : ''}"><button type="button" class="dl-row" data-key="pre" aria-expanded="${isOpen}">` +
+          `<span class="dl-gicon" aria-hidden="true">🧾</span><span class="dl-gtxt"><b>לפני הטיול</b><small>${num(D.preTrip.length)} רכישות · ${num(ddmm(D.preTrip[0].d))}–${num(ddmm(D.preTrip[D.preTrip.length - 1].d))}</small></span>` +
+          `<span class="dl-amt">${num(ils(ps))}</span>${chev}</button>` +
+          `<div class="dl-detail"${isOpen ? '' : ' hidden'}><ul class="dl-fut">` +
+          D.preTrip.slice().reverse().map(x => `<li class="dl-fday"><span><span class="dl-dd">${num(ddmm(x.d))}</span></span><span class="dl-fitems"><span class="dl-fitem"><span class="dl-note">${icon(x.cat)} ${escapeHtml(x.e.note || x.cat)}</span>${num(ils(x.ils))}</span></span></li>`).join('') +
+          '</ul></div></li>';
+      }
+      box.innerHTML = h + '</ul>';
+    }
+    function setDailyBudget() {
+      const cur = appData.settings.dailyBudget;
+      const ov = openDialog(`<h3>💰 תקציב יומי</h3><p>כמה מתכננים להוציא ביום בטיול, בשקלים (בלי מלונות, טיסות והזמנות). השאר ריק כדי לבטל.</p>
+        <input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr; text-align:center; font-weight:700;" value="${cur ? escapeHtml(cur) : ''}" placeholder="₪">
+        <div class="dialog-actions"><button class="primary-btn btn-secondary" data-act="cancel">ביטול</button><button class="primary-btn" data-act="ok">שמור</button></div>`);
+      const inp = ov.querySelector('[data-el=amt]');
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const raw = inp.value.trim();
+        if (raw === '') { appData.settings.dailyBudget = null; ov.remove(); saveData(); return; }
+        const v = parseFloat(raw);
+        if (!(v > 0) || v > 1e7) { inp.style.outline = '2px solid #ef4444'; inp.focus(); return; }
+        appData.settings.dailyBudget = v; ov.remove(); saveData();
+      };
+    }
+    document.addEventListener('click', ev => {
+      const box = document.getElementById('ui-daylist');
+      if (!box || !box.contains(ev.target)) return;
+      if (ev.target.closest('[data-act=budget]')) { setDailyBudget(); return; }
+      const j = ev.target.closest('[data-jump]');
+      if (j) {
+        dayListOpen.add(j.dataset.jump); renderDayList();
+        const li = document.querySelector(`#ui-daylist [data-day="${j.dataset.jump}"]`);
+        if (li) li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        return;
+      }
+      const b = ev.target.closest('.dl-row');
+      if (!b) return;
+      const k = b.dataset.key;
+      dayListOpen.has(k) ? dayListOpen.delete(k) : dayListOpen.add(k);
+      renderDayList();
+      const nb = document.querySelector(`#ui-daylist .dl-row[data-key="${k}"]`);
+      if (nb) nb.focus({ preventScroll: true });
+    });
 
     // ---------- Summary ----------
     function renderSummary() {
