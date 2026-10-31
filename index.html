@@ -257,7 +257,6 @@
   .dl-empty { text-align: center; padding: 22px 12px 18px; color: var(--text-muted); font-size: .86rem; line-height: 1.5; }
   .dl-empty div { font-size: 1.8rem; margin-bottom: 4px; }
   .dl-empty b { color: var(--text-main); display: block; font-size: .95rem; }
-    .dl-sub { font-weight: 600; font-size: .78rem; color: var(--text-muted); }
     .dl-budget { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; font-size:.78rem; color:var(--text-muted); }
     .dl-budget button { background:none; border:1px solid var(--card-border); color:var(--primary); font:inherit; font-weight:700; border-radius:999px; padding:6px 12px; min-height:36px; cursor:pointer; }
     .dash-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
@@ -517,7 +516,6 @@
     .primary-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
     .btn-green { background: var(--accent-green); }
     .btn-green:active { background: var(--accent-green); filter: brightness(0.92); }
-    .dialog.wide { max-width: 400px; max-height: 88vh; overflow-y: auto; }
     .nt-steps { display: flex; gap: 6px; margin-bottom: 14px; }
     .nt-steps span { flex: 1; height: 5px; border-radius: 3px; background: var(--card-border); }
     .nt-steps span.on { background: var(--primary); }
@@ -1044,7 +1042,6 @@
     const SUMMARY_CATS = ['אוכל', 'קניות', 'תחבורה', 'מלון', 'שונות'];
 
     let appData = {};
-    let showAllExpenses = false;
     let selectedPerson = null;
     const hotelDrafts = {}; // keeps typed-but-unconfirmed hotel amounts across re-renders
 
@@ -1814,11 +1811,6 @@
       });
     }
 
-    function toggleShowAll() {
-      showAllExpenses = !showAllExpenses;
-      renderExpenses();
-    }
-
     // Removes an expense, refunds the wallet, and un-pays a linked hotel
     function removeExpenseRecord(exp) {
       if (!appData.expenses.some(e => e.id === exp.id)) return;   // already removed (e.g. two dialogs confirmed): never refund twice
@@ -2364,30 +2356,6 @@
       return `<svg viewBox="0 0 200 152" role="img" aria-label="הוצאות לפי קטגוריה">${paths}` +
         `<text x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="9" fill="var(--text-muted)">סה"כ</text>` +
         `<text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text-main)">${escapeHtml(ilsStr(total, 0))}</text></svg>`;
-    }
-    function dashDays(list) {
-      const W = 300, H = 150, pl = 8, pr = 8, pt = 16, pb = 22, n = list.length, bw = (W - pl - pr) / n, ch = H - pt - pb;
-      const maxV = Math.max(...list.map(x => x.v), 1) * 1.08;
-      let g = '';
-      [0, 0.5, 1].forEach(t => { const y = pt + ch * (1 - t); g += `<line x1="${pl}" x2="${W - pr}" y1="${y}" y2="${y}" stroke="var(--card-border)" stroke-width="1"/>`; });
-      const step = Math.max(1, Math.ceil(n / 6));   // dd/mm labels need room: at most ~7 on the axis
-      const peak = list.reduce((bi, x, i) => x.v > list[bi].v ? i : bi, 0);
-      list.forEach((x, i) => {
-        const bx = pl + i * bw + bw * 0.16, w = bw * 0.68, h = Math.max(ch * x.v / maxV, x.v > 0 ? 2 : 0), rr = Math.min(4, w / 2, h);
-        const label = `${ddmm(x.day)} · ${ilsStr(x.v, 0)}`;
-        if (h > 0) g += `<path d="M${bx.toFixed(2)} ${pt + ch}V${(pt + ch - h + rr).toFixed(2)}a${rr} ${rr} 0 0 1 ${rr} ${-rr}h${(w - 2 * rr).toFixed(2)}a${rr} ${rr} 0 0 1 ${rr} ${rr}V${pt + ch}Z" fill="var(--primary)" data-dtip="${escapeHtml(label)}" tabindex="0"/>`;
-        // transparent, wider hit target so thin bars (and empty days) are easy to tap
-        g += `<rect x="${(pl + i * bw).toFixed(2)}" y="${pt}" width="${bw.toFixed(2)}" height="${ch}" fill="transparent" data-dtip="${escapeHtml(label)}"/>`;
-        // oldest day on the left, newest on the right; skip a label that would crowd the last one
-        const showLbl = i === n - 1 || (i % step === 0 && (n - 1 - i) >= Math.ceil(step / 2) + (step === 1 ? 0 : 1));
-        if (showLbl) {
-          const anchor = n === 1 ? 'middle' : i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle';
-          const lx = anchor === 'start' ? pl + i * bw : anchor === 'end' ? pl + (i + 1) * bw : bx + w / 2;
-          g += `<text x="${lx.toFixed(2)}" y="${H - 6}" text-anchor="${anchor}" font-size="9" fill="var(--text-muted)">${ddmm(x.day)}</text>`;
-        }
-      });
-      if (list[peak].v > 0) g += `<text x="${(pl + peak * bw + bw / 2).toFixed(2)}" y="${pt - 4}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text-main)">${escapeHtml(ilsStr(list[peak].v, 0))}</text>`;
-      return `<svg viewBox="0 0 ${W} ${H}" direction="ltr" style="direction:ltr" role="img" aria-label="הוצאות לפי יום">${g}</svg>`;
     }
     function renderDashboard() {
       const el = document.getElementById('ui-dashboard');
@@ -3327,7 +3295,7 @@ Rules:
       // the user may tick a "maybe already exists" row on purpose: only exact keys block adding
       const prepaidExpense = (it, r, category, note) => {
         if (!it.prepaid) return;
-        appData.expenses.unshift({ id: newId(), amount: it.price, currency: it.currency, category, payment: 'אשראי',
+        appData.expenses.unshift({ id: newId(), amount: it.price, currency: it.currency || r.currency || curCode(), category, payment: 'אשראי',
           note, date: isoToDate(r.date).toISOString(), resId: r.id });
         expenses++;
       };
@@ -3340,7 +3308,7 @@ Rules:
           ['address', 'city', 'provider', 'confirmation'].forEach(k => { if (it[k]) h[k] = it[k]; });
           if (it.prepaid) {
             h.paid = true; h.finalPrice = it.price; h.payment = 'אשראי';
-            appData.expenses.unshift({ id: newId(), amount: it.price, currency: it.currency, category: 'מלון', payment: 'אשראי',
+            appData.expenses.unshift({ id: newId(), amount: it.price, currency: h.currency, category: 'מלון', payment: 'אשראי',
               note: `חיוב מלון: ${it.name}`, date: isoToDate(it.checkIn).toISOString(), hotelId: h.id });
             expenses++;
           }
@@ -3826,7 +3794,7 @@ Rules:
       appData.expenses.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(e => {
         used.add(e.currency);
         rows.push(['הוצאה', localDateTime(e.date), '', e.note, e.category, e.payment, e.amount, e.currency, ...conv(e.amount, e.currency, e.payment), '',
-          [e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? 'טיסה' : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
+          [e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
       });
       sortedHotels().forEach(h => {
         used.add(h.currency);
@@ -3838,7 +3806,7 @@ Rules:
           [car ? hotelDates(h) : (nights ? `${nights} לילות` : (h.dates || '')), h.basePrice ? `הזמנה מקורית ${h.basePrice} ${h.currency}` : '', h.confirmation ? `אישור ${h.confirmation}` : ''].filter(Boolean).join(' · ')]);
       });
       appData.reservations.slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name, 'he')).forEach(r => {
-        rows.push([r.kind === 'flight' ? 'טיסה' : r.kind === 'car' ? 'השכרת רכב' : 'הזמנה', r.date + (r.time ? ' ' + r.time : ''), r.arrivalDate ? r.arrivalDate + (r.arrivalTime ? ' ' + r.arrivalTime : '') : '', r.name, '', '',
+        rows.push([r.kind === 'flight' ? 'טיסה' : r.kind === 'car' ? 'השכרת רכב' : 'הזמנה', r.date + (r.time ? ' ' + r.time : ''), r.arrivalDate ? r.arrivalDate + (r.arrivalTime ? ' ' + r.arrivalTime : '') : r.returnDate ? r.returnDate + (r.returnTime ? ' ' + r.returnTime : '') : '', r.name, '', '',
           r.price || '', r.price ? r.currency : '', '', '', '', [r.airline, r.confirmation ? `אישור ${r.confirmation}` : ''].filter(Boolean).join(' · ')]);
       });
       appData.splits.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(x => {
