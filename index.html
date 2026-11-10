@@ -426,6 +426,8 @@
 
     /* Per-person balances */
     .people-box { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .me-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; }
+    .me-row select { flex: 1; margin: 0; }
     .person-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 8px 12px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--card-border); }
 
     /* Name picker (splits) – horizontally scrollable chips */
@@ -902,6 +904,7 @@
       <div class="card">
         <div class="card-title"><span>👥 שמות לקיזוז<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="השמות שיופיעו בבחירה במסך הקיזוזים. אפשר להוסיף ולהסיר בכל זמן." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <div id="people-msg" class="message-box"></div>
+        <div id="ui-me-select"></div>
         <div id="ui-people-settings" class="scroll-list short"></div>
         <div class="scroll-hint" data-for="ui-people-settings"></div>
         <div class="add-row">
@@ -911,10 +914,11 @@
       </div>
 
       <div class="card">
-        <div class="card-title"><span>♻️ איפוס יתרות<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="מאפס את היתרה של LAYA או Suica במטבע הנוכחי ל-0, למשל אחרי שהכרטיס התרוקן או כדי להתחיל מחדש. הוצאות קיימות לא נמחקות. לפני האיפוס נשמר עותק לשחזור." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
+        <div class="card-title"><span>✏️ עדכון יתרות<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="מתקן את היתרה באפליקציה לסכום האמיתי: מה שיש בכרטיס Suica, במזומן בארנק או ב-LAYA. מקלידים את היתרה בפועל (גם 0). הוצאות קיימות לא משתנות. לפני העדכון נשמר עותק לשחזור." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <p id="reset-wallets-note" style="font-size:0.8rem; margin-bottom:10px; color:var(--text-muted);"></p>
-        <button class="primary-btn btn-secondary" style="margin-bottom:10px;" onclick="resetWallet('laya')">💳 אפס יתרת LAYA</button>
-        <button class="primary-btn btn-secondary" id="reset-suica-btn" onclick="resetWallet('suica')">🐧 אפס יתרת Suica</button>
+        <button class="primary-btn btn-secondary" style="margin-bottom:10px;" id="reset-suica-btn" onclick="setWalletBalance('suica')">🐧 עדכן יתרת Suica</button>
+        <button class="primary-btn btn-secondary" style="margin-bottom:10px;" onclick="setWalletBalance('cash')">💵 עדכן יתרת מזומן</button>
+        <button class="primary-btn btn-secondary" onclick="setWalletBalance('laya')">💳 עדכן יתרת LAYA</button>
       </div>
 
       <div class="card">
@@ -1234,7 +1238,8 @@
           tripNameAuto: s.tripNameAuto !== false,
           tripYear: Number.isInteger(s.tripYear) && s.tripYear >= 2000 && s.tripYear <= 2100 ? s.tripYear : null,
           payAuto: normPayAuto(s.payAuto),
-          dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null
+          dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null,
+          me: typeof s.me === 'string' ? (people.find(p => p.toLowerCase() === s.me.trim().toLowerCase()) || null) : null   // who owns this phone (one of the names)
         },
         balances: {},
         expenses: [],
@@ -1530,20 +1535,32 @@
     }
     const refundNoteFor = payment => WALLET_KEY[payment] ? ` הסכום יוחזר ליתרת ${WALLET_NAME[WALLET_KEY[payment]]}.` : '';
 
-    function resetWallet(key) {
+    // Set a wallet to its real balance (what's actually on the card / in the wallet)
+    function setWalletBalance(key) {
       const code = curCode(), w = wallet(code);
-      const name = key === 'laya' ? 'LAYA' : 'Suica';
-      confirmDialog({
-        title: `איפוס יתרת ${name}`,
-        text: `לאפס את יתרת ${name} ב-${code} (כרגע ${money(w[key], code)}) ל-0? הוצאות קיימות לא ישתנו, ולפני האיפוס נשמר עותק שאפשר לשחזר מההגדרות.`,
-        okLabel: 'אפס', danger: true,
-        onOk: () => {
-          saveSafetyCopy(`לפני איפוס ${name}`);
-          wallet(code)[key] = 0;
-          saveData();
-          showMsg('settings-msg', `יתרת ${name} אופסה`);
-        }
-      });
+      const name = { suica: 'Suica', cash: 'מזומן', laya: 'LAYA' }[key];
+      const ov = openDialog(`
+        <h3>✏️ עדכון יתרת ${name}</h3>
+        <p>יתרה באפליקציה כרגע: <b>${money(w[key], code)}</b>.<br>הקלד את היתרה האמיתית (${escapeHtml(code)}):</p>
+        <input type="number" class="text-input" data-el="amt" inputmode="decimal" value="" placeholder="0" style="direction:ltr; text-align:center; font-weight:700; font-size:1.2rem;">
+        <p style="font-size:0.75rem; margin-top:6px;">הוצאות קיימות לא משתנות. לפני העדכון נשמר עותק לשחזור.</p>
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">עדכן</button>
+        </div>`);
+      const inp = ov.querySelector('[data-el=amt]');
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const raw = inp.value.trim(), v = parseFloat(raw);
+        if (raw === '' || !isFinite(v) || v < 0 || v > 1e9) { inp.style.outline = '2px solid #ef4444'; inp.focus(); return; }   // stay open until a real balance
+        const before = w[key];
+        saveSafetyCopy(`לפני עדכון ${name}`);
+        wallet(code)[key] = Math.round(v * 1e6) / 1e6;
+        ov.remove();
+        saveData();
+        const diff = v - before;
+        showMsg('settings-msg', `יתרת ${name} עודכנה ל-${money(v, code)}` + (Math.abs(diff) >= 0.005 ? ` (${diff > 0 ? '+' : '−'}${money(Math.abs(diff), code)})` : ''));
+      };
     }
 
     function updateBalances() {
@@ -1559,7 +1576,7 @@
       document.getElementById('reset-suica-btn').style.display = suicaOn ? '' : 'none';
       if (!suicaOn) document.getElementById('suica-load-panel').style.display = 'none';
       const rn = document.getElementById('reset-wallets-note');
-      if (rn) rn.textContent = `האיפוס חל על המטבע הנוכחי (${code}): LAYA ${money(w.laya, code)}` + (suicaOn ? ` · Suica ${money(w.suica, code)}` : '');
+      if (rn) rn.textContent = `יתרות במטבע הנוכחי (${code}):` + (suicaOn ? ` Suica ${money(w.suica, code)} ·` : '') + ` מזומן ${money(w.cash, code)} · LAYA ${money(w.laya, code)}`;
       document.getElementById('ui-card-load-title').innerText = 'טעינת Suica';
       document.getElementById('pay-card-chip').innerHTML = '🐧<br>Suica';
       renderExpCurrency();
@@ -1844,6 +1861,22 @@
       element.classList.add(element.getAttribute('data-type') === 'plus' ? 'active-plus' : 'active-minus');
     }
 
+    // The other side(s) of a split: everyone except the phone owner
+    function splitCounterparts() {
+      const me = appData.settings.me;
+      return appData.settings.people.filter(p => !me || p.toLowerCase() !== me.toLowerCase());
+    }
+    // Who a split is with. An entry recorded under my own name (➕ = we paid, they owe us; ➖ = they paid, we owe them)
+    // belongs to the other side when there is exactly one other side.
+    function splitParty(s) {
+      const name = s.person.trim(), me = appData.settings.me;
+      if (me && name.toLowerCase() === me.toLowerCase()) {
+        const others = splitCounterparts();
+        if (others.length === 1) return others[0];
+      }
+      return name;
+    }
+
     function saveSplit() {
       let amount = parseFloat(document.getElementById('inp-split-amount').value);
       const person = selectedPerson;
@@ -1880,21 +1913,26 @@
         return;
       }
 
-      // Net balance per person, per currency
+      // Net balance per person, per currency (entries recorded under my own name count against the other side)
+      const me = appData.settings.me, meName = me ? escapeHtml(me) : '';
       const people = {};
       appData.splits.forEach(s => {
-        const key = s.person.trim().toLowerCase() + '|' + s.currency;
-        if (!people[key]) people[key] = { person: s.person.trim(), currency: s.currency, total: 0 };
+        const who = splitParty(s);
+        const key = who.toLowerCase() + '|' + s.currency;
+        if (!people[key]) people[key] = { person: who, currency: s.currency, total: 0 };
         people[key].total += s.amount;
       });
 
-      peopleEl.innerHTML = Object.values(people).map(p => {
+      const hint = !me && appData.settings.people.length >= 2
+        ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:6px;">💡 <a href="#" style="color:var(--primary);" onclick="goToSettings(); return false;">בחר בהגדרות מי אתה</a> כדי שכל הקיזוזים יתקזזו לשורה אחת.</div>` : '';
+      peopleEl.innerHTML = hint + Object.values(people).map(p => {
         const name = escapeHtml(p.person);
         if (Math.abs(p.total) < 0.005) {
           return `<div class="person-row"><span>${name}</span><span style="color:var(--text-muted);">מאוזן ✔️</span></div>`;
         }
         const owesMe = p.total > 0;
-        const text = owesMe ? `${name} חייבים לי` : `אני חייב/ת ל${name}`;
+        const text = me ? (owesMe ? `${name} חייבים ל${meName}` : `${meName} חייבים ל${name}`)
+                        : (owesMe ? `${name} חייבים לי` : `אני חייב/ת ל${name}`);
         const color = owesMe ? 'var(--accent-green)' : 'var(--accent-red)';
         return `<div class="person-row"><span>${text}</span><strong style="color:${color};">${money(Math.abs(p.total), p.currency)}</strong></div>`;
       }).join('');
@@ -1903,9 +1941,10 @@
         const isDebt = split.amount < 0;
         const titleColor = isDebt ? 'var(--accent-red)' : 'var(--primary)';
         const amountColor = isDebt ? 'var(--accent-red)' : 'var(--accent-green)';
-        const person = escapeHtml(split.person);
+        const person = escapeHtml(splitParty(split));
         const note = escapeHtml(split.note);
-        const titleText = isDebt ? `אני חייב/ת ל${person}: ${note}` : `${person} חייבים: ${note}`;
+        const titleText = me ? (isDebt ? `${meName} חייבים ל${person}: ${note}` : `${person} חייבים ל${meName}: ${note}`)
+                             : (isDebt ? `אני חייב/ת ל${person}: ${note}` : `${person} חייבים: ${note}`);
         return `
           <div class="expense-item">
             <div class="exp-icon">${CAT_ICONS[split.category] || '🎫'}</div>
@@ -1936,10 +1975,10 @@
     // ---------- Names (splits) ----------
     function renderPeoplePicker() {
       const el = document.getElementById('split-person-grid');
-      const people = appData.settings.people;
+      const people = splitCounterparts();   // never yourself
       if (!people.length) {
         selectedPerson = null;
-        el.innerHTML = `<div style="font-size:0.85rem; color:var(--text-muted); padding:8px 0;">אין שמות. <a href="#" style="color:var(--primary);" onclick="goToSettings(); return false;">הוסף שמות בהגדרות</a></div>`;
+        el.innerHTML = `<div style="font-size:0.85rem; color:var(--text-muted); padding:8px 0;">${appData.settings.me ? 'אין צד שני ברשימה.' : 'אין שמות.'} <a href="#" style="color:var(--primary);" onclick="goToSettings(); return false;">הוסף שמות בהגדרות</a></div>`;
         return;
       }
       if (!people.includes(selectedPerson)) selectedPerson = people[0];
@@ -1960,6 +1999,14 @@
     function renderPeopleSettings() {
       const el = document.getElementById('ui-people-settings');
       const people = appData.settings.people;
+      const meEl = document.getElementById('ui-me-select');
+      if (meEl) meEl.innerHTML = people.length ? `
+        <label class="me-row">אני (בעל/ת הטלפון):
+          <select class="select-input" onchange="setMe(this.value)">
+            <option value="">— לא נבחר —</option>
+            ${people.map(p => `<option value="${escapeHtml(p)}" ${p === appData.settings.me ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+          </select>
+        </label>` : '';
       el.innerHTML = people.length
         ? people.map(p => `
             <div class="name-row">
@@ -1983,6 +2030,11 @@
       showMsg('people-msg', `"${name}" נוסף/ה`);
     }
 
+    function setMe(name) {
+      appData.settings.me = appData.settings.people.includes(name) ? name : null;
+      saveData();
+      showMsg('people-msg', appData.settings.me ? `נשמר: הקיזוזים מוצגים מהצד של ${appData.settings.me}` : 'בוטלה הבחירה');
+    }
     function removePerson(name) {
       const count = appData.splits.filter(s => s.person.trim().toLowerCase() === name.toLowerCase()).length;
       confirmDialog({
@@ -1991,6 +2043,7 @@
         okLabel: 'הסר', danger: true,
         onOk: () => {
           appData.settings.people = appData.settings.people.filter(p => p !== name);
+          if (appData.settings.me === name) appData.settings.me = null;
           saveData();
         }
       });
