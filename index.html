@@ -3509,7 +3509,8 @@ Rules:
           <label class="field-label">כניסה<input type="date" class="text-input" data-el="in" style="direction:ltr;" value="${escapeHtml(h.checkIn || '')}"></label>
           <label class="field-label">יציאה<input type="date" class="text-input" data-el="out" style="direction:ltr;" value="${escapeHtml(h.checkOut || '')}"></label>
         </div>
-        ${h.paid ? '<p style="font-size:0.75rem;">המלון כבר חויב: את הסכום ששולם עורכים ברשימת ההוצאות (✏️).</p>' : `
+        ${h.paid ? `<label class="field-label">סכום ששולם (${escapeHtml(rateOf(h.currency).symbol)} · ${escapeHtml(h.currency)}${h.payment ? ' · ' + escapeHtml(h.payment) : ''})<input type="number" class="text-input" data-el="final" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(h.finalPrice != null ? h.finalPrice : '')}"></label>
+        <p style="font-size:0.75rem;">שינוי הסכום מעדכן גם את ההוצאה של המלון ואת היתרה (מזומן / LAYA).</p>` : `
         <div class="dlg-row">
           <label class="field-label">מחיר ההזמנה<input type="number" class="text-input" data-el="price" inputmode="decimal" style="direction:ltr;" value="${h.basePrice > 0 ? escapeHtml(h.basePrice) : ''}" placeholder="לא ידוע"></label>
           <label class="field-label">מטבע<select class="select-input" data-el="cur">${currencyOptionsHtml()}</select></label>
@@ -3526,7 +3527,11 @@ Rules:
         if (!name) { markBad(q('name')); return; }
         if (!ISO_DATE.test(ci)) { markBad(q('in')); return; }
         if (!ISO_DATE.test(co) || co <= ci) { markBad(q('out')); return; }
-        let price = h.basePrice, cur = h.currency;
+        let price = h.basePrice, cur = h.currency, finalAmt = null;
+        if (h.paid) {
+          finalAmt = parseFloat(q('final').value);
+          if (!(finalAmt > 0) || finalAmt > 1e9 || Math.round(finalAmt * Math.pow(10, rateOf(h.currency).decimals)) === 0) { markBad(q('final')); return; }
+        }
         if (!h.paid) {
           const raw = q('price').value.trim();
           price = raw === '' ? 0 : parseFloat(raw);
@@ -3538,10 +3543,20 @@ Rules:
         const addr = q('addr').value.trim(); if (addr) h.address = addr; else delete h.address;
         const exp = appData.expenses.find(x => x.hotelId === h.id);
         if (exp && exp.note === `חיוב מלון: ${oldName}`) exp.note = `חיוב מלון: ${name}`;
+        let warn = '';
+        if (h.paid && finalAmt !== null && Math.abs(finalAmt - (h.finalPrice || 0)) >= 1e-9) {
+          if (exp) {   // give back the old amount to its wallet, charge the new one: balances stay exact
+            const key = WALLET_KEY[exp.payment];
+            if (key) { const w = wallet(exp.currency); w[key] = Math.round((w[key] + exp.amount) * 1e6) / 1e6; }
+            warn = spendFrom(exp.payment, exp.currency, finalAmt) || '';
+            exp.amount = finalAmt;
+          }
+          h.finalPrice = finalAmt;
+        }
         delete hotelDrafts[h.id];
         ov.remove();
         saveData();
-        showMsg('hotel-msg', 'המלון עודכן');
+        showMsg('hotel-msg', warn ? 'המלון עודכן. ' + warn : 'המלון עודכן', warn ? 'warn' : 'ok');
       };
     }
 
