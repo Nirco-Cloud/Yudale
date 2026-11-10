@@ -428,6 +428,7 @@
     .people-box { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
     .me-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; }
     .me-row select { flex: 1; margin: 0; }
+    .app-version { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 6px 0 18px; direction: rtl; }
     .person-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 8px 12px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--card-border); }
 
     /* Name picker (splits) – horizontally scrollable chips */
@@ -938,6 +939,7 @@
         <button class="primary-btn btn-secondary" style="margin-bottom:10px;" onclick="document.getElementById('import-file').click()" title="טעינת גיבוי – מחליף את הנתונים הנוכחיים">📤 ייבוא מגיבוי (JSON)</button>
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 1 · 10/11/2026 · be3021</span></div>
     </div>
 
   </div>
