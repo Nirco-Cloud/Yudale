@@ -783,6 +783,7 @@
       <div class="card">
         <div class="card-title"><span>📄 ייצוא סיכום<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="מוריד קובץ CSV לתיקיית ההורדות, לפתיחה באקסל או בגיליון. בראש הקובץ: סה&quot;כ הוצאות בפועל וסה&quot;כ לכל קטגוריה, ואחריהם כל ההוצאות, המלונות, ההזמנות, הקיזוזים, היתרות והשערים. זה לא קובץ גיבוי ולא ניתן לשחזר ממנו." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <button class="primary-btn btn-secondary" style="margin-top:0;" onclick="exportCsv() && showMsg('summary-msg', 'קובץ ה-CSV הורד לתיקיית ההורדות (Downloads)')" title="מוריד קובץ CSV עם כל הפרטים לתיקיית ההורדות, לפתיחה באקסל או בגיליון">📊 ייצוא סיכום ל-CSV</button>
+        <button class="primary-btn btn-secondary" style="margin-top:10px;" onclick="exportHtmlReport() && showMsg('summary-msg', 'דוח הטיול (HTML) הורד לתיקיית ההורדות. פתחו אותו בדפדפן; בראש הדוח יש כפתור להדפסה / שמירה כ-PDF')" title="דוח טיול מעוצב לשמירה ולשיתוף, עם אפשרות להדפסה או לשמירה כ-PDF בגודל A4">📑 ייצוא דוח טיול (HTML / PDF)</button>
         <div id="summary-msg" class="message-box"></div>
       </div>
     </div>
@@ -939,7 +940,7 @@
         <button class="primary-btn btn-secondary" style="margin-bottom:10px;" onclick="document.getElementById('import-file').click()" title="טעינת גיבוי – מחליף את הנתונים הנוכחיים">📤 ייבוא מגיבוי (JSON)</button>
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 1 · 10/11/2026 · be3021</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 4 · 11/11/2026 · 62f575</span></div>
     </div>
 
   </div>
@@ -2604,17 +2605,31 @@
         byCat[key].byCur[e.currency] = (byCat[key].byCur[e.currency] || 0) + e.amount;   // every currency, e.g. "¥8,000 + $1,000"
       });
 
+      // Daily averages: same rules as the daily list (trip days so far, bookings and pre-trip purchases left out).
+      // Hotels are almost all bookings, so they get an average per night instead.
+      const D = dayListData(), nDays = D.days.length;
+      const dailyCat = {};
+      D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
+      const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || ''))
+        .reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
+      const avgLine = cat => {
+        if (cat === 'מלון') return nights ? `ממוצע ללילה: ${ilsStr(byCat[cat].ils / nights, 0)} · ${nights} לילות` : '';
+        return nDays && dailyCat[cat] ? `ממוצע ליום: ${ilsStr(dailyCat[cat] / nDays, 0)}` : '';
+      };
+
       let totalIls = 0;
       let html = '';
       for (const [cat, v] of Object.entries(byCat)) {
         if (v.ils <= 0) continue;
         totalIls += v.ils;
+        const avg = avgLine(cat);
         html += `
           <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--card-border);">
             <span>${CAT_ICONS[cat] || ''} ${cat}</span>
             <span style="text-align:left;">
               <strong style="color:var(--primary);">${escapeHtml(sumsToString(Object.fromEntries(Object.entries(v.byCur).sort(([a], [b]) => (b === code) - (a === code)))))}</strong>
               ${Object.keys(v.byCur).length === 1 && v.byCur.ILS !== undefined && Math.abs(v.ils - v.byCur.ILS) < 0.005 ? '' : `<div style="font-size:0.75rem; color:var(--text-muted);">${ilsStr(v.ils)}</div>`}
+              ${avg ? `<div style="font-size:0.75rem; color:var(--accent-green); font-weight:600;">${escapeHtml(avg)}</div>` : ''}
             </span>
           </div>`;
       }
@@ -2625,7 +2640,11 @@
         html += `
           <div style="display:flex; justify-content:space-between; padding:12px 0 0; font-weight:700;">
             <span>סה"כ</span><span>${ilsStr(totalIls)}</span>
-          </div>`;
+          </div>` + (nDays && D.total ? `
+          <div style="display:flex; justify-content:space-between; padding:4px 0 0; font-size:0.85rem; color:var(--accent-green); font-weight:700;">
+            <span>ממוצע ליום בטיול</span><span>${ilsStr(D.avg, 0)}</span>
+          </div>
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-top:6px; line-height:1.5;">הממוצע ליום מחושב על ${nDays} ימי הטיול עד היום, בלי הזמנות (טיסות, מלונות, רכב, כרטיסים) ובלי קניות מלפני הטיול. במלונות: ממוצע ללילה.</div>` : '');
       }
       document.getElementById('ui-cat-summary').innerHTML = html;
     }
@@ -3900,6 +3919,187 @@ Rules:
       rows.push(['הגדרה', '', '', 'שם הטיול', '', '', '', '', '', '', '', tripTitle()]);
       return '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';   // BOM so Excel reads Hebrew correctly
     }
+    // ---------- Trip report (self-contained HTML, prints to A4 / PDF) ----------
+    function buildHtmlReport() {
+      const esc = escapeHtml, code = curCode(), D = dayListData();
+      const today = dateToIso(new Date());
+      const ilsOf = e => toIls(e.amount, e.currency, e.payment);
+      const orig = e => money(e.amount, e.currency);
+      const both = e => e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`;
+      const dlab = d => { const l = reservationDateLabel(d); return `${l.day} · ${l.top}`; };
+      const isoOf = e => { const d = new Date(e.date); return isNaN(d) ? '' : dateToIso(d); };
+      const COL = { 'אוכל': '#2a78d6', 'קניות': '#eb6834', 'תחבורה': '#1baf7a', 'מלון': '#eda100', 'שונות': '#e87ba4' };
+      const catOf = e => SUMMARY_CATS.includes(e.category) ? e.category : 'שונות';
+
+      // ---- summary numbers ----
+      const total = appData.expenses.reduce((t, e) => t + ilsOf(e), 0);
+      const bookTotal = D.bookings.reduce((t, x) => t + x.ils, 0);
+      const byCat = {}; SUMMARY_CATS.forEach(c => byCat[c] = { ils: 0, byCur: {} });
+      appData.expenses.forEach(e => { const c = byCat[catOf(e)]; c.ils += ilsOf(e); c.byCur[e.currency] = (c.byCur[e.currency] || 0) + e.amount; });
+      const dailyCat = {}; D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
+      const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '')).reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
+      const avgOf = c => c === 'מלון' ? (nights ? `${ilsStr(byCat[c].ils / nights, 0)} ללילה` : '—') : (D.days.length && dailyCat[c] ? `${ilsStr(dailyCat[c] / D.days.length, 0)} ליום` : '—');
+      const curOrder = o => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (b === code) - (a === code)));
+      const w = wallet(code);
+
+      // donut (static SVG)
+      const ent = SUMMARY_CATS.filter(c => byCat[c].ils > 0).map(c => [c, byCat[c].ils]);
+      let donut = '';
+      if (total > 0) {
+        const R = 70, r = 44, cx = 80, cy = 80; let a = -Math.PI / 2;
+        if (ent.length === 1) donut = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${COL[ent[0][0]]}" stroke-width="${R - r}"/>`;
+        else ent.forEach(([c, v]) => {
+          const b = a + v / total * Math.PI * 2, large = b - a > Math.PI ? 1 : 0;
+          const P = (rad, ang) => `${(cx + rad * Math.cos(ang)).toFixed(2)} ${(cy + rad * Math.sin(ang)).toFixed(2)}`;
+          donut += `<path d="M ${P(R, a)} A ${R} ${R} 0 ${large} 1 ${P(R, b)} L ${P(r, b)} A ${r} ${r} 0 ${large} 0 ${P(r, a)} Z" fill="${COL[c]}"/>`;
+          a = b;
+        });
+        donut = `<svg viewBox="0 0 160 160" class="donut" aria-hidden="true">${donut}<text x="80" y="76" text-anchor="middle" class="d-k">סה"כ</text><text x="80" y="96" text-anchor="middle" class="d-v">${esc(ilsStr(total, 0))}</text></svg>`;
+      }
+
+      // ---- day by day (oldest first, the way you'd read a trip diary) ----
+      const scale = Math.max(1, ...D.days.map(d => d.total));
+      const itemRow = (x, muted) => `<tr class="${muted ? 'muted' : ''}"><td class="ic">${CAT_ICONS[x.cat] || '•'}</td><td>${esc(x.e.note || x.cat)}${muted ? ' <span class="tag">הזמנה</span>' : ''}</td><td class="pay">${esc(x.e.payment || '')}</td><td class="amt">${both(x.e)}</td></tr>`;
+      const dayBlocks = D.days.map((d, i) => {
+        const segs = SUMMARY_CATS.filter(c => d.cat[c]).map(c => `<i style="background:${COL[c]};flex:${d.cat[c].toFixed(2)} 0 0"></i>`).join('');
+        const rows = d.daily.slice().sort((a, b) => b.ils - a.ils).map(x => itemRow(x)).join('') + d.pre.map(x => itemRow(x, true)).join('');
+        return `<div class="day${d.d === today ? ' today' : ''}">
+          <div class="day-h"><span class="dn">${i + 1}</span><b>${esc(dlab(d.d))}</b>${d.d === today ? '<span class="chip">היום</span>' : ''}<span class="dt">${d.total ? esc(ilsStr(d.total, 0)) : '—'}</span></div>
+          ${d.total ? `<div class="bar"><span style="width:${(d.total / scale * 100).toFixed(1)}%">${segs}</span></div>` : ''}
+          ${rows ? `<table class="items">${rows}</table>` : '<div class="none">אין הוצאות</div>'}
+        </div>`;
+      }).join('');
+      const preRows = D.preTrip.map(x => `<tr><td class="ic">${CAT_ICONS[x.cat] || '•'}</td><td>${esc(x.e.note || x.cat)}</td><td class="pay">${esc(ddmm(x.d))}</td><td class="amt">${both(x.e)}</td></tr>`).join('');
+
+      // ---- bookings ----
+      const mapA = q => q ? ` <a href="${esc('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q))}" target="_blank" rel="noopener">🧭</a>` : '';
+      const hotels = appData.hotels.slice().sort((a, b) => (a.checkIn || '') < (b.checkIn || '') ? -1 : 1).map(h => {
+        const n = ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '') ? nightsBetween(h.checkIn, h.checkOut) : 0;
+        const amt = h.paid ? h.finalPrice : h.basePrice;
+        const amtTxt = amt > 0 ? (h.currency === 'ILS' ? money(amt, 'ILS') : `${money(amt, h.currency)} <span class="ils">(${ilsStr(toIls(amt, h.currency, h.paid ? h.payment : ''), 0)})</span>`) : '—';
+        return `<tr><td><b>${esc(h.name)}</b>${mapA(h.address || [h.name, h.city].filter(Boolean).join(', '))}${h.confirmation ? `<div class="sub">אישור ${esc(h.confirmation)}</div>` : ''}</td>
+          <td>${esc(hotelDates(h).split(' · ')[0])}</td><td class="c">${n || ''}</td>
+          <td>${h.paid ? '<span class="ok">✔ חויב</span>' : '<span class="pend">⏳ ממתין</span>'}</td><td class="amt">${amtTxt}</td></tr>`;
+      }).join('');
+      const resv = appData.reservations.slice().sort((a, b) => (a.date + (a.time || '')) < (b.date + (b.time || '')) ? -1 : 1).map(r => {
+        const exp = appData.expenses.find(e => e.resId === r.id);
+        const det = [];
+        if (r.kind === 'flight') { if (r.arrivalTime) det.push('נחיתה ' + r.arrivalTime); if (r.airline) det.push(r.airline); const px = Number(r.passengersCount) || 0; if (px) det.push(px + ' נוסעים'); }
+        if (r.kind === 'car') { if (r.pickupPlace) det.push('איסוף: ' + r.pickupPlace); if (r.returnDate) det.push('החזרה ' + ddmm(r.returnDate) + (r.returnTime ? ' ' + r.returnTime : '')); }
+        if (r.kind === 'activity') { if (r.people) det.push(r.people + ' אנשים'); if (r.provider) det.push(r.provider); }
+        if (r.confirmation) det.push('אישור ' + r.confirmation);
+        const nav = r.kind === 'car' ? mapA(r.pickupAddress || r.pickupPlace) : r.address ? mapA(r.address) : r.kind === 'activity' && r.category !== 'transport' ? mapA([r.name, r.city].filter(Boolean).join(', ')) : '';
+        const payer = !exp && !r.price && r.kind === 'flight' && r.confirmation
+          ? appData.reservations.find(o => o !== r && o.kind === 'flight' && o.confirmation === r.confirmation && (o.price || appData.expenses.some(e => e.resId === o.id))) : null;
+        const amt = exp ? `${both(exp)} <span class="ok">✔</span>` : r.price ? `${money(r.price, r.currency)} <span class="pend">לתשלום</span>`
+          : payer ? `<span class="sub">כלול ב-${esc(payer.flightNumber || 'הטיסה הראשונה')}</span>` : '—';
+        const detHtml = det.map(x => `<bdi>${esc(x)}</bdi>`).join(' · ');   // each part isolated: Hebrew and Latin don't swap places
+        return `<tr><td>${esc(ddmm(r.date))}${r.time ? `<div class="sub">${esc(r.time)}</div>` : ''}</td><td><b><bdi>${esc(resIcon(r) + r.name)}</bdi></b>${nav}${det.length ? `<div class="sub">${detHtml}</div>` : ''}</td><td class="amt">${amt}</td></tr>`;
+      }).join('');
+
+      const ver = (document.querySelector('[data-appver]') || {}).textContent || '';
+      const kpi = (k, v, sub) => `<div class="kpi"><small>${k}</small><b>${v}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
+      const catRows = SUMMARY_CATS.filter(c => byCat[c].ils > 0).map(c => `<tr><td><i class="dot" style="background:${COL[c]}"></i>${CAT_ICONS[c] || ''} ${c}</td>
+        <td class="amt">${esc(sumsToString(curOrder(byCat[c].byCur)))}</td><td class="amt">${esc(ilsStr(byCat[c].ils, 0))}</td><td class="c">${Math.round(byCat[c].ils / total * 100)}%</td><td class="amt avg">${esc(avgOf(c))}</td></tr>`).join('');
+      const title = tripTitle(), flag = (rateOf(code).flag || '');
+
+      return `<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} · דוח טיול</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--primary:#2563eb;--green:#059669;--amber:#d97706;--soft:#f9fafb}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0f19;--card:#1c212e;--line:#2a3142;--text:#f3f4f6;--muted:#9ca3af;--primary:#3b82f6;--green:#10b981;--amber:#f59e0b;--soft:#11151f}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans Hebrew",Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.45;padding:16px}
+.wrap{max-width:820px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:1.5rem;color:var(--primary)}
+.meta{color:var(--muted);font-size:.85rem}
+.print{border:0;background:var(--primary);color:#fff;font:inherit;font-weight:700;padding:10px 16px;border-radius:999px;cursor:pointer;min-height:44px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+h2{font-size:1.1rem;margin-bottom:10px}
+h3{font-size:.95rem;margin:14px 0 6px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px}
+.kpi small{display:block;color:var(--muted);font-size:.75rem}.kpi b{font-size:1.15rem;direction:ltr;display:inline-block}.kpi span{display:block;color:var(--muted);font-size:.72rem}
+.sumgrid{display:grid;grid-template-columns:170px 1fr;gap:14px;align-items:center}
+.donut{width:160px;height:160px}.d-k{font-size:11px;fill:var(--muted)}.d-v{font-size:15px;font-weight:800;fill:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{color:var(--muted);font-weight:600;font-size:.75rem;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.amt{text-align:left;white-space:nowrap;direction:ltr;unicode-bidi:plaintext}
+.c{text-align:center}.avg{color:var(--green);font-weight:700}
+.ils{color:var(--muted);font-size:.8em}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:6px}
+.sub{color:var(--muted);font-size:.75rem}
+.ok{color:var(--green);font-weight:700}.pend{color:var(--amber);font-weight:700;font-size:.8em}
+a{text-decoration:none}
+.note{color:var(--muted);font-size:.75rem;margin-top:8px}
+.day{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;break-inside:avoid}
+.day.today{border-color:var(--primary)}
+.day-h{display:flex;align-items:center;gap:8px}
+.dn{width:24px;height:24px;border-radius:50%;background:var(--soft);border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:var(--muted)}
+.dt{margin-inline-start:auto;font-weight:800;direction:ltr}
+.chip{background:var(--primary);color:#fff;border-radius:999px;font-size:.68rem;padding:1px 8px;font-weight:700}
+.bar{height:8px;border-radius:99px;background:var(--soft);margin:8px 0 4px;overflow:hidden}
+.bar span{display:flex;height:100%;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%}
+.items td{border-bottom:1px dashed var(--line)}.items .ic{width:24px}.items .pay{color:var(--muted);font-size:.75rem;white-space:nowrap}
+.items tr.muted td{color:var(--muted)}
+.tag{font-size:.65rem;border:1px solid var(--line);border-radius:6px;padding:0 5px}
+.none{color:var(--muted);font-size:.8rem;margin-top:4px}
+.foot{color:var(--muted);font-size:.72rem;text-align:center;margin:12px 0 24px}
+@media (max-width:520px){.sumgrid{grid-template-columns:1fr;justify-items:center}.items .pay{display:none}}
+@page{size:A4;margin:12mm}
+@media print{
+  :root{--bg:#fff;--card:#fff;--line:#d1d5db;--text:#111;--muted:#555;--primary:#1d4ed8;--green:#047857;--amber:#b45309;--soft:#f5f5f5}
+  body{padding:0;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print{display:none}.wrap{max-width:none}
+  .card{border:0;padding:0;margin-bottom:10mm;border-radius:0}
+  .page{break-before:page}
+  tr,.kpi,.day,.sumgrid{break-inside:avoid}
+  a{color:inherit}
+}
+</style></head><body><div class="wrap">
+<div class="top"><div><h1>${esc(flag)} ${esc(title)}</h1>
+<div class="meta">${D.start ? `${esc(ddmm(D.start))} – ${esc(ddmm(D.end))} · ` : ''}הופק ${esc(dateLabel(new Date().toISOString()))}</div></div>
+<button class="print" onclick="window.print()">🖨️ הדפסה / שמירה כ-PDF</button></div>
+
+<section class="card"><h2>📊 סיכום</h2>
+<div class="kpis">
+${kpi('סה"כ הוצאות', esc(ilsStr(total, 0)), 'כולל הזמנות')}
+${kpi('ממוצע ליום בטיול', esc(ilsStr(D.avg, 0)), `${D.days.length} ימים · בלי הזמנות`)}
+${kpi('הזמנות', esc(ilsStr(bookTotal, 0)), `${D.bookings.length} חיובים`)}
+${kpi('יתרות', esc(money(w.cash, code)), `LAYA ${esc(money(w.laya, code))}${code === 'JPY' ? ` · Suica ${esc(money(w.suica, code))}` : ''}`)}
+</div>
+${total > 0 ? `<div class="sumgrid">${donut}<table><tr><th>קטגוריה</th><th class="amt">סכום</th><th class="amt">₪</th><th class="c">%</th><th class="amt">ממוצע</th></tr>${catRows}</table></div>
+<div class="note">הממוצע ליום מחושב על ימי הטיול עד היום, בלי הזמנות (טיסות, מלונות, רכב, כרטיסים) ובלי קניות מלפני הטיול. במלונות: ממוצע ללילה. סכומים בשקלים כוללים עמלת אשראי.</div>` : '<div class="note">טרם נרשמו הוצאות.</div>'}
+</section>
+
+<section class="card page"><h2>📅 יום אחר יום</h2>
+${preRows ? `<h3>🧾 לפני הטיול</h3><table class="items">${preRows}</table>` : ''}
+${dayBlocks || '<div class="note">הטיול עוד לא התחיל.</div>'}
+</section>
+
+<section class="card page"><h2>🏨 הזמנות</h2>
+${hotels ? `<h3>מלונות</h3><table><tr><th>מלון</th><th>תאריכים</th><th class="c">לילות</th><th>סטטוס</th><th class="amt">סכום</th></tr>${hotels}</table>` : ''}
+${resv ? `<h3>טיסות, רכב והזמנות נוספות</h3><table><tr><th>תאריך</th><th>הזמנה</th><th class="amt">סכום</th></tr>${resv}</table>` : ''}
+${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
+</section>
+
+<div class="foot">${esc(title)} · יודל'ה${ver ? ' · ' + esc(ver) : ''}</div>
+</div></body></html>`;
+    }
+    function exportHtmlReport() {
+      const html = buildHtmlReport();
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `trip_report_${dateToIso(new Date())}.html`; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return true;
+    }
+
     function exportCsv() {   // always a direct download (no share sheet)
       const csv = buildCsv();
       const filename = `trip_summary_${dateToIso(new Date())}.csv`;
