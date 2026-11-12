@@ -429,6 +429,13 @@
     .me-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; }
     .me-row select { flex: 1; margin: 0; }
     .app-version { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 6px 0 18px; direction: rtl; }
+    .exp-search { position: relative; margin-bottom: 8px; }
+    .exp-search input { margin: 0; padding-inline-end: 44px; }
+    .exp-search input::-webkit-search-cancel-button { display: none; }
+    .exp-search-clear { position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; border-radius: 50%; }
+    .exp-search-info { font-size: 0.8rem; color: var(--text-muted); margin: 0 2px 8px; display: flex; justify-content: space-between; gap: 8px; }
+    .exp-search-info b { color: var(--text-main); }
+    .exp-search-info[hidden], .exp-search-clear[hidden] { display: none; }
     .person-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 8px 12px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--card-border); }
 
     /* Name picker (splits) – horizontally scrollable chips */
@@ -686,6 +693,11 @@
       <!-- Recent Expenses List -->
       <div class="card">
         <div class="card-title"><span>📋 הוצאות אחרונות<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="לחיצה על 🗑️ מוחקת הוצאה (תתבקש לאשר קודם). אם שולמה במזומן, ב-LAYA או ב-Suica הסכום חוזר ליתרה, והוצאת מלון חוזרת לסטטוס &quot;ממתין&quot;." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
+        <div class="exp-search">
+          <input type="search" id="exp-search" class="text-input" value="" placeholder="🔍 חיפוש: תיאור, קטגוריה, תשלום, סכום או תאריך" autocomplete="off" enterkeyhint="search" oninput="renderExpenses()">
+          <button type="button" id="exp-search-clear" class="exp-search-clear" aria-label="נקה חיפוש" onclick="clearExpenseSearch()" hidden>✕</button>
+        </div>
+        <div id="exp-search-info" class="exp-search-info" hidden></div>
         <div class="expense-list scroll-list" id="ui-expense-list"></div>
         <div id="ui-expense-more" class="scroll-hint" data-for="ui-expense-list"></div>
       </div>
@@ -940,7 +952,7 @@
         <button class="primary-btn btn-secondary" style="margin-bottom:10px;" onclick="document.getElementById('import-file').click()" title="טעינת גיבוי – מחליף את הנתונים הנוכחיים">📤 ייבוא מגיבוי (JSON)</button>
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 4 · 11/11/2026 · 62f575</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 9 · 12/11/2026 · a25ef8</span></div>
     </div>
 
   </div>
@@ -1241,6 +1253,7 @@
           tripNameAuto: s.tripNameAuto !== false,
           tripYear: Number.isInteger(s.tripYear) && s.tripYear >= 2000 && s.tripYear <= 2100 ? s.tripYear : null,
           payAuto: normPayAuto(s.payAuto),
+          cashSource: s.cashSource === 'bank' ? 'bank' : 'laya',   // where cash withdrawals come from (remembered)
           dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null,
           me: typeof s.me === 'string' ? (people.find(p => p.toLowerCase() === s.me.trim().toLowerCase()) || null) : null   // who owns this phone (one of the names)
         },
@@ -1787,6 +1800,12 @@
       else showMsg('expense-msg', 'הוצאה נשמרה בהצלחה!');
     }
 
+    function clearExpenseSearch() {
+      const el = document.getElementById('exp-search');
+      el.value = '';
+      renderExpenses();
+      el.focus();
+    }
     function renderExpenses() {
       const listEl = document.getElementById('ui-expense-list');
       const moreEl = document.getElementById('ui-expense-more');
@@ -1798,7 +1817,28 @@
       }
 
       // all of them, newest date first (imported bookings carry their own dates); the list scrolls inside its card
-      const displayList = appData.expenses.slice().sort((a, b) => (b.date || '') > (a.date || '') ? 1 : (b.date || '') < (a.date || '') ? -1 : 0);
+      let displayList = appData.expenses.slice().sort((a, b) => (b.date || '') > (a.date || '') ? 1 : (b.date || '') < (a.date || '') ? -1 : 0);
+
+      // search: every word must match something in the expense (description, category, payment, amount or date)
+      const qEl = document.getElementById('exp-search'), infoEl = document.getElementById('exp-search-info');
+      const q = qEl ? qEl.value.trim().toLowerCase() : '';
+      document.getElementById('exp-search-clear').hidden = !q;
+      if (q) {
+        const words = q.split(/\s+/);
+        displayList = displayList.filter(e => {
+          const amt = String(e.amount), d = new Date(e.date);
+          const hay = [e.note, e.category, e.payment, payLabel(e.payment, e.currency), e.currency, rateOf(e.currency).symbol,
+            amt, Number(e.amount).toLocaleString('en-US'), isNaN(d) ? '' : dateLabel(e.date), isNaN(d) ? '' : ddmm(dateToIso(d)),
+            e.hotelId || e.resId ? 'הזמנה' : ''].join(' ').toLowerCase();
+          return words.every(w => hay.includes(w));
+        });
+        const sum = displayList.reduce((t, e) => t + toIls(e.amount, e.currency, e.payment), 0);
+        infoEl.innerHTML = displayList.length
+          ? `<span>נמצאו <b>${displayList.length}</b> מתוך ${appData.expenses.length}</span><span>סה"כ <b>${escapeHtml(ilsStr(sum, 0))}</b></span>`
+          : '<span>לא נמצאו הוצאות</span>';
+        infoEl.hidden = false;
+        if (!displayList.length) { listEl.innerHTML = ''; moreEl.innerHTML = ''; return; }
+      } else infoEl.hidden = true;
 
       listEl.innerHTML = displayList.map(exp => `
         <div class="expense-item">
@@ -2281,18 +2321,27 @@
     }
 
     // ---------- Wallets ----------
+    // Cash withdrawal = a transfer between your own money, not an expense. Only ATM / bank fees are expenses.
     function promptCashLoad() {
-      const code = curCode();
+      const code = curCode(), w = wallet(code), sym = escapeHtml(rateOf(code).symbol);
+      let src = appData.settings.cashSource === 'bank' ? 'bank' : 'laya';
       const ov = openDialog(`
         <h3>💵 משיכת מזומן</h3>
-        <p>הזן סכום ב-${escapeHtml(code)} שמשכת מכספומט כדי להוסיף ליתרה:</p>
-        <input type="number" id="custom-cash-input" data-el="amt" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:12px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;">
-        <div class="field-label" style="margin-top:0;">עמלות (רשות) – נרשמות כהוצאה</div>
-        <div class="dlg-row">
-          <label class="field-label" style="margin-top:2px;">🏧 עמלת הכספומט (${escapeHtml(rateOf(code).symbol)})<input type="number" data-el="atm" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>
-          ${code === 'ILS' ? '' : `<label class="field-label" style="margin-top:2px;">🏦 עמלת הבנק (₪)<input type="number" data-el="bank" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>`}
+        <div class="field-label" style="margin-top:0;">משכתי מ:</div>
+        <div data-el="src" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+          <button type="button" class="chip-btn" data-src="laya">💳 LAYA<small style="display:block; font-size:0.7rem; opacity:.8;">יתרה ${escapeHtml(money(w.laya, code))}</small></button>
+          <button type="button" class="chip-btn" data-src="bank">🏦 כרטיס בנק / אשראי</button>
         </div>
-        ${code === 'JPY' ? '<p style="font-size:0.72rem; margin:4px 0 12px;">כספומט ביפן (7-Eleven, דואר יפן) גובה בדרך כלל ¥110–330. עמלת הבנק מופיעה בדף החשבון.</p>' : ''}
+        <label class="field-label" style="margin-top:0;">סכום שמשכתי (${escapeHtml(code)})
+          <input type="number" id="custom-cash-input" data-el="amt" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:6px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;"></label>
+        <p data-el="explain" style="font-size:0.75rem; margin:0 0 10px;"></p>
+        <div class="field-label" style="margin-top:0;">עמלות (רשות) – רק הן נרשמות כהוצאה</div>
+        <div class="dlg-row">
+          <label class="field-label" style="margin-top:2px;">🏧 עמלת הכספומט (${sym})<input type="number" data-el="atm" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>
+          ${code === 'ILS' ? '' : `<label class="field-label" style="margin-top:2px;" data-el="bankwrap">🏦 עמלת הבנק (₪)<input type="number" data-el="bank" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>`}
+        </div>
+        ${code === 'JPY' ? '<p style="font-size:0.72rem; margin:4px 0 0;">כספומט ביפן (<bdi>7-Eleven</bdi>, דואר יפן) גובה בדרך כלל <bdi>¥110–330</bdi>.</p>' : ''}
+        <p data-el="warn" style="font-size:0.8rem; color:var(--accent-red); font-weight:700; margin-top:8px;" hidden></p>
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">הוסף מזומן</button>
@@ -2300,21 +2349,43 @@
       `);
       const q = k => ov.querySelector(`[data-el="${k}"]`);
       const bad = el => { el.style.outline = '2px solid #ef4444'; el.focus(); };
+      let confirmShort = false;
+      const paint = () => {
+        ov.querySelectorAll('[data-src]').forEach(b => b.classList.toggle('selected', b.dataset.src === src));
+        q('explain').textContent = src === 'laya'
+          ? 'המזומן עובר מ-LAYA לארנק: יתרת LAYA יורדת ויתרת המזומן עולה. זו לא הוצאה – ההוצאה נרשמת כשמשלמים במזומן.'
+          : 'המזומן נוסף ליתרת המזומן. החיוב בכרטיס הבנק אינו הוצאה – ההוצאה נרשמת כשמשלמים במזומן.';
+        if (q('bankwrap')) q('bankwrap').style.display = src === 'bank' ? '' : 'none';   // a bank fee applies to bank cards only
+        confirmShort = false; q('warn').hidden = true;
+      };
+      ov.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { src = b.dataset.src; paint(); });
+      paint();
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         const val = parseFloat(q('amt').value);
         if (isNaN(val) || val <= 0 || val > 1e9) { bad(q('amt')); return; }   // stay open until a valid amount
-        const fee = el => { if (!el || el.value.trim() === '') return 0; const f = parseFloat(el.value); return f >= 0 && f <= 1e6 ? f : NaN; };
+        const fee = el => { if (!el || el.value.trim() === '' || (el === q('bank') && src !== 'bank')) return 0; const f = parseFloat(el.value); return f >= 0 && f <= 1e6 ? f : NaN; };
         const atm = fee(q('atm')), bank = fee(q('bank'));
         if (isNaN(atm)) { bad(q('atm')); return; }
         if (isNaN(bank)) { bad(q('bank')); return; }
-        wallet(code).cash = Math.round((wallet(code).cash + val) * 1e6) / 1e6;
+        const fromLaya = val + atm;   // with LAYA the ATM fee also comes off the card
+        if (src === 'laya' && fromLaya > w.laya + 1e-9 && !confirmShort) {
+          q('warn').textContent = `ביתרת LAYA יש רק ${money(w.laya, code)}. אם היתרה באפליקציה לא מעודכנת, לחץ "הוסף מזומן" שוב כדי להמשיך.`;
+          q('warn').hidden = false; confirmShort = true; return;
+        }
+        if (src === 'laya') w.laya = Math.round((w.laya - val) * 1e6) / 1e6;
+        w.cash = Math.round((w.cash + val) * 1e6) / 1e6;
+        appData.settings.cashSource = src;
         const now = new Date().toISOString();
-        if (atm > 0) appData.expenses.unshift({ id: newId(), amount: atm, currency: code, category: 'שונות', payment: 'אשראי', note: `🏧 עמלת כספומט (משיכה של ${money(val, code)})`, date: now });
+        if (atm > 0) {
+          const pay = src === 'laya' ? 'LAYA' : 'אשראי';
+          if (pay === 'LAYA') spendFrom('LAYA', code, atm);
+          appData.expenses.unshift({ id: newId(), amount: atm, currency: code, category: 'שונות', payment: pay, note: `🏧 עמלת כספומט (משיכה של ${money(val, code)})`, date: now });
+        }
         if (bank > 0) appData.expenses.unshift({ id: newId(), amount: bank, currency: 'ILS', category: 'שונות', payment: 'אשראי', note: '🏦 עמלת בנק על משיכה', date: now });
         saveData();
         ov.remove();
-        if (atm > 0 || bank > 0) showMsg('expense-msg', 'המזומן נוסף והעמלות נרשמו כהוצאה');
+        showMsg('expense-msg', (src === 'laya' ? `${money(val, code)} עברו מ-LAYA למזומן` : `${money(val, code)} נוספו למזומן`) + (atm > 0 || bank > 0 ? ' · העמלות נרשמו כהוצאה' : ''));
       };
     }
 
