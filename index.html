@@ -428,6 +428,7 @@
     .people-box { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
     .me-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; }
     .me-row select { flex: 1; margin: 0; }
+    .guide-link { display: flex; align-items: center; justify-content: center; text-decoration: none; margin-top: 4px; }
     .app-version { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 6px 0 18px; direction: rtl; }
     .exp-search { position: relative; margin-bottom: 8px; }
     .exp-search input { margin: 0; padding-inline-end: 44px; }
@@ -952,7 +953,8 @@
         <button class="primary-btn btn-secondary" style="margin-bottom:10px;" onclick="document.getElementById('import-file').click()" title="טעינת גיבוי – מחליף את הנתונים הנוכחיים">📤 ייבוא מגיבוי (JSON)</button>
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 9 · 12/11/2026 · a25ef8</span></div>
+      <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 11 · 12/11/2026 · fa2e73</span></div>
     </div>
 
   </div>
@@ -1109,6 +1111,21 @@
       return el ? el.getAttribute('data-val') : null;
     }
 
+    // Part of day set while editing an expense: fixed times so expenses still sort in order within the day
+    const DAY_PARTS = [['morning', '🌅 בוקר', '09:00'], ['noon', '☀️ צהריים', '13:00'], ['evening', '🌙 ערב', '19:00']];
+    function dayPartOf(d) {   // 'morning' | 'noon' | 'evening' | null (a real clock time)
+      if (d.getSeconds() || d.getMilliseconds()) return null;
+      const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const p = DAY_PARTS.find(x => x[2] === hm);
+      return p ? p[0] : null;
+    }
+    function expenseWhen(iso) {   // list label: "12/11 ערב" for a part of day, "12/11 20:15" for a real time
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      const part = dayPartOf(d);
+      if (!part) return dateLabel(iso);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${DAY_PARTS.find(x => x[0] === part)[1].split(' ')[1]}`;
+    }
     function dateLabel(iso) {
       const d = new Date(iso);
       if (isNaN(d)) return '';
@@ -1845,7 +1862,7 @@
           <div class="exp-icon">${CAT_ICONS[exp.category] || '🛒'}</div>
           <div class="exp-details">
             <div class="exp-title">${escapeHtml(exp.note)}</div>
-            <div class="exp-meta">${escapeHtml(payLabel(exp.payment, exp.currency))} • ${dateLabel(exp.date)}</div>
+            <div class="exp-meta">${escapeHtml(payLabel(exp.payment, exp.currency))} • ${expenseWhen(exp.date)}</div>
           </div>
           <div class="exp-amounts">
             <div class="exp-main">${money(exp.amount, exp.currency)}</div>
@@ -2073,6 +2090,12 @@
       showMsg('people-msg', `"${name}" נוסף/ה`);
     }
 
+    // The guide sits next to the app on the site. Opened from a local file, use the online copy.
+    const GUIDE_ONLINE = 'https://nirco-cloud.github.io/Yudale/user_guide_he.html';
+    function openGuide(a) {
+      if (!/^https?:$/.test(location.protocol)) a.href = GUIDE_ONLINE;
+      return true;   // same window: inside the installed app, so it is saved for offline use too
+    }
     function setMe(name) {
       appData.settings.me = appData.settings.people.includes(name) ? name : null;
       saveData();
@@ -3565,15 +3588,31 @@ Rules:
           <label class="field-label">תשלום<select class="select-input" data-el="pay">${optionHtml(pays, e.payment)}</select></label>
         </div>
         <label class="field-label">תאריך<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${iso}" max="${maxDay}"></label>
+        <div class="field-label">חלק ביום</div>
+        <div data-el="parts" style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+          ${DAY_PARTS.map(x => `<button type="button" class="chip-btn" data-part="${x[0]}" style="padding:8px 2px; font-size:0.8rem;">${x[1]}</button>`).join('')}
+          <button type="button" class="chip-btn" data-part="exact" style="padding:8px 2px; font-size:0.8rem;">🕒 שעה מדויקת</button>
+        </div>
+        <input type="time" class="text-input" data-el="time" style="direction:ltr; margin-top:8px;" value="${isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')}">
         ${e.hotelId ? '<p style="font-size:0.75rem;">ההוצאה מקושרת למלון: הסכום הסופי של המלון יתעדכן בהתאם.</p>' : ''}
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">שמור</button>
         </div>`);
       const q = k => ov.querySelector(`[data-el="${k}"]`);
+      const origPart = isNaN(d) ? 'exact' : (dayPartOf(d) || 'exact');
+      let part = origPart;
+      const paintParts = () => {
+        ov.querySelectorAll('[data-part]').forEach(b => b.classList.toggle('selected', b.dataset.part === part));
+        q('time').style.display = part === 'exact' ? '' : 'none';
+      };
+      ov.querySelectorAll('[data-part]').forEach(b => b.onclick = () => { part = b.dataset.part; paintParts(); if (part === 'exact') q('time').focus(); });
+      paintParts();
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         const amt = parseFloat(q('amt').value), note = q('note').value.trim(), cat = q('cat').value, pay = q('pay').value, day = q('date').value;
+        const hm = part === 'exact' ? q('time').value : DAY_PARTS.find(x => x[0] === part)[2];
+        if (!/^\d{2}:\d{2}$/.test(hm || '')) { markBad(q('time')); return; }
         if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(e.currency).decimals)) === 0) { markBad(q('amt')); return; }
         if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); return; }
         if (!appData.expenses.includes(e)) { ov.remove(); return; }
@@ -3582,7 +3621,11 @@ Rules:
         if (oldKey) { const w = wallet(e.currency); w[oldKey] = Math.round((w[oldKey] + e.amount) * 1e6) / 1e6; }
         const warn = spendFrom(pay, e.currency, amt);
         e.amount = amt; e.payment = pay; e.category = cat; e.note = note || cat;
-        if (day !== iso) e.date = (day === dateToIso(new Date()) ? new Date() : isoToDate(day)).toISOString();
+        const origHm = isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        if (day !== iso || part !== origPart || (part === 'exact' && hm !== origHm)) {   // only touch the date when something changed
+          const [Y, M, Dd] = day.split('-').map(Number), [H, Mi] = hm.split(':').map(Number);
+          e.date = new Date(Y, M - 1, Dd, H, Mi, 0, 0).toISOString();
+        }
         if (e.hotelId) { const h = appData.hotels.find(x => x.id === e.hotelId); if (h) { h.finalPrice = amt; h.payment = pay; } }
         ov.remove();
         saveData();
