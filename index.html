@@ -954,7 +954,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 11 · 12/11/2026 · fa2e73</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 12 · 13/11/2026 · 7a2a16</span></div>
     </div>
 
   </div>
@@ -1937,6 +1937,84 @@
       return name;
     }
 
+    // Edit a split entry: direction, amount (currency stays as entered), category, description, date and time of day
+    function editSplit(id) {
+      const sp = appData.splits.find(x => x.id === id);
+      if (!sp) return;
+      const me = appData.settings.me, party = splitParty(sp), others = splitCounterparts();
+      const d = new Date(sp.date), iso = isNaN(d) ? dateToIso(new Date()) : dateToIso(d);
+      const maxDay = iso > dateToIso(new Date()) ? iso : dateToIso(new Date());
+      const cats = SUMMARY_CATS.slice(); if (!cats.includes(sp.category)) cats.push(sp.category);
+      const people = others.includes(party) ? others : [party].concat(others);
+      const dirLabel = (plus, who) => me ? (plus ? `${who} חייבים ל${me}` : `${me} חייבים ל${who}`) : (plus ? `${who} חייבים לי` : `אני חייב/ת ל${who}`);
+      const ov = openDialog(`
+        <h3>✏️ עריכת קיזוז</h3>
+        ${people.length > 1 ? `<label class="field-label">עם מי<select class="select-input" data-el="person">${optionHtml(people, party)}</select></label>` : ''}
+        <div class="field-label">כיוון</div>
+        <div data-el="dir" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <button type="button" class="chip-btn" data-dir="plus" style="padding:8px 4px; font-size:0.8rem;"></button>
+          <button type="button" class="chip-btn" data-dir="minus" style="padding:8px 4px; font-size:0.8rem;"></button>
+        </div>
+        <label class="field-label">סכום (${escapeHtml(rateOf(sp.currency).symbol)} · ${escapeHtml(sp.currency)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(Math.abs(sp.amount))}"></label>
+        <div class="dlg-row">
+          <label class="field-label">קטגוריה<select class="select-input" data-el="cat">${optionHtml(cats, sp.category, c => (CAT_ICONS[c] || '') + ' ' + c)}</select></label>
+        </div>
+        <label class="field-label">תיאור<input type="text" class="text-input" data-el="note" maxlength="120" value="${escapeHtml(sp.note === sp.category ? '' : sp.note)}" placeholder="${escapeHtml(sp.category)}"></label>
+        <label class="field-label">תאריך<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${iso}" max="${maxDay}"></label>
+        <div class="field-label">חלק ביום</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+          ${DAY_PARTS.map(x => `<button type="button" class="chip-btn" data-part="${x[0]}" style="padding:8px 2px; font-size:0.8rem;">${x[1]}</button>`).join('')}
+          <button type="button" class="chip-btn" data-part="exact" style="padding:8px 2px; font-size:0.8rem;">🕒 שעה מדויקת</button>
+        </div>
+        <input type="time" class="text-input" data-el="time" style="direction:ltr; margin-top:8px;" value="${isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')}">
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">שמור</button>
+        </div>`);
+      const q = k => ov.querySelector(`[data-el="${k}"]`);
+      let plus = sp.amount > 0;
+      const origPart = isNaN(d) ? 'exact' : (dayPartOf(d) || 'exact');
+      let part = origPart;
+      const who = () => q('person') ? q('person').value : party;
+      const paint = () => {
+        ov.querySelectorAll('[data-dir]').forEach(b => {
+          const isPlus = b.dataset.dir === 'plus';
+          b.textContent = (isPlus ? '➕ ' : '➖ ') + dirLabel(isPlus, who());
+          b.classList.toggle('selected', isPlus === plus);
+          b.style.color = b.classList.contains('selected') ? (isPlus ? 'var(--accent-green)' : 'var(--accent-red)') : '';
+          b.style.borderColor = b.classList.contains('selected') ? (isPlus ? 'var(--accent-green)' : 'var(--accent-red)') : '';
+        });
+        ov.querySelectorAll('[data-part]').forEach(b => b.classList.toggle('selected', b.dataset.part === part));
+        q('time').style.display = part === 'exact' ? '' : 'none';
+      };
+      ov.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => { plus = b.dataset.dir === 'plus'; paint(); });
+      ov.querySelectorAll('[data-part]').forEach(b => b.onclick = () => { part = b.dataset.part; paint(); if (part === 'exact') q('time').focus(); });
+      if (q('person')) q('person').onchange = paint;
+      paint();
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const amt = parseFloat(q('amt').value), day = q('date').value, cat = q('cat').value;
+        if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(sp.currency).decimals)) === 0) { markBad(q('amt')); return; }
+        if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); return; }
+        const hm = part === 'exact' ? q('time').value : DAY_PARTS.find(x => x[0] === part)[2];
+        if (!/^\d{2}:\d{2}$/.test(hm || '')) { markBad(q('time')); return; }
+        if (!appData.splits.includes(sp)) { ov.remove(); return; }
+        sp.amount = plus ? amt : -amt;
+        sp.category = cat;
+        sp.note = q('note').value.trim() || cat;
+        const newWho = who();
+        if (newWho !== party) sp.person = newWho;   // otherwise keep how it was recorded
+        const origHm = isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        if (day !== iso || part !== origPart || (part === 'exact' && hm !== origHm)) {
+          const [Y, M, Dd] = day.split('-').map(Number), [H, Mi] = hm.split(':').map(Number);
+          sp.date = new Date(Y, M - 1, Dd, H, Mi, 0, 0).toISOString();
+        }
+        ov.remove();
+        saveData();
+        showMsg('split-msg', 'הקיזוז עודכן');
+      };
+    }
+
     function saveSplit() {
       let amount = parseFloat(document.getElementById('inp-split-amount').value);
       const person = selectedPerson;
@@ -2010,11 +2088,12 @@
             <div class="exp-icon">${CAT_ICONS[split.category] || '🎫'}</div>
             <div class="exp-details">
               <div class="exp-title" style="color:${titleColor};">${titleText}</div>
-              <div class="exp-meta">${escapeHtml(split.category)} • ${dateLabel(split.date)}</div>
+              <div class="exp-meta">${escapeHtml(split.category)} • ${expenseWhen(split.date)}</div>
             </div>
             <div class="exp-amounts">
               <div class="exp-main" style="color:${amountColor};">${isDebt ? '-' : '+'}${money(Math.abs(split.amount), split.currency)}</div>
             </div>
+            <button class="edit-btn" data-id="${escapeHtml(split.id)}" onclick="editSplit(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>
             <button class="del-btn" data-id="${escapeHtml(split.id)}" onclick="deleteSplit(this.dataset.id)" aria-label="מחק" title="מחק">🗑️</button>
           </div>
         `;
