@@ -44,7 +44,7 @@
   <style>
     /* Default: Light Mode */
     :root {
-      --c-food: #2a78d6; --c-shop: #eb6834; --c-trans: #1baf7a; --c-hotel: #eda100; --c-misc: #e87ba4;
+      --c-food: #2a78d6; --c-shop: #eb6834; --c-trans: #1baf7a; --c-hotel: #eda100; --c-attr: #8b5cf6; --c-misc: #e87ba4;
       --t-cash: #1baf7a; --t-laya: #8b5cf6; --t-card: #2a78d6;
       --nick-gold: #b7791f;
       --bg-page: #f3f4f6;
@@ -71,7 +71,7 @@
     /* Dark Mode Overrides */
     @media (prefers-color-scheme: dark) {
       :root {
-        --c-food: #3987e5; --c-shop: #d95926; --c-trans: #199e70; --c-hotel: #c98500; --c-misc: #d55181;
+        --c-food: #3987e5; --c-shop: #d95926; --c-trans: #199e70; --c-hotel: #c98500; --c-attr: #a78bfa; --c-misc: #d55181;
         --t-cash: #199e70; --t-laya: #8b5cf6; --t-card: #3987e5;
         --nick-gold: #f6c453;
         --bg-page: #0b0f19;
@@ -671,11 +671,12 @@
         </div>
 
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">קטגוריה:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="הקטגוריה קובעת איך ההוצאה תופיע במסך הסיכום." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
-        <div class="grid-4" id="cat-grid">
+        <div class="grid-3" id="cat-grid">
           <div class="chip-btn selected" data-val="אוכל" onclick="selectChip('cat-grid', this)">🍜<br>אוכל</div>
           <div class="chip-btn" data-val="קניות" onclick="selectChip('cat-grid', this)">🛍️<br>קניות</div>
           <div class="chip-btn" data-val="תחבורה" onclick="selectChip('cat-grid', this)">🚄<br>תחבורה</div>
-          <div class="chip-btn" data-val="שונות" onclick="selectChip('cat-grid', this)">🎫<br>שונות</div>
+          <div class="chip-btn" data-val="אטרקציות" onclick="selectChip('cat-grid', this)">🎟️<br>אטרקציות</div>
+          <div class="chip-btn" data-val="שונות" onclick="selectChip('cat-grid', this)">📦<br>שונות</div>
         </div>
 
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">אמצעי תשלום:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="מזומן, LAYA ו-Suica מורידים מהיתרה שלהם בארנק. אשראי לא משנה יתרות ומוסיף את עמלת ההמרה שהגדרת. LAYA כבר כוללת עמלה, ולכן נספרת בלי תוספת. העלות בשקלים ובדולרים מוצגת מעל, לפי השערים בהגדרות." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
@@ -824,7 +825,8 @@
         <div class="grid-3" id="split-cat-grid">
           <div class="chip-btn selected" data-val="אוכל" onclick="selectChip('split-cat-grid', this)">🍜<br>אוכל</div>
           <div class="chip-btn" data-val="דלק" onclick="selectChip('split-cat-grid', this)">⛽<br>דלק</div>
-          <div class="chip-btn" data-val="שונות" onclick="selectChip('split-cat-grid', this)">🎫<br>שונות</div>
+          <div class="chip-btn" data-val="אטרקציות" onclick="selectChip('split-cat-grid', this)">🎟️<br>אטרקציות</div>
+          <div class="chip-btn" data-val="שונות" onclick="selectChip('split-cat-grid', this)">📦<br>שונות</div>
         </div>
 
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">שם:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="בחר מהרשימה (אפשר לגלול הצידה). הוספה והסרה של שמות: הגדרות ← שמות לקיזוז." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
@@ -954,7 +956,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 12 · 13/11/2026 · 7a2a16</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 14 · 13/11/2026 · faa182</span></div>
     </div>
 
   </div>
@@ -1059,8 +1061,8 @@
 
     const DEFAULT_HOTELS = [];
 
-    const CAT_ICONS = { 'אוכל': '🍜', 'קניות': '🛍️', 'תחבורה': '🚄', 'שונות': '🎫', 'מלון': '🏨', 'דלק': '⛽' };
-    const SUMMARY_CATS = ['אוכל', 'קניות', 'תחבורה', 'מלון', 'שונות'];
+    const CAT_ICONS = { 'אוכל': '🍜', 'קניות': '🛍️', 'תחבורה': '🚄', 'אטרקציות': '🎟️', 'שונות': '📦', 'מלון': '🏨', 'דלק': '⛽' };
+    const SUMMARY_CATS = ['אוכל', 'קניות', 'תחבורה', 'מלון', 'אטרקציות', 'שונות'];
 
     let appData = {};
     let selectedPerson = null;
@@ -1270,7 +1272,8 @@
           tripNameAuto: s.tripNameAuto !== false,
           tripYear: Number.isInteger(s.tripYear) && s.tripYear >= 2000 && s.tripYear <= 2100 ? s.tripYear : null,
           payAuto: normPayAuto(s.payAuto),
-          cashSource: s.cashSource === 'bank' ? 'bank' : 'laya',   // where cash withdrawals come from (remembered)
+          cashSource: s.cashSource === 'bank' ? 'bank' : 'laya',
+          attrMoveAsked: !!s.attrMoveAsked,   // where cash withdrawals come from (remembered)
           dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null,
           me: typeof s.me === 'string' ? (people.find(p => p.toLowerCase() === s.me.trim().toLowerCase()) || null) : null   // who owns this phone (one of the names)
         },
@@ -1380,6 +1383,7 @@
       setInterval(updateTime, 60000);
       initBookingsUi();
       renderAll();
+      setTimeout(suggestAttractionMove, 800);
       if (window.__loadProblem) setTimeout(() => notifyDialog('⚠️ הנתונים השמורים היו פגומים', 'לא ניתן היה לקרוא את הנתונים השמורים, והאפליקציה התחילה נקייה. עותק של הנתונים הפגומים נשמר במכשיר. אם יש לך קובץ גיבוי, ייבא אותו בהגדרות.'), 400);
       if (persistFailed) showStorageBanner();
       refreshRates(); // no-op when offline, switched off, or updated in the last 12 hours
@@ -2015,6 +2019,35 @@
       };
     }
 
+    // New category "אטרקציות": offer once to move old entrance fees / temples / cable cars out of "שונות"
+    const ATTR_WORDS = /כניסה|מקדש|מוזיאון|רכבל|כרטיס|אטרקצי|טירה|ארמון|מגדל|פארק|גן |גני |תצפית|מופע|סיור|ticket|temple|shrine|museum|ropeway|cable|teamlab|castle|tower|park|garden|admission|entrance|tour/i;
+    function suggestAttractionMove() {
+      if (appData.settings.attrMoveAsked) return;
+      const attrRes = new Set(appData.reservations.filter(r => r.kind === 'activity' && r.category !== 'restaurant' && r.category !== 'transport').map(r => r.id));
+      const hits = appData.expenses.filter(e => e.category === 'שונות' && !/עמלת/.test(e.note || '') &&
+        (ATTR_WORDS.test(e.note || '') || (e.resId && attrRes.has(e.resId))));
+      if (!hits.length) { appData.settings.attrMoveAsked = true; persist(); return; }
+      if (document.querySelector('body > .overlay')) { setTimeout(suggestAttractionMove, 1500); return; }   // never on top of another dialog
+      const ov = openDialog(`
+        <h3>🎟️ קטגוריה חדשה: אטרקציות</h3>
+        <p>מצאתי ${hits.length} הוצאות ב"שונות" שנראות כמו כניסות ואטרקציות. להעביר אותן? (אפשר להוריד סימון)</p>
+        <div>${hits.map(e => `<label class="bk-row"><input type="checkbox" data-id="${escapeHtml(e.id)}" checked><span class="bk-main">${escapeHtml(e.note || e.category)}<div class="bk-meta">${escapeHtml(expenseWhen(e.date))} · ${escapeHtml(money(e.amount, e.currency))}</div></span></label>`).join('')}</div>
+        <div class="dialog-actions" style="margin-top:12px;">
+          <button class="primary-btn btn-secondary" data-act="cancel">לא עכשיו</button>
+          <button class="primary-btn" data-act="ok">העבר</button>
+        </div>`);
+      ov.querySelector('.dialog').classList.add('wide');
+      const done = () => { appData.settings.attrMoveAsked = true; };
+      ov.querySelector('[data-act=cancel]').onclick = () => { done(); ov.remove(); saveData(); };
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const ids = new Set([...ov.querySelectorAll('input[data-id]:checked')].map(c => c.dataset.id));
+        let n = 0;
+        appData.expenses.forEach(e => { if (ids.has(e.id)) { e.category = 'אטרקציות'; n++; } });
+        done(); ov.remove(); saveData();
+        if (n) showMsg('expense-msg', `${n} הוצאות הועברו לאטרקציות`);
+      };
+    }
+
     function saveSplit() {
       let amount = parseFloat(document.getElementById('inp-split-amount').value);
       const person = selectedPerson;
@@ -2085,7 +2118,7 @@
                              : (isDebt ? `אני חייב/ת ל${person}: ${note}` : `${person} חייבים: ${note}`);
         return `
           <div class="expense-item">
-            <div class="exp-icon">${CAT_ICONS[split.category] || '🎫'}</div>
+            <div class="exp-icon">${CAT_ICONS[split.category] || '📦'}</div>
             <div class="exp-details">
               <div class="exp-title" style="color:${titleColor};">${titleText}</div>
               <div class="exp-meta">${escapeHtml(split.category)} • ${expenseWhen(split.date)}</div>
@@ -2541,7 +2574,7 @@
     }
 
     // ---------- Dashboard (Summary tab): by category + per day, all in shekels ----------
-    const DASH_COLORS = { 'אוכל': 'var(--c-food)', 'קניות': 'var(--c-shop)', 'תחבורה': 'var(--c-trans)', 'מלון': 'var(--c-hotel)', 'שונות': 'var(--c-misc)' };
+    const DASH_COLORS = { 'אוכל': 'var(--c-food)', 'קניות': 'var(--c-shop)', 'תחבורה': 'var(--c-trans)', 'מלון': 'var(--c-hotel)', 'אטרקציות': 'var(--c-attr)', 'שונות': 'var(--c-misc)' };
     const DASH_MAX_DAYS = 31;
     function dashData() {
       const cats = {}; SUMMARY_CATS.forEach(c => cats[c] = 0);
@@ -3061,12 +3094,12 @@
 
     function resIcon(r) {
       if (r.kind === 'car') return '🚗 ';
-      if (r.kind === 'activity') return (ACT_ICON[r.category] || '🎫') + ' ';
+      if (r.kind === 'activity') return (ACT_ICON[r.category] || '🎟️') + ' ';
       return '';   // flights carry ✈️ in their name; manual entries have none
     }
     function resExpenseCategory(r) {
       if (r.kind === 'flight' || r.kind === 'car') return 'תחבורה';
-      if (r.kind === 'activity') return r.category === 'restaurant' ? 'אוכל' : r.category === 'transport' ? 'תחבורה' : 'שונות';
+      if (r.kind === 'activity') return r.category === 'restaurant' ? 'אוכל' : r.category === 'transport' ? 'תחבורה' : 'אטרקציות';
       return 'שונות';
     }
     function resSubHtml(r) {
@@ -3359,7 +3392,7 @@ Rules:
       if (/train|rail|shinkansen|bus|ferry|transfer|jr pass|רכבת|אוטובוס|העברה/.test(t)) return 'transport';
       return 'attraction';
     }
-    const ACT_ICON = { restaurant: '🍽️', transport: '🚄', attraction: '🎫' };
+    const ACT_ICON = { restaurant: '🍽️', transport: '🚄', attraction: '🎟️' };
     const actKey = (conf, name, date, time) => 'act|' + (conf ? 'c:' + conf : 'n:' + normName(name)) + '|' + (date || '') + '|' + (time || '');
     const actNameKey = (name, date) => 'act|n:' + normName(name) + '|' + (date || '');
 
@@ -4121,7 +4154,7 @@ Rules:
       const both = e => e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`;
       const dlab = d => { const l = reservationDateLabel(d); return `${l.day} · ${l.top}`; };
       const isoOf = e => { const d = new Date(e.date); return isNaN(d) ? '' : dateToIso(d); };
-      const COL = { 'אוכל': '#2a78d6', 'קניות': '#eb6834', 'תחבורה': '#1baf7a', 'מלון': '#eda100', 'שונות': '#e87ba4' };
+      const COL = { 'אוכל': '#2a78d6', 'קניות': '#eb6834', 'תחבורה': '#1baf7a', 'מלון': '#eda100', 'אטרקציות': '#8b5cf6', 'שונות': '#e87ba4' };
       const catOf = e => SUMMARY_CATS.includes(e.category) ? e.category : 'שונות';
 
       // ---- summary numbers ----
