@@ -314,6 +314,7 @@
       background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
       border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px;
       box-shadow: var(--shadow-md); color: #fff;
+      position: sticky; top: -16px; z-index: 20;   /* stays on top while the home screen scrolls (top = the scroller's padding) */
     }
     .hero-label { font-size: 0.85rem; color: #bfdbfe; margin-bottom: 6px; }
     .hero-main-amount { font-size: 2.2rem; font-weight: 800; }
@@ -573,9 +574,6 @@
       <span class="app-nick" id="ui-header-nick">· יודל'ה 💰</span>
     </div>
   </div>
-
-  <div class="rates-bar" id="ui-rates-bar" role="button" tabindex="0" onclick="goToSettings()"
-       onkeydown="if(event.key==='Enter') goToSettings()" title="לחץ לעדכון השערים" aria-label="שערי החליפין – לחץ לעדכון"></div>
 
   <div class="screen-container" id="scroll-area">
 
@@ -956,7 +954,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 14 · 13/11/2026 · faa182</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 15 · 13/11/2026 · dbe1b0</span></div>
     </div>
 
   </div>
@@ -1530,14 +1528,9 @@
       // Option 2: three cards – shekel, dollar, credit-card fee (+ a small freshness note)
       const rateStr = v => v.toFixed(3).replace(/0$/, ''); // 1.964, 4.05, 0.632
       const ilsMode = code === 'ILS';   // shekel trip: no exchange rates anywhere
-      document.getElementById('ui-rates-bar').style.display = ilsMode ? 'none' : '';
       document.getElementById('rates-section').style.display = ilsMode ? 'none' : '';
       document.getElementById('ui-live-preview').style.display = ilsMode ? 'none' : '';
-      document.getElementById('ui-rates-bar').innerHTML =
-        `<div class="rc"><small>שקל ל-${escapeHtml(money(r.unit, code))}</small><b>₪${rateStr(r.ils * r.unit)}</b><em>${r.unit} ${escapeHtml(code)}</em></div>` +
-        `<div class="rc"><small>דולר ל-${escapeHtml(money(r.unit, code))}</small><b>$${rateStr(r.usd * r.unit)}</b><em>${r.unit} ${escapeHtml(code)}</em></div>` +
-        `<div class="rc fee"><small>עמלת אשראי</small><b>+${escapeHtml(appData.settings.fee)}%</b><em>לא חל על מזומן ו-LAYA</em></div>` +
-        `<div class="rates-note">${escapeHtml(ratesNoteText())}</div>`;
+      // (the rate cards at the top were removed: rates live in the converter tab and in Settings)
 
       const autoBox = document.getElementById('setting-auto-rates');
       if (autoBox) autoBox.checked = appData.settings.autoRates;
