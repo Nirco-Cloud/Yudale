@@ -314,8 +314,20 @@
       background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
       border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px;
       box-shadow: var(--shadow-md); color: #fff;
-      position: sticky; top: -16px; z-index: 20;   /* stays on top while the home screen scrolls (top = the scroller's padding) */
     }
+    /* slim bar: takes no space; slides in at the top when the full card has scrolled away */
+    .hero-slim-wrap { position: sticky; top: -16px; height: 0; z-index: 20; margin: 0 -4px; }
+    .hero-slim { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); color: #fff; border-radius: 0 0 16px 16px; padding: 8px 12px;
+      box-shadow: var(--shadow-md); transform: translateY(-110%); opacity: 0; transition: transform .22s ease, opacity .22s ease; pointer-events: none; }
+    .hero-slim.show { transform: none; opacity: 1; pointer-events: auto; }
+    .hs-tot { min-width: 0; line-height: 1.15; }
+    .hs-tot b { display: block; font-size: 1.1rem; font-weight: 800; direction: ltr; text-align: right; white-space: nowrap; }
+    .hs-tot small { display: block; font-size: 0.66rem; color: #93c5fd; font-weight: 700; white-space: nowrap; direction: ltr; text-align: right; }
+    .hs-ws { display: flex; gap: 4px; flex: 0 0 auto; }
+    .hs-w { border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.25); color: #fff; font: inherit; font-size: 0.7rem; font-weight: 700;
+      border-radius: 10px; padding: 0 6px; min-height: 36px; white-space: nowrap; cursor: pointer; }
+    .hs-w.cash bdi { color: #6ee7b7; } .hs-w.laya bdi { color: #c4b5fd; } .hs-w.suica bdi { color: #93c5fd; }
     .hero-label { font-size: 0.85rem; color: #bfdbfe; margin-bottom: 6px; }
     .hero-main-amount { font-size: 2.2rem; font-weight: 800; }
     .hero-converted { display: flex; gap: 16px; margin-top: 8px; font-size: 1rem; font-weight: 600; color: #93c5fd; }
@@ -591,7 +603,17 @@
         <button class="primary-btn" id="install-btn" style="display:none; position:static; color:#fff; background:var(--primary); font-size:0.9rem; padding:10px; margin-top:10px;" onclick="installApp()">📲 התקן אפליקציה</button>
       </div>
 
-      <div class="hero-card">
+      <div class="hero-slim-wrap" aria-hidden="true" id="hero-slim-wrap">
+        <div class="hero-slim" id="hero-slim">
+          <div class="hs-tot"><b id="hs-main">¥0</b><small id="hs-conv"></small></div>
+          <div class="hs-ws">
+            <button type="button" class="hs-w cash" onclick="promptCashLoad()" tabindex="-1">💵 <bdi id="hs-cash">¥0</bdi></button>
+            <button type="button" class="hs-w laya" onclick="promptLayaLoad()" tabindex="-1">💳 <bdi id="hs-laya">¥0</bdi></button>
+            <button type="button" class="hs-w suica" id="hs-suica-btn" onclick="slimSuica()" tabindex="-1">🐧 <bdi id="hs-suica">¥0</bdi></button>
+          </div>
+        </div>
+      </div>
+      <div class="hero-card" id="hero-card">
         <div class="hero-label">סה"כ הוצאות בפועל (ללא מלונות ממתינים)<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="כל מה ששולם בפועל, במטבע הנוכחי. הסכום בשקלים ובדולרים כולל את כל המטבעות. מלון נספר רק אחרי שאישרת את החיוב שלו." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
         <div class="hero-main-amount" id="ui-total-main">¥ 0</div>
         <div class="hero-converted" id="ui-hero-converted">
@@ -954,7 +976,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 15 · 13/11/2026 · dbe1b0</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 16 · 14/11/2026 · d63805</span></div>
     </div>
 
   </div>
@@ -1439,6 +1461,7 @@
         () => renderPeopleSettings(),
         () => renderReservations(),
         () => renderToday(),
+        () => syncSlim(),
         () => renderConverter(),
         () => renderExpDay(),
         () => renderPayAutoSettings(),
@@ -2040,6 +2063,42 @@
         if (n) showMsg('expense-msg', `${n} הוצאות הועברו לאטרקציות`);
       };
     }
+
+    // ---------- slim status bar (home): mirrors the full card, shown once the card scrolls away ----------
+    function syncSlim() {
+      const t = id => (document.getElementById(id) || {}).textContent || '';
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('hs-main', t('ui-total-main'));
+      const ils = t('ui-total-ils'), usd = t('ui-total-usd');
+      set('hs-conv', [ils, usd].filter(x => x && x.trim()).join(' · '));
+      set('hs-cash', t('ui-cash-balance')); set('hs-laya', t('ui-laya-balance')); set('hs-suica', t('ui-suica-balance'));
+      const chip = document.getElementById('wallet-suica-chip'), sb = document.getElementById('hs-suica-btn');
+      if (chip && sb) sb.style.display = getComputedStyle(chip).display === 'none' ? 'none' : '';
+    }
+    function slimSuica() {   // the Suica panel opens inside the full card: go back up to it first
+      const sc = document.getElementById('scroll-area');
+      sc.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(toggleSuicaPanel, 250);
+    }
+    (function watchHero() {
+      const sc = document.getElementById('scroll-area');
+      const upd = () => {
+        const hero = document.getElementById('hero-card'), slim = document.getElementById('hero-slim');
+        if (!hero || !slim) return;
+        const home = document.getElementById('screen-home').classList.contains('active');
+        const gone = hero.getBoundingClientRect().bottom < sc.getBoundingClientRect().top + 40;   // the full card has (almost) left the screen
+        const show = home && gone;
+        if (show !== slim.classList.contains('show')) {
+          slim.classList.toggle('show', show);
+          document.getElementById('hero-slim-wrap').setAttribute('aria-hidden', String(!show));
+          slim.querySelectorAll('button').forEach(b => b.tabIndex = show ? 0 : -1);
+          if (show) syncSlim();
+        }
+      };
+      sc.addEventListener('scroll', upd, { passive: true });
+      window.addEventListener('resize', upd);
+      document.addEventListener('click', () => setTimeout(upd, 50));   // tab switches
+    })();
 
     function saveSplit() {
       let amount = parseFloat(document.getElementById('inp-split-amount').value);
