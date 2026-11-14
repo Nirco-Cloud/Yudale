@@ -976,7 +976,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 16 · 14/11/2026 · d63805</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 20 · 14/11/2026 · 5be574</span></div>
     </div>
 
   </div>
@@ -2512,26 +2512,42 @@
     function promptCashLoad() {
       const code = curCode(), w = wallet(code), sym = escapeHtml(rateOf(code).symbol);
       let src = appData.settings.cashSource === 'bank' ? 'bank' : 'laya';
+      const friends = splitCounterparts();
+      let friend = friends.length === 1 ? friends[0] : '';
+      let fdir = 'in';   // in = they gave us cash (we owe them) · out = we gave them cash (they owe us)
       const ov = openDialog(`
-        <h3>💵 משיכת מזומן</h3>
-        <div class="field-label" style="margin-top:0;">משכתי מ:</div>
-        <div data-el="src" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
-          <button type="button" class="chip-btn" data-src="laya">💳 LAYA<small style="display:block; font-size:0.7rem; opacity:.8;">יתרה ${escapeHtml(money(w.laya, code))}</small></button>
-          <button type="button" class="chip-btn" data-src="bank">🏦 כרטיס בנק / אשראי</button>
+        <h3 data-el="ttl">💵 משיכת מזומן</h3>
+        <div class="field-label" style="margin-top:0;">מאיפה המזומן?</div>
+        <div data-el="src" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:10px;">
+          <button type="button" class="chip-btn" data-src="laya" style="padding:8px 4px;">💳 LAYA<small style="display:block; font-size:0.66rem; opacity:.8;">יתרה ${escapeHtml(money(w.laya, code))}</small></button>
+          <button type="button" class="chip-btn" data-src="bank" style="padding:8px 4px;">🏦 בנק / אשראי</button>
+          <button type="button" class="chip-btn" data-src="friend" style="padding:8px 4px;">👫 מחבר<small style="display:block; font-size:0.66rem; opacity:.8;">נרשם בקיזוזים</small></button>
         </div>
-        <label class="field-label" style="margin-top:0;">סכום שמשכתי (${escapeHtml(code)})
+        <div data-el="friendwrap" style="margin-bottom:10px;" hidden>
+          <div data-el="fdir" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
+            <button type="button" class="chip-btn" data-fdir="in" style="padding:8px 4px;">⬇️ קיבלנו מזומן</button>
+            <button type="button" class="chip-btn" data-fdir="out" style="padding:8px 4px;">⬆️ נתנו מזומן</button>
+          </div>
+          ${friends.length
+            ? `<div class="field-label" style="margin-top:0;" data-el="fwho">מי נתן את הכסף?</div>
+               <div style="display:flex; flex-wrap:wrap; gap:6px;">${friends.map(f => `<button type="button" class="chip-btn" data-friend="${escapeHtml(f)}" style="padding:8px 12px;">${escapeHtml(f)}</button>`).join('')}</div>`
+            : `<p style="font-size:0.8rem; color:var(--accent-red); margin:0;">אין עדיין שמות לקיזוז. הוסיפו שמות ב-⚙️ הגדרות ובחרו "מי אני".</p>`}
+        </div>
+        <label class="field-label" style="margin-top:0;"><span data-el="amtlbl">סכום שמשכתי</span> (${escapeHtml(code)})
           <input type="number" id="custom-cash-input" data-el="amt" class="text-input" value="" placeholder="0" inputmode="decimal" style="margin-bottom:6px; font-weight:bold; font-size:1.2rem; text-align:center; direction:ltr;"></label>
         <p data-el="explain" style="font-size:0.75rem; margin:0 0 10px;"></p>
+        <div data-el="feeswrap">
         <div class="field-label" style="margin-top:0;">עמלות (רשות) – רק הן נרשמות כהוצאה</div>
         <div class="dlg-row">
           <label class="field-label" style="margin-top:2px;">🏧 עמלת הכספומט (${sym})<input type="number" data-el="atm" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>
           ${code === 'ILS' ? '' : `<label class="field-label" style="margin-top:2px;" data-el="bankwrap">🏦 עמלת הבנק (₪)<input type="number" data-el="bank" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>`}
         </div>
         ${code === 'JPY' ? '<p style="font-size:0.72rem; margin:4px 0 0;">כספומט ביפן (<bdi>7-Eleven</bdi>, דואר יפן) גובה בדרך כלל <bdi>¥110–330</bdi>.</p>' : ''}
+        </div>
         <p data-el="warn" style="font-size:0.8rem; color:var(--accent-red); font-weight:700; margin-top:8px;" hidden></p>
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
-          <button class="primary-btn" data-act="ok">הוסף מזומן</button>
+          <button class="primary-btn" data-act="ok" data-el="ok">הוסף מזומן</button>
         </div>
       `);
       const q = k => ov.querySelector(`[data-el="${k}"]`);
@@ -2539,18 +2555,47 @@
       let confirmShort = false;
       const paint = () => {
         ov.querySelectorAll('[data-src]').forEach(b => b.classList.toggle('selected', b.dataset.src === src));
+        ov.querySelectorAll('[data-friend]').forEach(b => b.classList.toggle('selected', b.dataset.friend === friend));
         q('explain').textContent = src === 'laya'
           ? 'המזומן עובר מ-LAYA לארנק: יתרת LAYA יורדת ויתרת המזומן עולה. זו לא הוצאה – ההוצאה נרשמת כשמשלמים במזומן.'
-          : 'המזומן נוסף ליתרת המזומן. החיוב בכרטיס הבנק אינו הוצאה – ההוצאה נרשמת כשמשלמים במזומן.';
-        if (q('bankwrap')) q('bankwrap').style.display = src === 'bank' ? '' : 'none';   // a bank fee applies to bank cards only
+          : src === 'bank'
+          ? 'המזומן נוסף ליתרת המזומן. החיוב בכרטיס הבנק אינו הוצאה – ההוצאה נרשמת כשמשלמים במזומן.'
+          : fdir === 'in'
+          ? `המזומן נוסף ליתרת המזומן, ובלשונית ⚖️ קיזוזים נרשם שאתם חייבים ${friend ? 'ל' + friend : 'לחבר'} את הסכום. זו לא הוצאה.`
+          : `הסכום יורד מיתרת המזומן, ובלשונית ⚖️ קיזוזים נרשם ש${friend || 'החבר'} חייבים לכם אותו. זו לא הוצאה.`;
+        ov.querySelectorAll('[data-fdir]').forEach(b => b.classList.toggle('selected', b.dataset.fdir === fdir));
+        if (q('fwho')) q('fwho').textContent = fdir === 'in' ? 'מי נתן את הכסף?' : 'למי נתתם את הכסף?';
+        q('ttl').textContent = src !== 'friend' ? '💵 משיכת מזומן' : fdir === 'in' ? '💵 קיבלנו מזומן מחבר' : '💵 נתנו מזומן לחבר';
+        q('amtlbl').textContent = src !== 'friend' ? 'סכום שמשכתי' : fdir === 'in' ? 'סכום שקיבלנו' : 'סכום שנתנו';
+        q('ok').textContent = src === 'friend' && fdir === 'out' ? 'הורד מהמזומן' : 'הוסף מזומן';
+        q('friendwrap').hidden = src !== 'friend';
+        q('feeswrap').style.display = src === 'friend' ? 'none' : '';   // no ATM / bank fees when a friend hands over cash
+                if (q('bankwrap')) q('bankwrap').style.display = src === 'bank' ? '' : 'none';   // a bank fee applies to bank cards only
         confirmShort = false; q('warn').hidden = true;
       };
       ov.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { src = b.dataset.src; paint(); });
+      ov.querySelectorAll('[data-friend]').forEach(b => b.onclick = () => { friend = b.dataset.friend; paint(); });
+      ov.querySelectorAll('[data-fdir]').forEach(b => b.onclick = () => { fdir = b.dataset.fdir; paint(); });
       paint();
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         const val = parseFloat(q('amt').value);
         if (isNaN(val) || val <= 0 || val > 1e9) { bad(q('amt')); return; }   // stay open until a valid amount
+        if (src === 'friend') {
+          if (!friend) { q('warn').textContent = !friends.length ? 'הוסיפו קודם שמות בהגדרות.' : fdir === 'in' ? 'בחרו מי נתן את הכסף.' : 'בחרו למי נתתם את הכסף.'; q('warn').hidden = false; return; }
+          const give = fdir === 'out';
+          if (give && val > w.cash + 1e-9 && !confirmShort) {
+            q('warn').textContent = `ביתרת המזומן יש רק ${money(w.cash, code)}. אם היתרה באפליקציה לא מעודכנת, לחצו "הורד מהמזומן" שוב כדי להמשיך.`;
+            q('warn').hidden = false; confirmShort = true; return;
+          }
+          w.cash = Math.round((w.cash + (give ? -val : val)) * 1e6) / 1e6;
+          // ➕ = we paid, they owe us · ➖ = they paid, we owe them
+          appData.splits.unshift({ id: newId(), amount: give ? Math.abs(val) : -Math.abs(val), currency: code, person: friend, category: 'שונות', note: give ? '💵 מזומן שנתנו' : '💵 מזומן שקיבלנו', date: new Date().toISOString() });
+          saveData(); ov.remove();
+          showMsg('expense-msg', give ? `${money(val, code)} ירדו מהמזומן · נרשם בקיזוזים: ${friend} חייבים לכם`
+                                      : `${money(val, code)} נוספו למזומן · נרשם בקיזוזים: חייבים ל${friend}`);
+          return;
+        }
         const fee = el => { if (!el || el.value.trim() === '' || (el === q('bank') && src !== 'bank')) return 0; const f = parseFloat(el.value); return f >= 0 && f <= 1e6 ? f : NaN; };
         const atm = fee(q('atm')), bank = fee(q('bank'));
         if (isNaN(atm)) { bad(q('atm')); return; }
