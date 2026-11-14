@@ -450,6 +450,9 @@
     .exp-search-info { font-size: 0.8rem; color: var(--text-muted); margin: 0 2px 8px; display: flex; justify-content: space-between; gap: 8px; }
     .exp-search-info b { color: var(--text-main); }
     .exp-search-info[hidden], .exp-search-clear[hidden] { display: none; }
+    .settle-btn { padding: 4px 8px; font-size: 0.72rem; white-space: nowrap; min-height: 32px; }
+    .settled-head { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin: 12px 4px 6px; }
+    .split-settled { opacity: 0.6; }
     .person-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; padding: 8px 12px; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--card-border); }
 
     /* Name picker (splits) – horizontally scrollable chips */
@@ -976,7 +979,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 20 · 14/11/2026 · 5be574</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 23 · 14/11/2026 · 44aacf</span></div>
     </div>
 
   </div>
@@ -1324,7 +1327,8 @@
       out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות'; });
       out.splits = (Array.isArray(d.splits) ? d.splits : [])
         .filter(x => x && validNum(x.amount) && typeof x.person === 'string' && x.person.trim())
-        .map(x => ({ ...x, person: x.person.trim(), note: typeof x.note === 'string' ? x.note : '', category: typeof x.category === 'string' ? x.category : 'שונות', id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur }));
+        .map(x => ({ ...x, person: x.person.trim(), note: typeof x.note === 'string' ? x.note : '', category: typeof x.category === 'string' ? x.category : 'שונות', id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur,
+          settled: x.settled && typeof x.settled === 'object' ? { how: x.settled.how === 'cash' ? 'cash' : 'bit', date: String(x.settled.date || ''), batch: String(x.settled.batch || '') } : undefined }));
       const seenHotelIds = new Set();
       out.hotels = (Array.isArray(d.hotels) ? d.hotels : base.hotels)
         .filter(h => h && typeof h === 'object')
@@ -2142,25 +2146,28 @@
       appData.splits.forEach(s => {
         const who = splitParty(s);
         const key = who.toLowerCase() + '|' + s.currency;
-        if (!people[key]) people[key] = { person: who, currency: s.currency, total: 0 };
-        people[key].total += s.amount;
+        if (!people[key]) people[key] = { person: who, currency: s.currency, total: 0, open: 0 };
+        if (s.settled) return;   // settled entries stay in the list but are out of the balance
+        people[key].total += s.amount; people[key].open++;
       });
 
       const hint = !me && appData.settings.people.length >= 2
         ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:6px;">💡 <a href="#" style="color:var(--primary);" onclick="goToSettings(); return false;">בחר בהגדרות מי אתה</a> כדי שכל הקיזוזים יתקזזו לשורה אחת.</div>` : '';
       peopleEl.innerHTML = hint + Object.values(people).map(p => {
         const name = escapeHtml(p.person);
+        const btn = p.open ? `<button type="button" class="chip-btn settle-btn" data-who="${name}" data-cur="${escapeHtml(p.currency)}" onclick="settleAccount(this.dataset.who, this.dataset.cur)">✔️ סגירת חשבון</button>` : '';
         if (Math.abs(p.total) < 0.005) {
-          return `<div class="person-row"><span>${name}</span><span style="color:var(--text-muted);">מאוזן ✔️</span></div>`;
+          return `<div class="person-row"><span>${name}</span><span style="display:flex; align-items:center; gap:6px;"><span style="color:var(--text-muted);">מאוזן ✔️</span>${btn}</span></div>`;
         }
         const owesMe = p.total > 0;
         const text = me ? (owesMe ? `${name} חייבים ל${meName}` : `${meName} חייבים ל${name}`)
                         : (owesMe ? `${name} חייבים לי` : `אני חייב/ת ל${name}`);
         const color = owesMe ? 'var(--accent-green)' : 'var(--accent-red)';
-        return `<div class="person-row"><span>${text}</span><strong style="color:${color};">${money(Math.abs(p.total), p.currency)}</strong></div>`;
+        return `<div class="person-row"><span>${text}</span><span style="display:flex; align-items:center; gap:6px;"><strong style="color:${color}; white-space:nowrap;">${money(Math.abs(p.total), p.currency)}</strong>${btn}</span></div>`;
       }).join('');
 
-      listEl.innerHTML = appData.splits.map(split => {
+      const openOnes = appData.splits.filter(x => !x.settled), doneOnes = appData.splits.filter(x => x.settled);
+      const row = split => {
         const isDebt = split.amount < 0;
         const titleColor = isDebt ? 'var(--accent-red)' : 'var(--primary)';
         const amountColor = isDebt ? 'var(--accent-red)' : 'var(--accent-green)';
@@ -2168,21 +2175,78 @@
         const note = escapeHtml(split.note);
         const titleText = me ? (isDebt ? `${meName} חייבים ל${person}: ${note}` : `${person} חייבים ל${meName}: ${note}`)
                              : (isDebt ? `אני חייב/ת ל${person}: ${note}` : `${person} חייבים: ${note}`);
+        const st = split.settled;
+        const meta = st ? `✔️ נסגר ${st.how === 'cash' ? 'במזומן 💵' : 'בביט / פייבוקס 📱'}${st.date ? ' ב-' + escapeHtml(ddmm(st.date)) : ''} • ${escapeHtml(split.category)} • ${expenseWhen(split.date)}`
+                        : `${escapeHtml(split.category)} • ${expenseWhen(split.date)}`;
         return `
-          <div class="expense-item">
+          <div class="expense-item${st ? ' split-settled' : ''}">
             <div class="exp-icon">${CAT_ICONS[split.category] || '📦'}</div>
             <div class="exp-details">
-              <div class="exp-title" style="color:${titleColor};">${titleText}</div>
-              <div class="exp-meta">${escapeHtml(split.category)} • ${expenseWhen(split.date)}</div>
+              <div class="exp-title" style="color:${st ? 'var(--text-muted)' : titleColor};">${titleText}</div>
+              <div class="exp-meta">${meta}</div>
             </div>
             <div class="exp-amounts">
-              <div class="exp-main" style="color:${amountColor};">${isDebt ? '-' : '+'}${money(Math.abs(split.amount), split.currency)}</div>
+              <div class="exp-main" style="color:${st ? 'var(--text-muted)' : amountColor};${st ? ' text-decoration:line-through;' : ''}">${isDebt ? '-' : '+'}${money(Math.abs(split.amount), split.currency)}</div>
             </div>
-            <button class="edit-btn" data-id="${escapeHtml(split.id)}" onclick="editSplit(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>
+            ${st ? `<button class="edit-btn" data-b="${escapeHtml(st.batch)}" onclick="undoSettle(this.dataset.b)" aria-label="פתח מחדש" title="ביטול הסגירה">↩️</button>`
+                 : `<button class="edit-btn" data-id="${escapeHtml(split.id)}" onclick="editSplit(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>`}
             <button class="del-btn" data-id="${escapeHtml(split.id)}" onclick="deleteSplit(this.dataset.id)" aria-label="מחק" title="מחק">🗑️</button>
           </div>
         `;
-      }).join('');
+      };
+      listEl.innerHTML = openOnes.map(row).join('')
+        + (doneOnes.length ? `<div class="settled-head">✔️ קיזוזים שנסגרו (${doneOnes.length})</div>` + doneOnes.map(row).join('') : '');
+    }
+
+    // ---------- Close an account: all open entries with one person (one currency) become settled ----------
+    function settleAccount(who, code) {
+      const key = String(who || '').toLowerCase();
+      const items = appData.splits.filter(x => !x.settled && x.currency === code && splitParty(x).toLowerCase() === key);
+      if (!items.length) return;
+      const net = Math.round(items.reduce((t, x) => t + x.amount, 0) * 1e6) / 1e6;   // > 0 they owe us · < 0 we owe them
+      const me = appData.settings.me;
+      const finish = how => {
+        const batch = newId(), date = dateToIso(new Date());
+        items.forEach(x => { x.settled = { how, date, batch }; });
+        if (how === 'cash' && Math.abs(net) >= 0.005) { const w = wallet(code); w.cash = Math.round((w.cash + net) * 1e6) / 1e6; }
+        saveData();
+        showMsg('split-msg', `החשבון עם ${who} נסגר` + (how === 'cash' && Math.abs(net) >= 0.005 ? ` · ${money(Math.abs(net), code)} ${net > 0 ? 'נוספו למזומן' : 'ירדו מהמזומן'}` : ''));
+      };
+      if (Math.abs(net) < 0.005) {   // already balanced: just mark as settled, no money moves
+        confirmDialog({ title: '✔️ סגירת חשבון', text: `החשבון עם ${who} מאוזן. לסמן את ${items.length} הקיזוזים כסגורים?`, okLabel: 'סמן כסגור', onOk: () => finish('bit') });
+        return;
+      }
+      const amt = money(Math.abs(net), code);
+      const line = net < 0 ? `${me ? me + ' חייבים' : 'אני חייב/ת'} ל${who} ${amt}` : `${who} חייבים ${me ? 'ל' + me : 'לי'} ${amt}`;
+      const ov = openDialog(`
+        <h3>✔️ סגירת חשבון</h3>
+        <p>${escapeHtml(line)} (${items.length} קיזוזים פתוחים). איך ${net < 0 ? 'שילמתם' : 'קיבלתם'} את הכסף?</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0 6px;">
+          <button type="button" class="chip-btn" data-how="cash" style="padding:12px 6px;">💵 מזומן<small style="display:block; font-size:0.7rem; opacity:.8;">${escapeHtml(net < 0 ? `יורד ${amt} מהמזומן` : `נוסף ${amt} למזומן`)}</small></button>
+          <button type="button" class="chip-btn" data-how="bit" style="padding:12px 6px;">📱 ביט / פייבוקס<small style="display:block; font-size:0.7rem; opacity:.8;">היתרות באפליקציה לא משתנות</small></button>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin:0;">הקיזוזים יישארו ברשימה כ"נסגרו". אפשר לבטל עם ↩️.</p>
+        <div class="dialog-actions"><button class="primary-btn btn-secondary" data-act="cancel">ביטול</button></div>`);
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelectorAll('[data-how]').forEach(b => b.onclick = () => { ov.remove(); finish(b.dataset.how); });
+    }
+    // Reopen a closed account (and reverse its cash movement)
+    function undoSettle(batch) {
+      const items = appData.splits.filter(x => x.settled && x.settled.batch === batch);
+      if (!items.length) return;
+      const s0 = items[0].settled, code = items[0].currency, who = splitParty(items[0]);
+      const net = Math.round(items.reduce((t, x) => t + x.amount, 0) * 1e6) / 1e6;
+      const cashBack = s0.how === 'cash' && Math.abs(net) >= 0.005;
+      confirmDialog({
+        title: '↩️ ביטול סגירת חשבון',
+        text: `לפתוח מחדש את ${items.length} הקיזוזים עם ${who}?` + (cashBack ? ` יתרת המזומן תחזור: ${net > 0 ? 'יורד' : 'נוסף'} ${money(Math.abs(net), code)}.` : ''),
+        okLabel: 'פתח מחדש',
+        onOk: () => {
+          items.forEach(x => { delete x.settled; });
+          if (cashBack) { const w = wallet(code); w.cash = Math.round((w.cash - net) * 1e6) / 1e6; }
+          saveData();
+        }
+      });
     }
 
     function deleteSplit(id) {
@@ -4224,7 +4288,7 @@ Rules:
       appData.splits.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(x => {
         used.add(x.currency);
         rows.push(['קיזוז', localDateTime(x.date), '', x.note, x.category, '', x.amount, x.currency, ...conv(x.amount, x.currency, ''),
-          x.amount > 0 ? 'חייבים לי' : 'אני חייב', `אדם: ${x.person}`]);
+          x.amount > 0 ? 'חייבים לי' : 'אני חייב', `אדם: ${x.person}` + (x.settled ? ` · נסגר ${x.settled.how === 'cash' ? 'במזומן' : 'בביט / פייבוקס'} ${x.settled.date}` : '')]);
       });
       Object.entries(appData.balances).forEach(([cur, w]) => {
         [['מזומן', w.cash], ['LAYA', w.laya], ['Suica', w.suica]].forEach(([name, val]) => {
