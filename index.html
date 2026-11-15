@@ -979,7 +979,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 23 · 14/11/2026 · 44aacf</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 24 · 15/11/2026 · 00c3f0</span></div>
     </div>
 
   </div>
@@ -4780,11 +4780,29 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
       }
 
       // Hide the bottom bar while the on-screen keyboard is open (iPhone and Android)
-      const isField = el => el && el.matches && el.matches('input:not([type=file]):not([type=checkbox]):not([type=radio]):not([readonly]), select, textarea:not([readonly])');
+      // (dropdowns open a picker, not the keyboard, so they don't hide it)
+      const isField = el => el && el.matches && el.matches('input:not([type=file]):not([type=checkbox]):not([type=radio]):not([readonly]), textarea:not([readonly])');
       document.addEventListener('focusin', e => { if (isField(e.target)) document.body.classList.add('kb-open'); });
       document.addEventListener('focusout', () => setTimeout(() => {
         if (!isField(document.activeElement)) document.body.classList.remove('kb-open');
       }, 100));
+      // Android: closing the keyboard with Back keeps the cursor in the field, so the bar would stay hidden.
+      // When the visible screen grows back to full height, take the cursor out of the field.
+      const vv = window.visualViewport;
+      if (vv) {
+        let full = vv.height, kbSeen = false, lastW = vv.width;
+        vv.addEventListener('resize', () => {
+          if (Math.abs(vv.width - lastW) > 40) { lastW = vv.width; full = vv.height; kbSeen = false; return; }   // rotation
+          if (vv.height > full) full = vv.height;
+          if (!document.body.classList.contains('kb-open')) { kbSeen = false; return; }
+          if (vv.height < full - 150) { kbSeen = true; return; }        // keyboard is up
+          if (kbSeen && vv.height > full - 60) {                         // keyboard went down
+            kbSeen = false;
+            if (isField(document.activeElement)) document.activeElement.blur();
+            document.body.classList.remove('kb-open');
+          }
+        });
+      }
 
       // Makes :active button feedback work on iPhone
       document.addEventListener('touchstart', () => {}, { passive: true });
