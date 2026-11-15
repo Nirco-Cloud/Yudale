@@ -979,7 +979,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 24 · 15/11/2026 · 00c3f0</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 28 · 15/11/2026 · 01cf0d</span></div>
     </div>
 
   </div>
@@ -1810,8 +1810,11 @@
         `<span>${label}</span><span>${ilsStr(toIls(amount, code, payment))}  |  ${usdStr(toUsd(amount, code, payment))}</span>`;
     }
 
+    const lastSave = {};   // form → time of its last successful save (a quick second tap must not show an error)
+    const justSaved = k => Date.now() - (lastSave[k] || 0) < 1500;
     function saveExpense() {
       const amount = parseFloat(document.getElementById('inp-amount').value);
+      if (!document.getElementById('inp-amount').value && justSaved('exp')) return;
       if (!amount || amount <= 0 || !isFinite(amount)) { showMsg('expense-msg', 'אנא הזן סכום חוקי', 'error'); return; }
       if (amount > 1e9) { showMsg('expense-msg', 'הסכום גדול מדי', 'error'); return; }
 
@@ -1836,8 +1839,12 @@
       expCur = null; expDay = 'today';      // back to trip currency and today
       payTouched = false;                   // next expense: payment method chosen by amount again
 
+      lastSave.exp = Date.now();
+      const srch = document.getElementById('exp-search');
+      if (srch && srch.value) { srch.value = ''; const c = document.getElementById('exp-search-clear'); if (c) c.hidden = true; }
       saveData();
-      if (warn) showMsg('expense-msg', 'ההוצאה נשמרה. ' + warn, 'warn');
+      if (persistFailed) showMsg('expense-msg', '⚠️ ההוצאה נרשמה אבל לא נשמרה בזיכרון הטלפון (הזיכרון מלא). ראו את ההודעה האדומה.', 'error');
+      else if (warn) showMsg('expense-msg', 'ההוצאה נשמרה. ' + warn, 'warn');
       else showMsg('expense-msg', 'הוצאה נשמרה בהצלחה!');
     }
 
@@ -1898,6 +1905,7 @@
       `).join('');
 
       moreEl.innerHTML = '';
+      updateScrollHints();
     }
 
     // "scroll for more" line under a list, shown only when the list is taller than its box
@@ -2082,7 +2090,7 @@
     function slimSuica() {   // the Suica panel opens inside the full card: go back up to it first
       const sc = document.getElementById('scroll-area');
       sc.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(toggleSuicaPanel, 250);
+      setTimeout(() => { if (document.getElementById('suica-load-panel').style.display === 'none') toggleSuicaPanel(); }, 250);
     }
     (function watchHero() {
       const sc = document.getElementById('scroll-area');
@@ -2106,6 +2114,7 @@
 
     function saveSplit() {
       let amount = parseFloat(document.getElementById('inp-split-amount').value);
+      if (!document.getElementById('inp-split-amount').value && justSaved('split')) return;
       const person = selectedPerson;
 
       if (!amount || amount <= 0 || !isFinite(amount) || amount > 1e9) { showMsg('split-msg', 'אנא הזן סכום חוקי', 'error'); return; }
@@ -2125,6 +2134,7 @@
 
       document.getElementById('inp-split-amount').value = '';
       document.getElementById('inp-split-note').value = '';
+      lastSave.split = Date.now();
 
       saveData();
       showMsg('split-msg', 'הקיזוז נשמר בהצלחה!');
@@ -2477,6 +2487,7 @@
       const price = parseFloat(document.getElementById('new-hotel-price').value);
       const currency = document.getElementById('new-hotel-currency').value;
 
+      if (!name && justSaved('hotel')) return;
       if (!name) { showMsg('hotel-msg', 'אנא הזן שם מלון', 'error'); return; }
       if (!ISO_DATE.test(checkIn) || !ISO_DATE.test(checkOut)) { showMsg('hotel-msg', 'אנא בחר תאריך כניסה ותאריך יציאה', 'error'); return; }
       if (checkOut <= checkIn) { showMsg('hotel-msg', 'תאריך היציאה חייב להיות אחרי תאריך הכניסה', 'error'); return; }
@@ -2487,6 +2498,7 @@
       appData.hotels.push({ id: newId(), name, address, dates: hotelRangeLabel(checkIn, checkOut), checkIn, checkOut, basePrice: price, currency, paid: false, finalPrice: null });
       hotelOutTouched = false;
       ['new-hotel-name', 'new-hotel-address', 'new-hotel-in', 'new-hotel-out', 'new-hotel-price'].forEach(id => document.getElementById(id).value = '');
+      lastSave.hotel = Date.now();
       toggleHotelForm(false);
       saveData();
       showMsg('hotel-msg', `"${name}" נוסף לרשימה`);
@@ -2616,7 +2628,9 @@
       `);
       const q = k => ov.querySelector(`[data-el="${k}"]`);
       const bad = el => { el.style.outline = '2px solid #ef4444'; el.focus(); };
-      let confirmShort = false;
+      let confirmShort = false, warnedAt = 0;
+      // a quick double tap is not "I read the warning": the confirming tap must come a moment later
+      const confirmed = () => confirmShort && Date.now() - warnedAt > 700;
       const paint = () => {
         ov.querySelectorAll('[data-src]').forEach(b => b.classList.toggle('selected', b.dataset.src === src));
         ov.querySelectorAll('[data-friend]').forEach(b => b.classList.toggle('selected', b.dataset.friend === friend));
@@ -2648,9 +2662,10 @@
         if (src === 'friend') {
           if (!friend) { q('warn').textContent = !friends.length ? 'הוסיפו קודם שמות בהגדרות.' : fdir === 'in' ? 'בחרו מי נתן את הכסף.' : 'בחרו למי נתתם את הכסף.'; q('warn').hidden = false; return; }
           const give = fdir === 'out';
-          if (give && val > w.cash + 1e-9 && !confirmShort) {
+          if (give && val > w.cash + 1e-9 && !confirmed()) {
+            if (confirmShort) return;
             q('warn').textContent = `ביתרת המזומן יש רק ${money(w.cash, code)}. אם היתרה באפליקציה לא מעודכנת, לחצו "הורד מהמזומן" שוב כדי להמשיך.`;
-            q('warn').hidden = false; confirmShort = true; return;
+            q('warn').hidden = false; confirmShort = true; warnedAt = Date.now(); return;
           }
           w.cash = Math.round((w.cash + (give ? -val : val)) * 1e6) / 1e6;
           // ➕ = we paid, they owe us · ➖ = they paid, we owe them
@@ -2665,9 +2680,10 @@
         if (isNaN(atm)) { bad(q('atm')); return; }
         if (isNaN(bank)) { bad(q('bank')); return; }
         const fromLaya = val + atm;   // with LAYA the ATM fee also comes off the card
-        if (src === 'laya' && fromLaya > w.laya + 1e-9 && !confirmShort) {
+        if (src === 'laya' && fromLaya > w.laya + 1e-9 && !confirmed()) {
+          if (confirmShort) return;
           q('warn').textContent = `ביתרת LAYA יש רק ${money(w.laya, code)}. אם היתרה באפליקציה לא מעודכנת, לחץ "הוסף מזומן" שוב כדי להמשיך.`;
-          q('warn').hidden = false; confirmShort = true; return;
+          q('warn').hidden = false; confirmShort = true; warnedAt = Date.now(); return;
         }
         if (src === 'laya') w.laya = Math.round((w.laya - val) * 1e6) / 1e6;
         w.cash = Math.round((w.cash + val) * 1e6) / 1e6;
@@ -2706,9 +2722,13 @@
       };
     }
 
+    let suicaToggledAt = 0;
     function toggleSuicaPanel() {
       const panel = document.getElementById('suica-load-panel');
+      if (panel.style.display !== 'none' && Date.now() - suicaToggledAt < 400) return;   // a double tap must not open and close it again
+      suicaToggledAt = Date.now();
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      syncBackGuard();
       document.getElementById('suica-load-amount').value = '';   // rule: load/convert amount fields always start empty
       document.getElementById('suica-msg').style.display = 'none';
     }
@@ -4180,7 +4200,7 @@ Rules:
 
     function initBackup() {
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) { takeDailySnapshot(); renderBackupUi(); }
+        if (!document.hidden) { takeDailySnapshot(); renderBackupUi(); updateTime(); }
       });
     }
 
@@ -4646,7 +4666,12 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
       const overlay = document.createElement('div');
       overlay.className = 'overlay';
       overlay.innerHTML = `<div class="dialog">${innerHtml}</div>`;
-      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      const rm = overlay.remove.bind(overlay);
+      overlay.remove = () => { const a = document.activeElement; if (a && overlay.contains(a) && a.blur) a.blur(); rm(); };
+      let dirty = false;
+      overlay.addEventListener('input', () => { dirty = true; });
+      // a tap on the dim background closes the dialog, unless something was typed in it (use ביטול or Back then)
+      overlay.addEventListener('click', e => { if (e.target === overlay && !dirty) overlay.remove(); });
       document.body.appendChild(overlay);
       return overlay;
     }
@@ -4682,12 +4707,47 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
       el.classList.add('active');
       updateScrollHints();
       document.getElementById('scroll-area').scrollTop = 0; hideTip(); // body doesn't scroll; the container does
+      syncBackGuard();
     }
 
+    // ---------- Back gesture (Android Back / iPhone edge swipe) ----------
+    // Without this, Back in the installed app closes the whole app, even with a dialog open.
+    // While something can be closed, one extra history entry catches Back. Order: dialog → Suica panel → other tab → home.
+    let backArmed = false, ignorePop = false;
+    const suicaPanelOpen = () => { const p = document.getElementById('suica-load-panel'); return !!p && p.style.display !== 'none'; };
+    const onHome = () => document.getElementById('screen-home').classList.contains('active');
+    function syncBackGuard() {
+      const need = !!document.querySelector('body > .overlay') || suicaPanelOpen() || !onHome();
+      try {
+        if (need && !backArmed) { history.pushState({ yb: 1 }, ''); backArmed = true; }
+        else if (!need && backArmed) { backArmed = false; ignorePop = true; history.back(); }   // closed with a button: drop the extra entry
+      } catch (_) { /* history unavailable: Back behaves as before */ }
+    }
+    window.addEventListener('popstate', () => {
+      if (ignorePop) { ignorePop = false; return; }
+      backArmed = false;
+      const ov = [...document.querySelectorAll('body > .overlay')].pop();
+      if (ov) ov.remove();
+      else if (suicaPanelOpen()) document.getElementById('suica-load-panel').style.display = 'none';
+      else if (!onHome()) switchTab('home', document.getElementById('nav-home'));
+      hideTip();
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      syncBackGuard();
+    });
+    // dialogs come and go from many places: watch the page for them
+    new MutationObserver(() => syncBackGuard()).observe(document.body, { childList: true });
+
+    let shownDay = dateToIso(new Date());
     function updateTime() {
       const timeEl = document.getElementById('ui-current-time');
       if (timeEl) timeEl.innerText = '📅 ' + dateLabel(new Date().toISOString());
-      if (typeof appData !== 'undefined' && appData) try { renderToday(); } catch (_) {}   // the day changes at midnight
+      if (typeof appData === 'undefined' || !appData) return;
+      const day = dateToIso(new Date());
+      if (day !== shownDay) {   // midnight passed (or the app was asleep): every "today" in the app must move on
+        if (expDay === 'yesterday') expDay = addDaysIso(shownDay, -1);   // a "yesterday" pick keeps meaning that date
+        shownDay = day;
+        try { renderAll(); } catch (_) {}
+      }
     }
 
     // ---------- PWA: install, offline, mobile quirks ----------
@@ -4792,7 +4852,12 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
       if (vv) {
         let full = vv.height, kbSeen = false, lastW = vv.width;
         vv.addEventListener('resize', () => {
-          if (Math.abs(vv.width - lastW) > 40) { lastW = vv.width; full = vv.height; kbSeen = false; return; }   // rotation
+          if (Math.abs(vv.width - lastW) > 40) {   // rotation / split screen: start fresh with the keyboard closed
+            lastW = vv.width; full = vv.height; kbSeen = false;
+            if (isField(document.activeElement)) document.activeElement.blur();
+            document.body.classList.remove('kb-open');
+            return;
+          }
           if (vv.height > full) full = vv.height;
           if (!document.body.classList.contains('kb-open')) { kbSeen = false; return; }
           if (vv.height < full - 150) { kbSeen = true; return; }        // keyboard is up
