@@ -458,7 +458,14 @@
     .share-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; } .share-row .chip-btn { padding: 8px 10px; font-size: 0.8rem; flex: 1 1 auto; }
     .share-note { font-size: 0.8rem; margin: 8px 0 0; color: var(--text-muted); } .share-note b { color: var(--text-main); }
     .share-sub { color: var(--primary) !important; font-weight: 700; }
-    .res-dup { font-size: 0.78rem; color: var(--accent-orange, #d97706); margin-top: 4px; line-height: 1.4; }
+    /* booking row: "maybe paid twice" box (own class: .res-row button would make its button big and borderless) */
+    .res-dup { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); font-size: 0.75rem; line-height: 1.4; }
+    .res-dup-t { font-weight: 700; color: #b45309; }
+    .res-dup-d { color: var(--text-main); overflow-wrap: anywhere; }
+    .res-row button.res-dup-btn { margin-top: 6px; font-size: 0.75rem; font-weight: 700; color: #b45309; background: var(--card-bg); border: 1px solid rgba(245, 158, 11, 0.6); border-radius: 999px; padding: 4px 12px; min-height: 32px; }
+    .res-row button.res-pill { font-size: 0.8rem; border: 1px solid var(--card-border); border-radius: 999px; padding: 6px 10px; background: var(--card-bg); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .res-dup-t, :root:not([data-theme="light"]) .res-row button.res-dup-btn { color: #fbbf24; } }
+    :root[data-theme="dark"] .res-dup-t, :root[data-theme="dark"] .res-row button.res-dup-btn { color: #fbbf24; }
     .link-box { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--card-border); display: grid; gap: 6px; }
     .link-box.top { margin: 4px 0 6px; padding: 0 0 10px; border-top: 0; border-bottom: 1px solid var(--card-border); }
     .link-cand { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: start; font: inherit;
@@ -466,6 +473,10 @@
     .link-cand span { min-width: 0; } .link-cand b { display: block; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .link-cand small { color: var(--text-muted); font-size: 0.72rem; } .link-cand bdi { font-weight: 800; white-space: nowrap; }
     .sub-line { font-size: 0.82rem; }
+    #app-toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translate(-50%, 12px); z-index: 2000;
+      background: rgba(17, 24, 39, 0.92); color: #fff; font-size: 0.85rem; font-weight: 600; padding: 10px 16px; border-radius: 999px;
+      opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
+    #app-toast.show { opacity: 1; transform: translate(-50%, 0); }
     .settle-btn { padding: 4px 8px; font-size: 0.72rem; white-space: nowrap; min-height: 32px; }
     .settled-head { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin: 12px 4px 6px; }
     .split-settled { opacity: 0.6; }
@@ -996,7 +1007,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 34 · 15/11/2026 · 9a8081</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 41 · 15/11/2026 · 676ccc</span></div>
     </div>
 
   </div>
@@ -1343,11 +1354,12 @@
         .map(e => ({ ...e, id: String(e.id || newId()), currency: DEFAULT_RATES[e.currency] ? e.currency : cur }));
       out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות';
         const sh = e.shared;   // shared expense: { partner, their (their part, same currency), splitId }
-        if (sh && !(typeof sh === 'object' && typeof sh.partner === 'string' && sh.partner && validNum(sh.their) && sh.their > 0 && sh.their < e.amount && typeof sh.splitId === 'string')) delete e.shared; });
+        if (sh && !(typeof sh === 'object' && typeof sh.partner === 'string' && sh.partner && validNum(sh.their) && sh.their > 0 && sh.their <= e.amount && typeof sh.splitId === 'string')) delete e.shared; });
       out.splits = (Array.isArray(d.splits) ? d.splits : [])
         .filter(x => x && validNum(x.amount) && typeof x.person === 'string' && x.person.trim())
         .map(x => ({ ...x, person: x.person.trim(), note: typeof x.note === 'string' ? x.note : '', category: typeof x.category === 'string' ? x.category : 'שונות', id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur,
-          settled: x.settled && typeof x.settled === 'object' ? { how: x.settled.how === 'cash' ? 'cash' : 'bit', date: String(x.settled.date || ''), batch: String(x.settled.batch || ''), ...(x.settled.viaExpense ? { viaExpense: true } : {}) } : undefined }));
+          settled: x.settled && typeof x.settled === 'object' ? { how: x.settled.how === 'cash' ? 'cash' : 'bit', date: String(x.settled.date || ''), batch: String(x.settled.batch || '') || ('b' + String(x.id)),
+            ...(x.settled.viaExpense ? { viaExpense: true } : {}), ...(validNum(x.settled.moved) ? { moved: x.settled.moved } : {}) } : undefined }));
       // a shared expense whose settlement entry is gone counts in full again
       out.expenses.forEach(e => { if (e.shared && !out.splits.some(x => x.id === e.shared.splitId)) delete e.shared; });
       const seenHotelIds = new Set();
@@ -1959,16 +1971,27 @@
       let sp = e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
       const undoCash = x => { if (x && x.settled && x.settled.viaExpense && x.settled.how === 'cash') { const w = wallet(x.currency); w.cash = r6(w.cash - x.amount); } };
       const drop = x => { undoCash(x); appData.splits = appData.splits.filter(y => y !== x); };
-      if (!st || !st.on) { if (sp) drop(sp); delete e.shared; return; }
-      if (sp && splitParty(sp).toLowerCase() !== String(st.partner).toLowerCase()) { drop(sp); sp = null; }
-      const dec = rateOf(e.currency).decimals, their = Math.round(e.amount / 2 * Math.pow(10, dec)) / Math.pow(10, dec);
-      const lockedByAccount = sp && sp.settled && !sp.settled.viaExpense;   // closed together with other entries: leave its money alone
+      // closed in "סגירת חשבון" together with other entries: that money already moved, so the entry stays as history
+      const lockedOf = x => !!(x && x.settled && !x.settled.viaExpense);
+      const release = x => { if (lockedOf(x)) delete x.fromExp; else drop(x); };
+      if (!st || !st.on) { if (sp) release(sp); delete e.shared; return; }
+      if (sp && splitParty(sp).toLowerCase() !== String(st.partner).toLowerCase()) { release(sp); sp = null; }
+      const dec = rateOf(e.currency).decimals;
+      const lockedByAccount = lockedOf(sp);
+      if (!lockedByAccount && !(Math.round(e.amount / 2 * Math.pow(10, dec)) > 0 && Math.round(e.amount / 2 * Math.pow(10, dec)) / Math.pow(10, dec) < e.amount)) {   // too small to split
+        if (sp) release(sp); delete e.shared; return;
+      }
+      // their part = half; once it was settled in an account it stays what they actually paid (only my part changes)
+      const their = lockedByAccount ? Math.min(sp.amount, e.amount) : Math.round(e.amount / 2 * Math.pow(10, dec)) / Math.pow(10, dec);
+      if (lockedByAccount && (sp.currency !== e.currency || !(their < e.amount))) { release(sp); delete e.shared; return; }   // can't keep it tied any more
       if (sp && !lockedByAccount) undoCash(sp);
       if (!sp) { sp = { id: newId(), person: st.partner }; appData.splits.unshift(sp); }
-      Object.assign(sp, { amount: their, currency: e.currency, category: e.category, note: '🤝 ' + (e.note || e.category) + ' – החלק שלהם', date: e.date, fromExp: e.id });
+      if (lockedByAccount) Object.assign(sp, { category: e.category, note: '🤝 ' + (e.note || e.category) + ' – החלק שלהם', fromExp: e.id });
+      else Object.assign(sp, { amount: their, currency: e.currency, category: e.category, note: '🤝 ' + (e.note || e.category) + ' – החלק שלהם', date: e.date, fromExp: e.id });
       if (!lockedByAccount) {
         if (st.repaid === 'bit' || st.repaid === 'cash') {
-          sp.settled = { how: st.repaid, date: dateToIso(new Date()), batch: (sp.settled && sp.settled.batch) || newId(), viaExpense: true };
+          const keepDate = sp.settled && sp.settled.how === st.repaid && sp.settled.date;   // saving again must not move the repayment date
+          sp.settled = { how: st.repaid, date: keepDate || dateToIso(new Date()), batch: (sp.settled && sp.settled.batch) || newId(), viaExpense: true };
           if (st.repaid === 'cash') { const w = wallet(e.currency); w.cash = r6(w.cash + their); }
         } else delete sp.settled;
       }
@@ -1989,12 +2012,12 @@
         <button type="button" class="share-toggle${st.on ? ' on' : ''}" data-sh="toggle">${st.on ? '✅' : '🤝'} שילמתי גם עבור הזוג השני <small>(החלק שלי: חצי)</small></button>
         ${!st.on ? '' : !partners.length ? '<p class="share-note" style="color:var(--accent-red);">הוסיפו קודם שמות ב-⚙️ הגדרות ← "שמות לקיזוז".</p>' : `
           ${partners.length > 1 ? `<div class="share-row">${partners.map(p => `<button type="button" class="chip-btn${p === st.partner ? ' selected' : ''}" data-sh-p="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join('')}</div>` : ''}
-          <p class="share-note">${half ? `החלק שלי <b>${escapeHtml(money(half, code()))}</b>. ` : ''}החצי של ${escapeHtml(st.partner || 'הזוג השני')} נרשם בקיזוזים.</p>
-          ${st.locked ? '<p class="share-note">✔ החלק שלהם נסגר ב"סגירת חשבון" בקיזוזים.</p>' : `
+          ${st.locked ? '' : `<p class="share-note">${half ? `החלק שלי <b>${escapeHtml(money(half, code()))}</b>. ` : ''}החצי של ${escapeHtml(st.partner || 'הזוג השני')} נרשם בקיזוזים.</p>`}
+          ${st.locked ? '<p class="share-note">✔ החלק שלהם כבר נסגר ב"סגירת חשבון" בקיזוזים, ולכן הוא נשאר כפי ששולם. שינוי הסכום משנה רק את החלק שלכם.</p>' : `
           <div class="share-row">
             <button type="button" class="chip-btn${st.repaid === 'no' ? ' selected' : ''}" data-sh-r="no">⏳ עוד לא החזירו</button>
             <button type="button" class="chip-btn${st.repaid === 'bit' ? ' selected' : ''}" data-sh-r="bit">📱 החזירו בביט / פייבוקס</button>
-            <button type="button" class="chip-btn${st.repaid === 'cash' ? ' selected' : ''}" data-sh-r="cash">💵 החזירו במזומן</button>
+            ${code() === curCode() || st.repaid === 'cash' ? `<button type="button" class="chip-btn${st.repaid === 'cash' ? ' selected' : ''}" data-sh-r="cash">💵 החזירו במזומן</button>` : ''}
           </div>`}`}`;
       const again = () => renderShareInto(el, st, amountOf, code);
       el.querySelector('[data-sh=toggle]').onclick = () => { st.on = !st.on; again(); };
@@ -2307,7 +2330,8 @@
       const me = appData.settings.me;
       const finish = how => {
         const batch = newId(), date = dateToIso(new Date());
-        items.forEach(x => { x.settled = { how, date, batch }; });
+        const moved = how === 'cash' && Math.abs(net) >= 0.005 ? net : 0;   // remembered, so ↩️ reverses exactly this even if entries are deleted later
+        items.forEach(x => { x.settled = { how, date, batch, moved }; });
         if (how === 'cash' && Math.abs(net) >= 0.005) { const w = wallet(code); w.cash = Math.round((w.cash + net) * 1e6) / 1e6; }
         saveData();
         showMsg('split-msg', `החשבון עם ${who} נסגר` + (how === 'cash' && Math.abs(net) >= 0.005 ? ` · ${money(Math.abs(net), code)} ${net > 0 ? 'נוספו למזומן' : 'ירדו מהמזומן'}` : ''));
@@ -2335,7 +2359,7 @@
       const items = appData.splits.filter(x => x.settled && x.settled.batch === batch);
       if (!items.length) return;
       const s0 = items[0].settled, code = items[0].currency, who = splitParty(items[0]);
-      const net = Math.round(items.reduce((t, x) => t + x.amount, 0) * 1e6) / 1e6;
+      const net = typeof s0.moved === 'number' ? s0.moved : Math.round(items.reduce((t, x) => t + x.amount, 0) * 1e6) / 1e6;
       const cashBack = s0.how === 'cash' && Math.abs(net) >= 0.005;
       confirmDialog({
         title: '↩️ ביטול סגירת חשבון',
@@ -2344,6 +2368,8 @@
         onOk: () => {
           items.forEach(x => { delete x.settled; });
           if (cashBack) { const w = wallet(code); w.cash = Math.round((w.cash - net) * 1e6) / 1e6; }
+          // reopened halves of shared expenses follow their expense again (its amount may have changed while closed)
+          items.forEach(x => { const e = x.fromExp && appData.expenses.find(y => y.id === x.fromExp && y.shared && y.shared.splitId === x.id); if (e) syncShare(e, shareStateOf(e)); });
           saveData();
         }
       });
@@ -2355,9 +2381,14 @@
       const fromE = s.fromExp ? appData.expenses.find(e => e.id === s.fromExp && e.shared && e.shared.splitId === s.id) : null;
       confirmDialog({
         title: 'מחיקת קיזוז',
-        text: `למחוק את הקיזוז "${s.note}" של ${s.person}?` + (fromE ? ` ההוצאה "${fromE.note}" תיספר שוב במלואה (${money(fromE.amount, fromE.currency)}).` : ''),
+        text: `למחוק את הקיזוז "${s.note}" של ${s.person}?` + (fromE ? ` ההוצאה "${fromE.note}" תיספר שוב במלואה (${money(fromE.amount, fromE.currency)}).` : '')
+          + (fromE && s.settled && s.settled.viaExpense && s.settled.how === 'cash' ? ` ${money(s.amount, s.currency)} שנוספו למזומן כשהחזירו יירדו ממנו.` : ''),
         okLabel: 'מחק', danger: true,
-        onOk: () => { if (fromE) syncShare(fromE, null); else appData.splits = appData.splits.filter(x => x.id !== id); saveData(); }
+        onOk: () => {
+          if (fromE) delete fromE.shared;
+          if (fromE && s.settled && s.settled.viaExpense && s.settled.how === 'cash') { const w = wallet(s.currency); w.cash = r6(w.cash - s.amount); }   // the cash this entry added goes back
+          appData.splits = appData.splits.filter(x => x.id !== id); saveData();
+        }
       });
     }
 
@@ -3335,7 +3366,9 @@
       if (!r) return;
       const exp = appData.expenses.find(e => e.resId === id);
       let text = `למחוק את "${r.name}" (${reservationDateLabel(r.date).top})?`;
+      const shSp = exp && exp.shared ? appData.splits.find(x => x.id === exp.shared.splitId) : null;
       if (exp && exp.linkedByUser) text += ` ההוצאה "${exp.note || exp.category}" שקישרתם אליה תישאר ברשימת ההוצאות.`;
+      else if (shSp && shSp.settled && shSp.settled.viaExpense && shSp.settled.how === 'cash') text += ` גם החצי של ${exp.shared.partner} שהוחזר במזומן (${money(shSp.amount, shSp.currency)}) יירד מהמזומן.`;
       else if (exp) text += ` ההוצאה של ${money(exp.amount, exp.currency)} שנרשמה עבורה תימחק מהסיכום.`;
       confirmDialog({
         title: 'מחיקת הזמנה', text, okLabel: 'מחק', danger: true,
@@ -3404,18 +3437,24 @@
       if (r.confirmation) bits.push('אישור: ' + r.confirmation);
       const charged = appData.expenses.some(e => e.resId === r.id);
       const dup = charged ? resDuplicate(r) : null;
-      if (charged) { const le = appData.expenses.find(e => e.resId === r.id); bits.push('💳 נרשם כהוצאה' + (le && le.shared ? ` · 🤝 שלי ${money(myAmt(le), le.currency)}` : '')); }
+      const le = charged ? appData.expenses.find(e => e.resId === r.id) : null;
+      const paidLine = le ? '💳 נרשם כהוצאה' + (le.shared ? ` · 🤝 שלי ${money(myAmt(le), le.currency)}` : '') : '';   // its own line
+      if (charged) { /* shown on its own line below */ }
       else if (r.price) bits.push('לתשלום: ' + money(r.price, r.currency));
       else if (r.kind === 'flight' && r.confirmation) {
         const payer = appData.reservations.find(o => o !== r && o.kind === 'flight' && o.confirmation === r.confirmation && (o.price || appData.expenses.some(e => e.resId === o.id)));
         if (payer) bits.push('המחיר כלול בכרטיס של ' + (payer.flightNumber || 'הטיסה הראשונה'));
       }
       const linkedExp = charged ? appData.expenses.find(e => e.resId === r.id) : null;
-      const action = (!charged && r.price ? `<button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" onclick="chargeReservation(this.dataset.id)">💳 רשום תשלום</button>` : '')
-        + (linkedExp && linkedExp.linkedByUser ? `<button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" onclick="unlinkReservation(this.dataset.id)">🔗 ביטול קישור</button>` : '');
-      const text = [...lines, bits.join(' · ')].filter(Boolean);
-      const dupHtml = dup ? `<div class="res-dup">⚠️ ייתכן שנרשם פעמיים: גם "${escapeHtml(dup.note || dup.category)}" ${escapeHtml(money(dup.amount, dup.currency))} (${escapeHtml(ddmm(dateToIso(new Date(dup.date))))})
-        <button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" data-e="${escapeHtml(dup.id)}" onclick="reviewDuplicate(this.dataset.id, this.dataset.e)">בדיקה</button></div>` : '';
+      const action = (!charged && r.price ? `<button class="nav-link res-pill" data-id="${escapeHtml(r.id)}" onclick="chargeReservation(this.dataset.id)">💳 רשום תשלום</button>` : '')
+        + (linkedExp && linkedExp.linkedByUser ? `<button class="nav-link res-pill" data-id="${escapeHtml(r.id)}" onclick="unlinkReservation(this.dataset.id)">🔗 ביטול קישור</button>` : '');
+      const text = [...lines, bits.join(' · '), paidLine].filter(Boolean);
+      const dupHtml = dup ? `<div class="res-dup">
+          <div class="res-dup-t">⚠️ אולי נרשם פעמיים</div>
+          <div class="res-dup-d">יש גם הוצאה "${escapeHtml(dup.note || dup.category)}" · <bdi>${escapeHtml(money(dup.amount, dup.currency))}</bdi> · ${escapeHtml(ddmm(dateToIso(new Date(dup.date))))}</div>
+          <div class="res-dup-d">בסה"כ נספרים שניהם: <bdi>${escapeHtml(money(myAmt(le), le.currency))}</bdi> + <bdi>${escapeHtml(money(myAmt(dup), dup.currency))}</bdi>${dup.shared ? ' (החלק שלך)' : ''}</div>
+          <button class="res-dup-btn" data-id="${escapeHtml(r.id)}" data-e="${escapeHtml(dup.id)}" onclick="reviewDuplicate(this.dataset.id, this.dataset.e)">בדיקה ←</button>
+        </div>` : '';
       return (text.length ? `<div class="res-sub">${text.map(escapeHtml).join('<br>')}</div>` : '') + dupHtml + (links || action ? `<div>${links}${action}</div>` : '');
     }
     // ---------- Linking an expense that was entered by hand to its booking ----------
@@ -3470,8 +3509,11 @@
       ov.querySelector('[data-act=no]').onclick = () => { ov.remove(); r.notDup = [...(r.notDup || []), mine.id]; saveData(); };
       ov.querySelector('[data-act=yes]').onclick = () => {
         ov.remove();
+        let moveShare = null;
+        if (auto.shared && !mine.shared) { moveShare = shareStateOf(auto); const sp = appData.splits.find(x => x.id === auto.shared.splitId); if (sp) { sp.fromExp = mine.id; mine.shared = { ...auto.shared }; } delete auto.shared; }
         removeExpenseRecord(auto);   // same wallet rules as a normal delete
         mine.resId = resId; mine.linkedByUser = true;
+        if (moveShare && mine.shared) syncShare(mine, moveShare);   // their half follows your amount (unless already settled in an account)
         saveData();
         showMsg('res-msg', 'אוחד: התשלום נספר פעם אחת');
       };
@@ -3518,7 +3560,8 @@
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         const amt = parseFloat(q('amt').value), iso = q('date').value, pay = q('pay').value;
-        if (!(amt > 0) || amt > 1e9) { q('amt').style.outline = '2px solid #ef4444'; q('amt').focus(); return; }
+        const minUnit = 1 / Math.pow(10, rateOf(r.currency).decimals);
+        if (!(amt >= minUnit) || amt > 1e9) { q('amt').style.outline = '2px solid #ef4444'; q('amt').focus(); return; }
         if (!ISO_DATE.test(iso)) { q('date').style.outline = '2px solid #ef4444'; return; }
         if (st.on && !st.partner) { q('share').scrollIntoView({ block: 'center' }); return; }
         if (appData.expenses.some(e => e.resId === id)) { ov.remove(); return; }
@@ -4931,26 +4974,34 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
       syncBackGuard();
     }
 
+    // small message above the bottom bar that fades by itself
+    function showToast(text) {
+      let t = document.getElementById('app-toast');
+      if (!t) { t = document.createElement('div'); t.id = 'app-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+      t.textContent = text; t.classList.add('show');
+      clearTimeout(showToast.tm); showToast.tm = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
     // ---------- Back gesture (Android Back / iPhone edge swipe) ----------
     // Without this, Back in the installed app closes the whole app, even with a dialog open.
     // While something can be closed, one extra history entry catches Back. Order: dialog → Suica panel → other tab → home.
-    let backArmed = false, ignorePop = false;
+    // The app never calls history.back() itself: queued programmatic Backs can overshoot and close the app.
+    let backArmed = false, exitHintAt = 0;
     const suicaPanelOpen = () => { const p = document.getElementById('suica-load-panel'); return !!p && p.style.display !== 'none'; };
     const onHome = () => document.getElementById('screen-home').classList.contains('active');
     function syncBackGuard() {
       const need = !!document.querySelector('body > .overlay') || suicaPanelOpen() || !onHome();
       try {
-        if (need && !backArmed) { history.pushState({ yb: 1 }, ''); backArmed = true; }
-        else if (!need && backArmed) { backArmed = false; ignorePop = true; history.back(); }   // closed with a button: drop the extra entry
+        if (need && !backArmed) { history.pushState({ yb: 1 }, ''); backArmed = true; }   // a leftover entry is harmless: see popstate
       } catch (_) { /* history unavailable: Back behaves as before */ }
     }
     window.addEventListener('popstate', () => {
-      if (ignorePop) { ignorePop = false; return; }
       backArmed = false;
       const ov = [...document.querySelectorAll('body > .overlay')].pop();
       if (ov) ov.remove();
       else if (suicaPanelOpen()) document.getElementById('suica-load-panel').style.display = 'none';
       else if (!onHome()) switchTab('home', document.getElementById('nav-home'));
+      else if (Date.now() - exitHintAt > 3000) { exitHintAt = Date.now(); showToast('לחצו שוב חזרה כדי לצאת'); }   // leftover entry: the next Back exits
       hideTip();
       if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
       syncBackGuard();
