@@ -450,6 +450,22 @@
     .exp-search-info { font-size: 0.8rem; color: var(--text-muted); margin: 0 2px 8px; display: flex; justify-content: space-between; gap: 8px; }
     .exp-search-info b { color: var(--text-main); }
     .exp-search-info[hidden], .exp-search-clear[hidden] { display: none; }
+    .share-box { margin: 8px 0 4px; }
+    .share-toggle { width: 100%; text-align: start; font: inherit; font-weight: 700; font-size: 0.88rem; color: var(--text-main); background: var(--input-bg);
+      border: 1px dashed var(--card-border); border-radius: 12px; padding: 10px 12px; cursor: pointer; min-height: 44px; }
+    .share-toggle.on { border-style: solid; border-color: var(--primary); background: rgba(37, 99, 235, 0.08); }
+    .share-toggle small { font-weight: 500; color: var(--text-muted); }
+    .share-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; } .share-row .chip-btn { padding: 8px 10px; font-size: 0.8rem; flex: 1 1 auto; }
+    .share-note { font-size: 0.8rem; margin: 8px 0 0; color: var(--text-muted); } .share-note b { color: var(--text-main); }
+    .share-sub { color: var(--primary) !important; font-weight: 700; }
+    .res-dup { font-size: 0.78rem; color: var(--accent-orange, #d97706); margin-top: 4px; line-height: 1.4; }
+    .link-box { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--card-border); display: grid; gap: 6px; }
+    .link-box.top { margin: 4px 0 6px; padding: 0 0 10px; border-top: 0; border-bottom: 1px solid var(--card-border); }
+    .link-cand { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: start; font: inherit;
+      background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 12px; padding: 8px 10px; cursor: pointer; min-height: 44px; }
+    .link-cand span { min-width: 0; } .link-cand b { display: block; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .link-cand small { color: var(--text-muted); font-size: 0.72rem; } .link-cand bdi { font-weight: 800; white-space: nowrap; }
+    .sub-line { font-size: 0.82rem; }
     .settle-btn { padding: 4px 8px; font-size: 0.72rem; white-space: nowrap; min-height: 32px; }
     .settled-head { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin: 12px 4px 6px; }
     .split-settled { opacity: 0.6; }
@@ -710,6 +726,7 @@
           <div class="chip-btn" data-val="Suica" id="pay-card-chip" onclick="pickPay(this)">🐧<br>Suica</div>
         </div>
         <div class="pay-auto-note" id="pay-auto-note"></div>
+        <div class="share-box" id="share-box"></div>
 
         <input type="text" id="inp-note" class="text-input" placeholder="הערה (לדוגמה: ראמן בשינג'וקו)">
         <button class="primary-btn" onclick="saveExpense()">שמור הוצאה</button>
@@ -979,7 +996,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 29 · 15/11/2026 · 0c7f20</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 34 · 15/11/2026 · 9a8081</span></div>
     </div>
 
   </div>
@@ -1324,11 +1341,15 @@
       out.expenses = (Array.isArray(d.expenses) ? d.expenses : [])
         .filter(e => e && validNum(e.amount))
         .map(e => ({ ...e, id: String(e.id || newId()), currency: DEFAULT_RATES[e.currency] ? e.currency : cur }));
-      out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות'; });
+      out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות';
+        const sh = e.shared;   // shared expense: { partner, their (their part, same currency), splitId }
+        if (sh && !(typeof sh === 'object' && typeof sh.partner === 'string' && sh.partner && validNum(sh.their) && sh.their > 0 && sh.their < e.amount && typeof sh.splitId === 'string')) delete e.shared; });
       out.splits = (Array.isArray(d.splits) ? d.splits : [])
         .filter(x => x && validNum(x.amount) && typeof x.person === 'string' && x.person.trim())
         .map(x => ({ ...x, person: x.person.trim(), note: typeof x.note === 'string' ? x.note : '', category: typeof x.category === 'string' ? x.category : 'שונות', id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur,
-          settled: x.settled && typeof x.settled === 'object' ? { how: x.settled.how === 'cash' ? 'cash' : 'bit', date: String(x.settled.date || ''), batch: String(x.settled.batch || '') } : undefined }));
+          settled: x.settled && typeof x.settled === 'object' ? { how: x.settled.how === 'cash' ? 'cash' : 'bit', date: String(x.settled.date || ''), batch: String(x.settled.batch || ''), ...(x.settled.viaExpense ? { viaExpense: true } : {}) } : undefined }));
+      // a shared expense whose settlement entry is gone counts in full again
+      out.expenses.forEach(e => { if (e.shared && !out.splits.some(x => x.id === e.shared.splitId)) delete e.shared; });
       const seenHotelIds = new Set();
       out.hotels = (Array.isArray(d.hotels) ? d.hotels : base.hotels)
         .filter(h => h && typeof h === 'object')
@@ -1351,6 +1372,7 @@
           const o = { id: String(r.id || newId()), name: r.name.trim().slice(0, 80), date: r.date };
           RES_FIELDS.forEach(k => { if (typeof r[k] === 'string' && r[k]) o[k] = r[k].slice(0, 200); });
           if (typeof r.price === 'number' && r.price > 0 && r.price <= 1e9 && DEFAULT_RATES[r.currency]) { o.price = r.price; o.currency = r.currency; }
+          if (Array.isArray(r.notDup)) o.notDup = r.notDup.filter(x => typeof x === 'string').slice(0, 50);   // "not the same payment" answers
           return o;
         });
 
@@ -1466,6 +1488,7 @@
         () => renderReservations(),
         () => renderToday(),
         () => syncSlim(),
+        () => renderAddShare(),
         () => renderConverter(),
         () => renderExpDay(),
         () => renderPayAutoSettings(),
@@ -1774,10 +1797,11 @@
 
       // Paid hotels are already in appData.expenses, so they are NOT added again here
       appData.expenses.forEach(e => {
-        if (e.currency === code) foreign += e.amount;
+        const a = myAmt(e);   // a shared expense counts only my part
+        if (e.currency === code) foreign += a;
         else hasOtherCurrencies = true;
-        ils += toIls(e.amount, e.currency, e.payment);
-        usd += toUsd(e.amount, e.currency, e.payment);
+        ils += toIls(a, e.currency, e.payment);
+        usd += toUsd(a, e.currency, e.payment);
       });
 
       document.getElementById('ui-total-main').innerText = money(foreign, code);
@@ -1822,6 +1846,8 @@
       if (Math.round(amount * Math.pow(10, rateOf(code).decimals)) === 0) { showMsg('expense-msg', 'הסכום קטן מדי עבור המטבע', 'error'); return; }
       const dayIso = expDayIso();
       if (!ISO_DATE.test(dayIso)) { showMsg('expense-msg', 'אנא בחר תאריך', 'error'); return; }
+      if (shareSt.on && !splitCounterparts().length) { showMsg('expense-msg', 'להוצאה משותפת: הוסיפו קודם שמות בהגדרות', 'error'); return; }
+      if (shareSt.on && !shareSt.partner) { showMsg('expense-msg', 'בחרו עבור מי שילמתם', 'error'); return; }
       const category = selectedVal('cat-grid');
       const payment = selectedVal('pay-grid');
       const note = document.getElementById('inp-note').value.trim() || category;
@@ -1840,12 +1866,16 @@
       payTouched = false;                   // next expense: payment method chosen by amount again
 
       lastSave.exp = Date.now();
+      const st = shareSt;
+      if (st.on) syncShare(appData.expenses[0], st);
+      const shTxt = shareMsg(appData.expenses[0], st);
+      shareSt = { on: false, partner: '', repaid: 'no' };
       const srch = document.getElementById('exp-search');
       if (srch && srch.value) { srch.value = ''; const c = document.getElementById('exp-search-clear'); if (c) c.hidden = true; }
       saveData();
       if (persistFailed) showMsg('expense-msg', '⚠️ ההוצאה נרשמה אבל לא נשמרה בזיכרון הטלפון (הזיכרון מלא). ראו את ההודעה האדומה.', 'error');
-      else if (warn) showMsg('expense-msg', 'ההוצאה נשמרה. ' + warn, 'warn');
-      else showMsg('expense-msg', 'הוצאה נשמרה בהצלחה!');
+      else if (warn) showMsg('expense-msg', 'ההוצאה נשמרה' + shTxt + '. ' + warn, 'warn');
+      else showMsg('expense-msg', shTxt ? 'הוצאה נשמרה' + shTxt : 'הוצאה נשמרה בהצלחה!');
     }
 
     function clearExpenseSearch() {
@@ -1880,7 +1910,7 @@
             e.hotelId || e.resId ? 'הזמנה' : ''].join(' ').toLowerCase();
           return words.every(w => hay.includes(w));
         });
-        const sum = displayList.reduce((t, e) => t + toIls(e.amount, e.currency, e.payment), 0);
+        const sum = displayList.reduce((t, e) => t + toIls(myAmt(e), e.currency, e.payment), 0);
         infoEl.innerHTML = displayList.length
           ? `<span>נמצאו <b>${displayList.length}</b> מתוך ${appData.expenses.length}</span><span>סה"כ <b>${escapeHtml(ilsStr(sum, 0))}</b></span>`
           : '<span>לא נמצאו הוצאות</span>';
@@ -1897,7 +1927,8 @@
           </div>
           <div class="exp-amounts">
             <div class="exp-main">${money(exp.amount, exp.currency)}</div>
-            ${exp.currency === 'ILS' ? '' : `<div class="exp-sub">${ilsStr(toIls(exp.amount, exp.currency, exp.payment))}</div>`}
+            ${exp.shared ? `<div class="exp-sub share-sub">🤝 שלי ${money(myAmt(exp), exp.currency)}</div>${exp.currency === 'ILS' ? '' : `<div class="exp-sub">${ilsStr(toIls(myAmt(exp), exp.currency, exp.payment))}</div>`}`
+              : exp.currency === 'ILS' ? '' : `<div class="exp-sub">${ilsStr(toIls(exp.amount, exp.currency, exp.payment))}</div>`}
           </div>
           <button class="edit-btn" data-id="${escapeHtml(exp.id)}" onclick="editExpense(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>
           <button class="del-btn" data-id="${escapeHtml(exp.id)}" onclick="deleteExpense(this.dataset.id)" aria-label="מחק" title="מחק">🗑️</button>
@@ -1920,9 +1951,67 @@
       });
     }
 
+    // ---------- Shared expense: I paid for both couples, my part is half ----------
+    const myAmt = e => e && e.shared && e.shared.their > 0 ? Math.max(0, Math.round((e.amount - e.shared.their) * 1e6) / 1e6) : e.amount;
+    const r6 = v => Math.round(v * 1e6) / 1e6;
+    // Keeps the expense and its settlement entry in step. st = { on, partner, repaid: 'no' | 'bit' | 'cash' }
+    function syncShare(e, st) {
+      let sp = e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
+      const undoCash = x => { if (x && x.settled && x.settled.viaExpense && x.settled.how === 'cash') { const w = wallet(x.currency); w.cash = r6(w.cash - x.amount); } };
+      const drop = x => { undoCash(x); appData.splits = appData.splits.filter(y => y !== x); };
+      if (!st || !st.on) { if (sp) drop(sp); delete e.shared; return; }
+      if (sp && splitParty(sp).toLowerCase() !== String(st.partner).toLowerCase()) { drop(sp); sp = null; }
+      const dec = rateOf(e.currency).decimals, their = Math.round(e.amount / 2 * Math.pow(10, dec)) / Math.pow(10, dec);
+      const lockedByAccount = sp && sp.settled && !sp.settled.viaExpense;   // closed together with other entries: leave its money alone
+      if (sp && !lockedByAccount) undoCash(sp);
+      if (!sp) { sp = { id: newId(), person: st.partner }; appData.splits.unshift(sp); }
+      Object.assign(sp, { amount: their, currency: e.currency, category: e.category, note: '🤝 ' + (e.note || e.category) + ' – החלק שלהם', date: e.date, fromExp: e.id });
+      if (!lockedByAccount) {
+        if (st.repaid === 'bit' || st.repaid === 'cash') {
+          sp.settled = { how: st.repaid, date: dateToIso(new Date()), batch: (sp.settled && sp.settled.batch) || newId(), viaExpense: true };
+          if (st.repaid === 'cash') { const w = wallet(e.currency); w.cash = r6(w.cash + their); }
+        } else delete sp.settled;
+      }
+      e.shared = { partner: st.partner, their, splitId: sp.id };
+    }
+    function shareStateOf(e) {
+      const sp = e && e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
+      return { on: !!sp, partner: sp ? splitParty(sp) : (splitCounterparts().length === 1 ? splitCounterparts()[0] : ''),
+        repaid: sp && sp.settled ? sp.settled.how : 'no', locked: !!(sp && sp.settled && !sp.settled.viaExpense) };
+    }
+    // The "I paid for both" block, used in the add form and in the edit dialog
+    function renderShareInto(el, st, amountOf, code) {
+      const partners = splitCounterparts();
+      if (st.on && !st.partner && partners.length === 1) st.partner = partners[0];
+      const amt = amountOf(), dec = rateOf(code()).decimals;
+      const half = amt > 0 ? Math.round(amt / 2 * Math.pow(10, dec)) / Math.pow(10, dec) : 0;
+      el.innerHTML = `
+        <button type="button" class="share-toggle${st.on ? ' on' : ''}" data-sh="toggle">${st.on ? '✅' : '🤝'} שילמתי גם עבור הזוג השני <small>(החלק שלי: חצי)</small></button>
+        ${!st.on ? '' : !partners.length ? '<p class="share-note" style="color:var(--accent-red);">הוסיפו קודם שמות ב-⚙️ הגדרות ← "שמות לקיזוז".</p>' : `
+          ${partners.length > 1 ? `<div class="share-row">${partners.map(p => `<button type="button" class="chip-btn${p === st.partner ? ' selected' : ''}" data-sh-p="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join('')}</div>` : ''}
+          <p class="share-note">${half ? `החלק שלי <b>${escapeHtml(money(half, code()))}</b>. ` : ''}החצי של ${escapeHtml(st.partner || 'הזוג השני')} נרשם בקיזוזים.</p>
+          ${st.locked ? '<p class="share-note">✔ החלק שלהם נסגר ב"סגירת חשבון" בקיזוזים.</p>' : `
+          <div class="share-row">
+            <button type="button" class="chip-btn${st.repaid === 'no' ? ' selected' : ''}" data-sh-r="no">⏳ עוד לא החזירו</button>
+            <button type="button" class="chip-btn${st.repaid === 'bit' ? ' selected' : ''}" data-sh-r="bit">📱 החזירו בביט / פייבוקס</button>
+            <button type="button" class="chip-btn${st.repaid === 'cash' ? ' selected' : ''}" data-sh-r="cash">💵 החזירו במזומן</button>
+          </div>`}`}`;
+      const again = () => renderShareInto(el, st, amountOf, code);
+      el.querySelector('[data-sh=toggle]').onclick = () => { st.on = !st.on; again(); };
+      el.querySelectorAll('[data-sh-p]').forEach(b => b.onclick = () => { st.partner = b.dataset.shP; again(); });
+      el.querySelectorAll('[data-sh-r]').forEach(b => b.onclick = () => { st.repaid = b.dataset.shR; again(); });
+    }
+    let shareSt = { on: false, partner: '', repaid: 'no' };
+    function renderAddShare() {
+      const el = document.getElementById('share-box');
+      if (el) renderShareInto(el, shareSt, () => parseFloat(document.getElementById('inp-amount').value) || 0, () => expCur || curCode());
+    }
+    const shareMsg = (e, st) => !e.shared ? '' : ` · החלק שלי ${money(myAmt(e), e.currency)}` + (st.repaid === 'bit' ? ' (החזירו בביט)' : st.repaid === 'cash' ? ` (+${money(e.shared.their, e.currency)} למזומן)` : ` · ${e.shared.partner} חייבים ${money(e.shared.their, e.currency)}`);
+
     // Removes an expense, refunds the wallet, and un-pays a linked hotel
     function removeExpenseRecord(exp) {
       if (!appData.expenses.some(e => e.id === exp.id)) return;   // already removed (e.g. two dialogs confirmed): never refund twice
+      if (exp.shared) syncShare(exp, null);   // its settlement entry goes too
       const key = WALLET_KEY[exp.payment];
       if (key) { const w = wallet(exp.currency); w[key] = Math.round((w[key] + exp.amount) * 1e6) / 1e6; }
 
@@ -1941,7 +2030,7 @@
       const hotelNote = exp.hotelId ? (linked && linked.kind === 'car' ? ' השכרת הרכב תחזור לסטטוס "ממתין".' : ' המלון יחזור לסטטוס "ממתין".') : '';
       confirmDialog({
         title: 'מחיקת הוצאה',
-        text: `למחוק את "${exp.note}" (${money(exp.amount, exp.currency)})?${refundNote}${hotelNote}`,
+        text: `למחוק את "${exp.note}" (${money(exp.amount, exp.currency)})?${refundNote}${hotelNote}${exp.shared ? ` גם הרישום בקיזוזים (${exp.shared.partner} – ${money(exp.shared.their, exp.currency)}) יימחק.` : ''}`,
         okLabel: 'מחק', danger: true,
         onOk: () => { removeExpenseRecord(exp); saveData(); }
       });
@@ -2199,6 +2288,7 @@
               <div class="exp-main" style="color:${st ? 'var(--text-muted)' : amountColor};${st ? ' text-decoration:line-through;' : ''}">${isDebt ? '-' : '+'}${money(Math.abs(split.amount), split.currency)}</div>
             </div>
             ${st ? `<button class="edit-btn" data-b="${escapeHtml(st.batch)}" onclick="undoSettle(this.dataset.b)" aria-label="פתח מחדש" title="ביטול הסגירה">↩️</button>`
+                 : split.fromExp && appData.expenses.some(e => e.id === split.fromExp) ? `<button class="edit-btn" data-e="${escapeHtml(split.fromExp)}" onclick="editExpense(this.dataset.e)" aria-label="ערוך את ההוצאה" title="נוצר מהוצאה משותפת: עריכה דרך ההוצאה">🤝</button>`
                  : `<button class="edit-btn" data-id="${escapeHtml(split.id)}" onclick="editSplit(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>`}
             <button class="del-btn" data-id="${escapeHtml(split.id)}" onclick="deleteSplit(this.dataset.id)" aria-label="מחק" title="מחק">🗑️</button>
           </div>
@@ -2262,11 +2352,12 @@
     function deleteSplit(id) {
       const s = appData.splits.find(x => x.id === id);
       if (!s) return;
+      const fromE = s.fromExp ? appData.expenses.find(e => e.id === s.fromExp && e.shared && e.shared.splitId === s.id) : null;
       confirmDialog({
         title: 'מחיקת קיזוז',
-        text: `למחוק את הקיזוז "${s.note}" של ${s.person}?`,
+        text: `למחוק את הקיזוז "${s.note}" של ${s.person}?` + (fromE ? ` ההוצאה "${fromE.note}" תיספר שוב במלואה (${money(fromE.amount, fromE.currency)}).` : ''),
         okLabel: 'מחק', danger: true,
-        onOk: () => { appData.splits = appData.splits.filter(x => x.id !== id); saveData(); }
+        onOk: () => { if (fromE) syncShare(fromE, null); else appData.splits = appData.splits.filter(x => x.id !== id); saveData(); }
       });
     }
 
@@ -2761,7 +2852,7 @@
       const cats = {}; SUMMARY_CATS.forEach(c => cats[c] = 0);
       const days = {};
       appData.expenses.forEach(e => {
-        const v = toIls(e.amount, e.currency, e.payment);
+        const v = toIls(myAmt(e), e.currency, e.payment);
         cats[cats[e.category] !== undefined ? e.category : 'שונות'] += v;
         const d = new Date(e.date);
         if (isNaN(d)) return;
@@ -2857,7 +2948,7 @@
       appData.expenses.forEach(e => {
         const d = new Date(e.date); if (isNaN(d)) return;
         const k = dateToIso(d);
-        (byDay[k] = byDay[k] || []).push({ e, ils: toIls(e.amount, e.currency, e.payment), cat: SUMMARY_CATS.includes(e.category) ? e.category : 'שונות', booking: isBookingExp(e) });
+        (byDay[k] = byDay[k] || []).push({ e, ils: toIls(myAmt(e), e.currency, e.payment), cat: SUMMARY_CATS.includes(e.category) ? e.category : 'שונות', booking: isBookingExp(e) });
       });
       const last = today < end ? today : end, days = [];
       if (start <= last) for (let d = start, n = 0; d <= last && n < 400; d = addDaysIso(d, 1), n++) {
@@ -2988,8 +3079,8 @@
 
       appData.expenses.forEach(e => {
         const key = byCat[e.category] ? e.category : 'שונות';
-        byCat[key].ils += toIls(e.amount, e.currency, e.payment);
-        byCat[key].byCur[e.currency] = (byCat[key].byCur[e.currency] || 0) + e.amount;   // every currency, e.g. "¥8,000 + $1,000"
+        byCat[key].ils += toIls(myAmt(e), e.currency, e.payment);
+        byCat[key].byCur[e.currency] = (byCat[key].byCur[e.currency] || 0) + myAmt(e);   // every currency, e.g. "¥8,000 + $1,000"
       });
 
       // Daily averages: same rules as the daily list (trip days so far, bookings and pre-trip purchases left out).
@@ -3244,11 +3335,13 @@
       if (!r) return;
       const exp = appData.expenses.find(e => e.resId === id);
       let text = `למחוק את "${r.name}" (${reservationDateLabel(r.date).top})?`;
-      if (exp) text += ` ההוצאה של ${money(exp.amount, exp.currency)} שנרשמה עבורה תימחק מהסיכום.`;
+      if (exp && exp.linkedByUser) text += ` ההוצאה "${exp.note || exp.category}" שקישרתם אליה תישאר ברשימת ההוצאות.`;
+      else if (exp) text += ` ההוצאה של ${money(exp.amount, exp.currency)} שנרשמה עבורה תימחק מהסיכום.`;
       confirmDialog({
         title: 'מחיקת הזמנה', text, okLabel: 'מחק', danger: true,
         onOk: () => {
-          if (exp) removeExpenseRecord(exp);
+          if (exp && exp.linkedByUser) { delete exp.resId; delete exp.linkedByUser; }   // your own expense stays, just unlinked
+          else if (exp) removeExpenseRecord(exp);
           appData.reservations = appData.reservations.filter(x => x.id !== id);
           saveData();
         }
@@ -3310,24 +3403,95 @@
       }
       if (r.confirmation) bits.push('אישור: ' + r.confirmation);
       const charged = appData.expenses.some(e => e.resId === r.id);
-      if (charged) bits.push('💳 נרשם כהוצאה');
+      const dup = charged ? resDuplicate(r) : null;
+      if (charged) { const le = appData.expenses.find(e => e.resId === r.id); bits.push('💳 נרשם כהוצאה' + (le && le.shared ? ` · 🤝 שלי ${money(myAmt(le), le.currency)}` : '')); }
       else if (r.price) bits.push('לתשלום: ' + money(r.price, r.currency));
       else if (r.kind === 'flight' && r.confirmation) {
         const payer = appData.reservations.find(o => o !== r && o.kind === 'flight' && o.confirmation === r.confirmation && (o.price || appData.expenses.some(e => e.resId === o.id)));
         if (payer) bits.push('המחיר כלול בכרטיס של ' + (payer.flightNumber || 'הטיסה הראשונה'));
       }
-      const action = !charged && r.price ? `<button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" onclick="chargeReservation(this.dataset.id)">💳 רשום תשלום</button>` : '';
+      const linkedExp = charged ? appData.expenses.find(e => e.resId === r.id) : null;
+      const action = (!charged && r.price ? `<button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" onclick="chargeReservation(this.dataset.id)">💳 רשום תשלום</button>` : '')
+        + (linkedExp && linkedExp.linkedByUser ? `<button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" onclick="unlinkReservation(this.dataset.id)">🔗 ביטול קישור</button>` : '');
       const text = [...lines, bits.join(' · ')].filter(Boolean);
-      return (text.length ? `<div class="res-sub">${text.map(escapeHtml).join('<br>')}</div>` : '') + (links || action ? `<div>${links}${action}</div>` : '');
+      const dupHtml = dup ? `<div class="res-dup">⚠️ ייתכן שנרשם פעמיים: גם "${escapeHtml(dup.note || dup.category)}" ${escapeHtml(money(dup.amount, dup.currency))} (${escapeHtml(ddmm(dateToIso(new Date(dup.date))))})
+        <button class="nav-link" style="cursor:pointer;" data-id="${escapeHtml(r.id)}" data-e="${escapeHtml(dup.id)}" onclick="reviewDuplicate(this.dataset.id, this.dataset.e)">בדיקה</button></div>` : '';
+      return (text.length ? `<div class="res-sub">${text.map(escapeHtml).join('<br>')}</div>` : '') + dupHtml + (links || action ? `<div>${links}${action}</div>` : '');
     }
+    // ---------- Linking an expense that was entered by hand to its booking ----------
+    // free expenses (not tied to any booking), closest in amount to the booking first
+    function linkCandidates(r) {
+      const target = r.price ? toIls(r.price, r.currency, 'אשראי') : 0, cat = resExpenseCategory(r);
+      return appData.expenses.filter(e => !e.resId && !e.hotelId).map(e => {
+        const same = e.currency === r.currency && r.price && Math.abs(e.amount - r.price) <= Math.max(1, r.price * 0.02);
+        const diff = target ? Math.abs(toIls(e.amount, e.currency, e.payment) - target) / target : 1;
+        return { e, close: !!same, likely: same || diff < 0.15, score: (same ? 0 : diff) + (e.category === cat ? 0 : 0.3) };
+      }).sort((a, b) => a.score - b.score);
+    }
+    function linkExpenseToReservation(expId, resId) {
+      const e = appData.expenses.find(x => x.id === expId), r = appData.reservations.find(x => x.id === resId);
+      if (!e || !r || appData.expenses.some(x => x.resId === resId)) return;
+      e.resId = resId; e.linkedByUser = true;
+      saveData();
+      showMsg('res-msg', `"${e.note || e.category}" קושרה ל${r.name} – ההזמנה מסומנת כשולמה, והסכום נספר פעם אחת`);
+    }
+    function unlinkReservation(resId) {
+      const e = appData.expenses.find(x => x.resId === resId && x.linkedByUser);
+      if (!e) return;
+      confirmDialog({ title: '🔗 ביטול קישור', text: `לנתק את "${e.note || e.category}" מההזמנה? ההוצאה נשארת, וההזמנה תחזור ל"לתשלום".`, okLabel: 'נתק',
+        onOk: () => { delete e.resId; delete e.linkedByUser; saveData(); } });
+    }
+    // A booking already has its expense, and a hand-entered expense looks like the same payment
+    function resDuplicate(r) {
+      const linked = appData.expenses.find(e => e.resId === r.id);
+      if (!linked) return null;
+      const ok = r.notDup || [];
+      return appData.expenses.find(e => e !== linked && !e.resId && !e.hotelId && !ok.includes(e.id) && e.currency === linked.currency
+        && Math.abs(e.amount - linked.amount) <= Math.max(1, linked.amount * 0.02)
+        && (e.category === linked.category || e.category === resExpenseCategory(r))) || null;
+    }
+    function reviewDuplicate(resId, expId) {
+      const r = appData.reservations.find(x => x.id === resId), mine = appData.expenses.find(e => e.id === expId);
+      const auto = appData.expenses.find(e => e.resId === resId);
+      if (!r || !mine || !auto) return;
+      const line = e => `${e.note || e.category} · ${money(e.amount, e.currency)} · ${ddmm(dateToIso(new Date(e.date)))} · ${e.payment || ''}`;
+      const ov = openDialog(`
+        <h3>⚠️ אותו תשלום פעמיים?</h3>
+        <p>${escapeHtml(resIcon(r) + r.name)}</p>
+        <div class="link-box" style="margin-top:6px;">
+          <div class="sub-line">🔗 רשום עם ההזמנה: <b>${escapeHtml(line(auto))}</b></div>
+          <div class="sub-line">✍️ הוזן ידנית: <b>${escapeHtml(line(mine))}</b></div>
+        </div>
+        <p style="font-size:0.8rem;">אם זה אותו תשלום: ההוצאה שהזנתם נשארת (עם אמצעי התשלום והתאריך שלה) ומקושרת להזמנה, והרישום הכפול נמחק.</p>
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="no">שתי הוצאות שונות</button>
+          <button class="primary-btn" data-act="yes">אותו תשלום – אחד</button>
+        </div>`);
+      ov.querySelector('[data-act=no]').onclick = () => { ov.remove(); r.notDup = [...(r.notDup || []), mine.id]; saveData(); };
+      ov.querySelector('[data-act=yes]').onclick = () => {
+        ov.remove();
+        removeExpenseRecord(auto);   // same wallet rules as a normal delete
+        mine.resId = resId; mine.linkedByUser = true;
+        saveData();
+        showMsg('res-msg', 'אוחד: התשלום נספר פעם אחת');
+      };
+    }
+
     // Record a reservation's payment (prepaid on import, or later: e.g. a car paid at pickup)
-    function chargeReservation(id) {
+    function chargeReservation(id, showAll) {
       const r = appData.reservations.find(x => x.id === id);
       if (!r || !r.price || appData.expenses.some(e => e.resId === id)) return;
+      const allC = linkCandidates(r), cands = showAll ? allC.slice(0, 40) : allC.filter(c => c.likely).slice(0, 5);
+      const more = !showAll && allC.length > cands.length;
       const sameCur = r.currency === curCode();   // cash/LAYA wallets are per currency: other currencies are paid by card
       const ov = openDialog(`
         <h3>💳 רישום תשלום</h3>
         <p>${escapeHtml(resIcon(r) + r.name)}</p>
+        ${cands.length ? `<div class="link-box top">
+          <div class="field-label" style="margin-top:0;">🔗 כבר רשמתם את התשלום כהוצאה? בחרו אותה כדי לקשר (בלי לספור פעמיים):</div>
+          ${cands.map(c => `<button type="button" class="link-cand" data-link="${escapeHtml(c.e.id)}"><span><b>${escapeHtml(c.e.note || c.e.category)}</b><small>${escapeHtml(ddmm(dateToIso(new Date(c.e.date))))} · ${escapeHtml(c.e.payment || '')}${c.close ? ' · ✔ אותו סכום' : ''}</small></span><bdi>${escapeHtml(money(c.e.amount, c.e.currency))}</bdi></button>`).join('')}
+          ${more ? `<button type="button" class="nav-link" data-act="more" style="cursor:pointer; margin-top:4px;">הצג עוד הוצאות</button>` : ''}
+        </div>` : ''}
         <label class="field-label">סכום ששולם (${escapeHtml(rateOf(r.currency).symbol)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(r.price)}"></label>
         <label class="field-label">תאריך התשלום<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${dateToIso(new Date())}" max="9999-12-31"></label>
         <label class="field-label">אמצעי תשלום<select class="select-input" data-el="pay">
@@ -3335,24 +3499,38 @@
           ${sameCur ? '<option value="LAYA">💳 LAYA</option><option value="מזומן">💵 מזומן</option>' : ''}
         </select></label>
         ${sameCur ? '' : `<p style="font-size:0.75rem;">במטבע ${escapeHtml(r.currency)} אפשר לרשום רק תשלום באשראי.</p>`}
+        <div class="share-box" data-el="share" style="margin-top:12px;"></div>
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">רשום</button>
-        </div>`);
+        </div>
+`);
+      const st = { on: false, partner: '', repaid: 'no' };
+      {
+        const sb = ov.querySelector('[data-el="share"]'), ai = ov.querySelector('[data-el="amt"]');
+        const paintShare = () => renderShareInto(sb, st, () => parseFloat(ai.value) || 0, () => r.currency);
+        paintShare(); ai.addEventListener('input', () => { if (st.on) paintShare(); });
+      }
+      ov.querySelectorAll('[data-link]').forEach(b => b.onclick = () => { ov.remove(); linkExpenseToReservation(b.dataset.link, id); });
+      const mb = ov.querySelector('[data-act=more]');
+      if (mb) mb.onclick = () => { ov.remove(); chargeReservation(id, true); };
       const q = k => ov.querySelector(`[data-el="${k}"]`);
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         const amt = parseFloat(q('amt').value), iso = q('date').value, pay = q('pay').value;
         if (!(amt > 0) || amt > 1e9) { q('amt').style.outline = '2px solid #ef4444'; q('amt').focus(); return; }
         if (!ISO_DATE.test(iso)) { q('date').style.outline = '2px solid #ef4444'; return; }
+        if (st.on && !st.partner) { q('share').scrollIntoView({ block: 'center' }); return; }
         if (appData.expenses.some(e => e.resId === id)) { ov.remove(); return; }
         const warn = spendFrom(pay, r.currency, amt);
         appData.expenses.unshift({ id: newId(), amount: amt, currency: r.currency, category: resExpenseCategory(r), payment: pay,
           note: r.kind === 'flight' ? r.name.replace(/^✈️\s*/, 'טיסה ') : r.kind === 'car' ? `השכרת רכב: ${r.name}` : r.name,
           date: (iso === dateToIso(new Date()) ? new Date() : isoToDate(iso)).toISOString(), resId: id });
+        if (st.on) syncShare(appData.expenses[0], st);
+        const shTxt = shareMsg(appData.expenses[0], st);
         ov.remove();
         saveData();
-        showMsg('res-msg', warn ? 'התשלום נרשם. ' + warn : 'התשלום נרשם כהוצאה', warn ? 'warn' : 'ok');
+        showMsg('res-msg', warn ? 'התשלום נרשם' + shTxt + '. ' + warn : 'התשלום נרשם כהוצאה' + shTxt, warn ? 'warn' : 'ok');
       };
     }
 
@@ -3872,6 +4050,7 @@ Rules:
       const pays = ['אשראי', 'מזומן', 'LAYA'].concat(e.currency === 'JPY' || e.payment === 'Suica' ? ['Suica'] : []);
       if (!pays.includes(e.payment)) pays.push(e.payment);
       const cats = Object.keys(CAT_ICONS); if (!cats.includes(e.category)) cats.push(e.category);
+      const canShare = !e.hotelId;   // regular expenses and bookings (flights, cars, trains, tickets); hotels stay per couple
       const ov = openDialog(`
         <h3>✏️ עריכת הוצאה</h3>
         <label class="field-label">סכום (${escapeHtml(rateOf(e.currency).symbol)} · ${escapeHtml(e.currency)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(e.amount)}"></label>
@@ -3888,11 +4067,17 @@ Rules:
         </div>
         <input type="time" class="text-input" data-el="time" style="direction:ltr; margin-top:8px;" value="${isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')}">
         ${e.hotelId ? '<p style="font-size:0.75rem;">ההוצאה מקושרת למלון: הסכום הסופי של המלון יתעדכן בהתאם.</p>' : ''}
+        ${canShare ? '<div class="share-box" data-el="share" style="margin-top:12px;"></div>' : ''}
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">שמור</button>
         </div>`);
       const q = k => ov.querySelector(`[data-el="${k}"]`);
+      const st = shareStateOf(e), st0 = JSON.stringify(st);
+      if (canShare) {
+        const paintShare = () => renderShareInto(q('share'), st, () => parseFloat(q('amt').value) || 0, () => e.currency);
+        paintShare(); q('amt').addEventListener('input', () => { if (st.on) paintShare(); });
+      }
       const origPart = isNaN(d) ? 'exact' : (dayPartOf(d) || 'exact');
       let part = origPart;
       const paintParts = () => {
@@ -3909,6 +4094,7 @@ Rules:
         if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(e.currency).decimals)) === 0) { markBad(q('amt')); return; }
         if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); return; }
         if (!appData.expenses.includes(e)) { ov.remove(); return; }
+        if (canShare && st.on && !st.partner) { q('share').scrollIntoView({ block: 'center' }); return; }
         // undo the old payment, then apply the new one: wallets stay exact even when amount or method changed
         const oldKey = WALLET_KEY[e.payment];
         if (oldKey) { const w = wallet(e.currency); w[oldKey] = Math.round((w[oldKey] + e.amount) * 1e6) / 1e6; }
@@ -3920,9 +4106,11 @@ Rules:
           e.date = new Date(Y, M - 1, Dd, H, Mi, 0, 0).toISOString();
         }
         if (e.hotelId) { const h = appData.hotels.find(x => x.id === e.hotelId); if (h) { h.finalPrice = amt; h.payment = pay; } }
+        if (canShare && (st.on || e.shared)) syncShare(e, st);   // amount, date, note or the share itself changed: keep the settlement entry in step
         ov.remove();
         saveData();
-        showMsg('expense-msg', warn ? 'ההוצאה עודכנה. ' + warn : 'ההוצאה עודכנה', warn ? 'warn' : 'ok');
+        const shTxt = JSON.stringify(st) !== st0 && e.shared ? shareMsg(e, st) : '';
+        showMsg('expense-msg', warn ? 'ההוצאה עודכנה' + shTxt + '. ' + warn : 'ההוצאה עודכנה' + shTxt, warn ? 'warn' : 'ok');
       };
     }
 
@@ -4274,7 +4462,7 @@ Rules:
       // Built from the same rounded per-row values as the expense rows, so Excel sums match to the agorot.
       const sumRow = (label, cat, list) => {
         let ils = 0, usd = 0;
-        list.forEach(e => { const [a, b] = conv(e.amount, e.currency, e.payment); ils += a; usd += b; });
+        list.forEach(e => { const [a, b] = conv(myAmt(e), e.currency, e.payment); ils += a; usd += b; });
         return { ils: num(ils), usd: num(usd), row: ['סיכום', '', '', label, cat, '', '', '', num(ils), num(usd), '', list.length === 1 ? 'הוצאה אחת' : `${list.length} הוצאות`] };
       };
       const all = sumRow('סה"כ הוצאות בפועל', '', appData.expenses);
@@ -4289,8 +4477,8 @@ Rules:
 
       appData.expenses.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(e => {
         used.add(e.currency);
-        rows.push(['הוצאה', localDateTime(e.date), '', e.note, e.category, e.payment, e.amount, e.currency, ...conv(e.amount, e.currency, e.payment), '',
-          [e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
+        rows.push(['הוצאה', localDateTime(e.date), '', e.note, e.category, e.payment, myAmt(e), e.currency, ...conv(myAmt(e), e.currency, e.payment), '',
+          [e.shared ? `הוצאה משותפת: שולם ${e.amount} ${e.currency}, החלק של ${e.shared.partner} ${e.shared.their}` : '', e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
       });
       sortedHotels().forEach(h => {
         used.add(h.currency);
@@ -4331,9 +4519,10 @@ Rules:
       const details = !!(opts && opts.details);   // default: one line per day, without every single expense
       const esc = escapeHtml, code = curCode(), D = dayListData();
       const today = dateToIso(new Date());
-      const ilsOf = e => toIls(e.amount, e.currency, e.payment);
-      const orig = e => money(e.amount, e.currency);
-      const both = e => e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`;
+      const ilsOf = e => toIls(myAmt(e), e.currency, e.payment);
+      const orig = e => money(myAmt(e), e.currency);
+      const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
+        + (e.shared ? ` <span class="ils">🤝 מתוך ${esc(money(e.amount, e.currency))}</span>` : '');
       const dlab = d => { const l = reservationDateLabel(d); return `${l.day} · ${l.top}`; };
       const isoOf = e => { const d = new Date(e.date); return isNaN(d) ? '' : dateToIso(d); };
       const COL = { 'אוכל': '#2a78d6', 'קניות': '#eb6834', 'תחבורה': '#1baf7a', 'מלון': '#eda100', 'אטרקציות': '#8b5cf6', 'שונות': '#e87ba4' };
@@ -4343,7 +4532,7 @@ Rules:
       const total = appData.expenses.reduce((t, e) => t + ilsOf(e), 0);
       const bookTotal = D.bookings.reduce((t, x) => t + x.ils, 0);
       const byCat = {}; SUMMARY_CATS.forEach(c => byCat[c] = { ils: 0, byCur: {} });
-      appData.expenses.forEach(e => { const c = byCat[catOf(e)]; c.ils += ilsOf(e); c.byCur[e.currency] = (c.byCur[e.currency] || 0) + e.amount; });
+      appData.expenses.forEach(e => { const c = byCat[catOf(e)]; c.ils += ilsOf(e); c.byCur[e.currency] = (c.byCur[e.currency] || 0) + myAmt(e); });
       const dailyCat = {}; D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
       const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '')).reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
       const avgOf = c => c === 'מלון' ? (nights ? `${ilsStr(byCat[c].ils / nights, 0)} ללילה` : '—') : (D.days.length && dailyCat[c] ? `${ilsStr(dailyCat[c] / D.days.length, 0)} ליום` : '—');
@@ -4389,7 +4578,7 @@ Rules:
       const hotels = appData.hotels.slice().sort((a, b) => (a.checkIn || '') < (b.checkIn || '') ? -1 : 1).map(h => {
         const n = ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '') ? nightsBetween(h.checkIn, h.checkOut) : 0;
         const amt = h.paid ? h.finalPrice : h.basePrice;
-        const amtTxt = amt > 0 ? (h.currency === 'ILS' ? money(amt, 'ILS') : `${money(amt, h.currency)} <span class="ils">(${ilsStr(toIls(amt, h.currency, h.paid ? h.payment : ''), 0)})</span>`) : '—';
+        const amtTxt = amt > 0 ? (h.currency === 'ILS' ? money(amt, 'ILS') : `${money(amt, h.currency)} <span class="ils">(${ilsStr(toIls(amt, h.currency, h.paid ? h.payment : ''), 0)})</span>`) : '—';   // .ils drops to its own line on a phone
         return `<tr><td><b>${esc(h.name)}</b>${mapA(h.address || [h.name, h.city].filter(Boolean).join(', '))}${h.confirmation ? `<div class="sub">אישור ${esc(h.confirmation)}</div>` : ''}</td>
           <td>${esc(hotelDates(h).split(' · ')[0])}</td><td class="c">${n || ''}</td>
           <td>${h.paid ? '<span class="ok">✔ חויב</span>' : '<span class="pend">⏳ ממתין</span>'}</td><td class="amt">${amtTxt}</td></tr>`;
@@ -4439,7 +4628,7 @@ h3{font-size:.95rem;margin:14px 0 6px}
 .donut{width:160px;height:160px}.d-k{font-size:11px;fill:var(--muted)}.d-v{font-size:15px;font-weight:800;fill:var(--text)}
 table{width:100%;border-collapse:collapse;font-size:.85rem}
 th{color:var(--muted);font-weight:600;font-size:.75rem;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
-td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
 tr:last-child td{border-bottom:0}
 .amt{text-align:left;white-space:nowrap;direction:ltr;unicode-bidi:plaintext}
 .c{text-align:center}.avg{color:var(--green);font-weight:700}
@@ -4459,11 +4648,13 @@ a{text-decoration:none}
 .bar span{display:flex;height:100%;border-radius:99px;overflow:hidden}.bar i{display:block;height:100%}
 .items td{border-bottom:1px dashed var(--line)}.items .ic{width:24px}.items .pay{color:var(--muted);font-size:.75rem;white-space:nowrap}
 .items tr.muted td{color:var(--muted)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tag{font-size:.65rem;border:1px solid var(--line);border-radius:6px;padding:0 5px}
 .none{color:var(--muted);font-size:.8rem;margin-top:4px}
 .cats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.8rem;align-items:center}.cl{white-space:nowrap;direction:ltr;unicode-bidi:isolate}.cats .sub{margin-inline-start:auto}
 .foot{color:var(--muted);font-size:.72rem;text-align:center;margin:12px 0 24px}
-@media (max-width:520px){.sumgrid{grid-template-columns:1fr;justify-items:center}.items .pay{display:none}}
+@media (max-width:520px){.sumgrid{grid-template-columns:1fr;justify-items:center}.items .pay{display:none}
+  table{font-size:.8rem}th,td{padding:6px 3px}.amt .ils{display:block}.res-t td:nth-child(2){min-width:0}}
 @page{size:A4;margin:12mm}
 @media print{
   :root{--bg:#fff;--card:#fff;--line:#d1d5db;--text:#111;--muted:#555;--primary:#1d4ed8;--green:#047857;--amber:#b45309;--soft:#f5f5f5}
@@ -4496,8 +4687,8 @@ ${dayBlocks || '<div class="note">הטיול עוד לא התחיל.</div>'}
 </section>
 
 <section class="card page"><h2>🏨 הזמנות</h2>
-${hotels ? `<h3>מלונות</h3><table><tr><th>מלון</th><th>תאריכים</th><th class="c">לילות</th><th>סטטוס</th><th class="amt">סכום</th></tr>${hotels}</table>` : ''}
-${resv ? `<h3>טיסות, רכב והזמנות נוספות</h3><table><tr><th>תאריך</th><th>הזמנה</th><th class="amt">סכום</th></tr>${resv}</table>` : ''}
+${hotels ? `<h3>מלונות</h3><div class="tw"><table><tr><th>מלון</th><th>תאריכים</th><th class="c">לילות</th><th>סטטוס</th><th class="amt">סכום</th></tr>${hotels}</table></div>` : ''}
+${resv ? `<h3>טיסות, רכב והזמנות נוספות</h3><div class="tw"><table class="res-t"><tr><th>תאריך</th><th>הזמנה</th><th class="amt">סכום</th></tr>${resv}</table></div>` : ''}
 ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
 </section>
 
@@ -4868,6 +5059,9 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
       if (isIOS && !isStandalone()) {
         showInstallTip('<strong>📲 להתקנה באייפון:</strong> ב-Safari לחץ על <strong>שיתוף</strong> ⬆️ ואז <strong>"הוסף למסך הבית"</strong>.<br><span style="font-size:0.78rem; color:var(--text-muted);">חשוב: הנתונים באפליקציה המותקנת נפרדים מהנתונים ב-Safari – השתמש תמיד באייקון שבמסך הבית.</span>', false);
       }
+
+      // the "my part" line of a shared expense follows the amount being typed
+      const ia = document.getElementById('inp-amount'); if (ia) ia.addEventListener('input', () => { if (shareSt.on) renderAddShare(); });
 
       // Hide the bottom bar while the on-screen keyboard is open (iPhone and Android)
       // (dropdowns open a picker, not the keyboard, so they don't hide it)
