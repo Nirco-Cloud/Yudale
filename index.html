@@ -339,6 +339,9 @@
     .wallet-chip::after { content: '＋'; position: absolute; top: 5px; inset-inline-end: 8px; font-size: 0.95rem; font-weight: 800; color: #fff; opacity: .75; pointer-events: none; }
     .wallet-chip strong { font-size: 0.95rem; direction: ltr; }
     .wallets-hint { font-size: 0.72rem; text-align: center; margin-top: 8px; opacity: .85; }
+    .manual-bal { display: block; width: 100%; margin-top: 12px; background: none; border: 0; font: inherit; font-size: 0.8rem; font-weight: 600;
+      color: var(--primary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 40px; }
+    .manual-bal.on-dark { color: #bfdbfe; margin-top: 6px; }
 
     /* Inputs */
     .amount-input-box { position: relative; margin-bottom: 10px; }
@@ -669,7 +672,7 @@
             <strong id="ui-suica-balance" style="color: #60a5fa;">¥0</strong>
           </div>
         </div>
-        <div class="wallets-hint">לחצו על יתרה כדי להוסיף כסף: משיכת מזומן, טעינת LAYA או טעינת כרטיס הנסיעות</div>
+        <div class="wallets-hint">לחצו על יתרה כדי להוסיף כסף (משיכת מזומן, טעינת LAYA או טעינת כרטיס הנסיעות) או כדי לעדכן אותה ידנית ✏️</div>
 
         <!-- Suica Load Panel -->
         <div id="suica-load-panel" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.3);">
@@ -683,6 +686,7 @@
              <button class="primary-btn" style="width: auto; padding: 8px 16px; margin-top:0;" onclick="loadSuica()">טען</button>
            </div>
            <div id="suica-msg" style="color:#fca5a5; font-size:0.75rem; margin-top:5px; display:none;">אין מספיק יתרה!</div>
+           <button type="button" class="manual-bal on-dark" onclick="setWalletBalance('suica')">✏️ היתרה לא נכונה? עדכון ידני של יתרת <span id="ui-card-manual-name">Suica</span></button>
         </div>
       </div>
 
@@ -1007,7 +1011,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 41 · 15/11/2026 · 676ccc</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 42 · 15/11/2026 · 817d0f</span></div>
     </div>
 
   </div>
@@ -2747,7 +2751,9 @@
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok" data-el="ok">הוסף מזומן</button>
         </div>
+        <button type="button" class="manual-bal" data-act="manual">✏️ היתרה לא נכונה? עדכון ידני של יתרת המזומן</button>
       `);
+      ov.querySelector('[data-act=manual]').onclick = () => { ov.remove(); setWalletBalance('cash'); };
       const q = k => ov.querySelector(`[data-el="${k}"]`);
       const bad = el => { el.style.outline = '2px solid #ef4444'; el.focus(); };
       let confirmShort = false, warnedAt = 0;
@@ -2833,7 +2839,9 @@
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">הוסף ליתרה</button>
         </div>
+        <button type="button" class="manual-bal" data-act="manual">✏️ היתרה לא נכונה? עדכון ידני של יתרת LAYA</button>
       `);
+      ov.querySelector('[data-act=manual]').onclick = () => { ov.remove(); setWalletBalance('laya'); };
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         const val = parseFloat(ov.querySelector('input').value);
