@@ -483,6 +483,18 @@
     .save-exp-btn { transition: background-color .2s ease, transform .15s ease; }
     .save-exp-btn.saved { background: #16a34a !important; animation: savedPop .35s ease; }
     @keyframes savedPop { 0% { transform: scale(.96); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
+    .cr-big { font-size: 2rem; font-weight: 800; color: var(--primary); text-align: center; }
+    .cr-cur { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin: 2px 0 12px; }
+    .cr-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--card-border); }
+    .cr-row .cr-l { font-weight: 700; font-size: 0.92rem; } .cr-row small { display: block; font-weight: 500; font-size: 0.75rem; color: var(--text-muted); }
+    .cr-row .cr-v { font-size: 1rem; white-space: nowrap; } .cr-row.muted .cr-l, .cr-row.muted .cr-v { color: var(--text-muted); }
+    .cr-row.share .cr-v { color: var(--accent-green, #16a34a); }
+    .cr-toggle { margin-top: 10px; }
+    .cr-list { margin-top: 10px; } .cr-day { font-size: 0.78rem; font-weight: 800; color: var(--text-muted); margin: 10px 2px 4px; }
+    .cr-item { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--input-bg); margin-bottom: 6px; font-size: 0.88rem; }
+    .cr-item .cr-n { min-width: 0; font-weight: 600; overflow-wrap: anywhere; } .cr-item small { display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
+    .cr-item .cr-a { text-align: left; font-weight: 800; white-space: nowrap; }
+    .cr-empty { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
     .settle-btn { padding: 4px 8px; font-size: 0.72rem; white-space: nowrap; min-height: 32px; }
     .settled-head { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin: 12px 4px 6px; }
     .split-settled { opacity: 0.6; }
@@ -853,6 +865,10 @@
         <div id="ui-cat-summary"></div>
       </div>
       <div class="card">
+        <div class="card-title"><span>💳 חיובי אשראי<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="כל ההוצאות ששולמו ב&quot;אשראי&quot; – מה שיופיע בחשבון כרטיס האשראי אחרי החזרה הביתה. הסכום בשקלים הוא הערכה לפי השער וכולל את עמלת האשראי; החיוב בפועל עשוי להיות שונה מעט. בהוצאה משותפת מוצג החיוב המלא, ולידו החלק של הזוג השני." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
+        <div id="ui-credit"></div>
+      </div>
+      <div class="card">
         <div class="card-title"><span>📄 ייצוא סיכום<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="מוריד קובץ CSV לתיקיית ההורדות, לפתיחה באקסל או בגיליון. בראש הקובץ: סה&quot;כ הוצאות בפועל וסה&quot;כ לכל קטגוריה, ואחריהם כל ההוצאות, המלונות, ההזמנות, הקיזוזים, היתרות והשערים. זה לא קובץ גיבוי ולא ניתן לשחזר ממנו." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <button class="primary-btn btn-secondary" style="margin-top:0;" onclick="exportCsv() && showMsg('summary-msg', 'קובץ ה-CSV הורד לתיקיית ההורדות (Downloads)')" title="מוריד קובץ CSV עם כל הפרטים לתיקיית ההורדות, לפתיחה באקסל או בגיליון">📊 ייצוא סיכום ל-CSV</button>
         <button class="primary-btn btn-secondary" style="margin-top:10px;" onclick="askHtmlReport()" title="דוח טיול מעוצב לשמירה ולשיתוף, עם אפשרות להדפסה או לשמירה כ-PDF בגודל A4">📑 ייצוא דוח טיול (HTML / PDF)</button>
@@ -1014,7 +1030,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 43 · 16/11/2026 · a5d95f</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 45 · 16/11/2026 · 8c3699</span></div>
     </div>
 
   </div>
@@ -1500,6 +1516,7 @@
         () => renderExpenses(),
         () => renderHotels(),
         () => renderSummary(),
+        () => renderCredit(),
         () => renderDashboard(),
         () => renderSplits(),
         () => renderPeoplePicker(),
@@ -3127,6 +3144,53 @@
     });
 
     // ---------- Summary ----------
+    // ---------- Credit card charges: what the card bill will show after the trip ----------
+    function creditData() {
+      const start = tripRange().start;
+      const items = appData.expenses.filter(e => CARD_METHODS.includes(e.payment)).map(e => {
+        const dt = new Date(e.date), d = isNaN(dt) ? '' : dateToIso(dt);
+        const sp = e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
+        return { e, d, pre: !!d && d < start, ils: toIls(e.amount, e.currency, e.payment),      // full charge (shared: incl. their half)
+          their: e.shared ? e.shared.their : 0, theirIls: e.shared ? toIls(e.shared.their, e.currency, e.payment) : 0,
+          back: sp && sp.settled ? sp.settled.how : '' };
+      }).sort((a, b) => (a.e.date || '') < (b.e.date || '') ? -1 : 1);
+      const sum = l => l.reduce((t, x) => t + x.ils, 0);
+      const byCur = {}; items.forEach(x => { byCur[x.e.currency] = Math.round(((byCur[x.e.currency] || 0) + x.e.amount) * 100) / 100; });
+      const trip = items.filter(x => !x.pre), pre = items.filter(x => x.pre), sh = items.filter(x => x.their > 0);
+      return { items, trip, pre, byCur, total: sum(items), tripIls: sum(trip), preIls: sum(pre), shared: sh,
+        theirIls: sh.reduce((t, x) => t + x.theirIls, 0), theirBackIls: sh.filter(x => x.back).reduce((t, x) => t + x.theirIls, 0) };
+    }
+    const backTxt = how => how === 'cash' ? 'הוחזר במזומן' : how === 'bit' ? 'הוחזר בביט' : 'עוד לא הוחזר';
+    let creditOpen = false;
+    function toggleCreditList() { creditOpen = !creditOpen; renderCredit(); }
+    function renderCredit() {
+      const el = document.getElementById('ui-credit'); if (!el) return;
+      const C = creditData();
+      if (!C.items.length) { el.innerHTML = '<p class="cr-empty">עוד אין הוצאות ששולמו באשראי.</p>'; return; }
+      const curLine = Object.entries(C.byCur).map(([c, v]) => money(v, c)).join(' + ');
+      const nCh = n => n === 1 ? 'חיוב אחד' : `${n} חיובים`;
+      const line = (ic, label, sub, val, cls = '') => `<div class="cr-row ${cls}"><span class="cr-l"><span aria-hidden="true">${ic}</span> ${label}${sub ? `<small>${sub}</small>` : ''}</span><b class="cr-v"><bdi>${val}</bdi></b></div>`;
+      let html = `<div class="cr-big"><bdi>≈ ${escapeHtml(ilsStr(C.total, 0))}</bdi></div>
+        <div class="cr-cur"><bdi>${escapeHtml(curLine)}</bdi> · ${nCh(C.items.length)}</div>`;
+      html += line('🧳', 'בזמן הטיול', nCh(C.trip.length), escapeHtml(ilsStr(C.tripIls, 0)));
+      if (C.pre.length) html += line('🧾', 'לפני הטיול', `${nCh(C.pre.length)} · כנראה כבר חויבו`, escapeHtml(ilsStr(C.preIls, 0)), 'muted');
+      if (C.shared.length) {
+        const open = C.theirIls - C.theirBackIls;
+        html += line('🤝', 'מזה החלק של הזוג השני', [C.theirBackIls >= 0.5 ? `הוחזר ${ilsStr(C.theirBackIls, 0)}` : '', open >= 0.5 ? `עוד לא הוחזר ${ilsStr(open, 0)}` : ''].filter(Boolean).join(' · '), escapeHtml(ilsStr(C.theirIls, 0)), 'share');
+        html += line('💳', 'בניכוי החלק שלהם', 'מה שבאמת עלה לכם', escapeHtml(ilsStr(C.total - C.theirIls, 0)));
+      }
+      html += `<button type="button" class="primary-btn btn-secondary cr-toggle" onclick="toggleCreditList()" aria-expanded="${creditOpen}">${creditOpen ? '▲ הסתר את החיובים' : `▼ הצג את כל החיובים (${C.items.length})`}</button>`;
+      if (creditOpen) {
+        let lastD = null;
+        html += '<div class="cr-list">' + C.items.slice().reverse().map(x => {
+          const head = x.d !== lastD ? `<div class="cr-day">${escapeHtml(x.d ? ddmm(x.d) : '—')}${x.pre ? ' · לפני הטיול' : ''}</div>` : ''; lastD = x.d;
+          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their ? `<small>🤝 החלק שלהם <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
+            <span class="cr-a"><bdi>${escapeHtml(money(x.e.amount, x.e.currency))}</bdi>${x.e.currency === 'ILS' ? '' : `<small><bdi>${escapeHtml(ilsStr(x.ils))}</bdi></small>`}</span></div>`;
+        }).join('') + '</div>';
+      }
+      el.innerHTML = html;
+    }
+
     function renderSummary() {
       const code = curCode();
       const byCat = {};
@@ -4534,6 +4598,16 @@ Rules:
       };
       const all = sumRow('סה"כ הוצאות בפועל', '', appData.expenses);
       rows.push(all.row);
+      { // credit card bill: full charges (shared ones incl. the other couple's half)
+        const CR = creditData();
+        if (CR.items.length) {
+          const crRow = (label, list, extra) => { let a = 0, b = 0; list.forEach(x => { const [i, u] = conv(x.e.amount, x.e.currency, x.e.payment); a += i; b += u; });
+            return ['סיכום', '', '', label, '', 'אשראי', '', '', num(a), num(b), '', [list.length === 1 ? 'חיוב אחד' : `${list.length} חיובים`, extra].filter(Boolean).join(' · ')]; };
+          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪, הוחזר ${num(CR.theirBackIls)} ₪` : ''));
+          rows.push(crRow('חיובי אשראי בזמן הטיול', CR.trip));
+          if (CR.pre.length) rows.push(crRow('חיובי אשראי לפני הטיול', CR.pre, 'כנראה כבר חויבו'));
+        }
+      }
       const byCat = {};
       appData.expenses.forEach(e => { const c = SUMMARY_CATS.includes(e.category) ? e.category : 'שונות'; (byCat[c] = byCat[c] || []).push(e); });
       SUMMARY_CATS.filter(c => byCat[c]).forEach(c => {
@@ -4588,6 +4662,13 @@ Rules:
       const today = dateToIso(new Date());
       const ilsOf = e => toIls(myAmt(e), e.currency, e.payment);
       const orig = e => money(myAmt(e), e.currency);
+      // 💳 what the credit card bill will show (full charges, shared ones with the other couple's half noted)
+      const CR = creditData();
+      const creditSec = !CR.items.length ? '' : `<section class="card page"><h2>💳 חיובי אשראי</h2>
+<div class="sub">סה"כ ≈ <b>${esc(ilsStr(CR.total, 0))}</b> · ${esc(Object.entries(CR.byCur).map(([c, v]) => money(v, c)).join(' + '))} · ${CR.items.length} חיובים · כולל עמלת אשראי, לפי השער</div>
+<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}` : ''}${CR.shared.length ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (הוחזר ${esc(ilsStr(CR.theirBackIls, 0))})` : ''}</div>
+<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.their ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
+</section>`;
       const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
         + (e.shared ? ` <span class="ils">🤝 מתוך ${esc(money(e.amount, e.currency))}</span>` : '');
       const dlab = d => { const l = reservationDateLabel(d); return `${l.day} · ${l.top}`; };
@@ -4758,6 +4839,7 @@ ${hotels ? `<h3>מלונות</h3><div class="tw"><table><tr><th>מלון</th><th
 ${resv ? `<h3>טיסות, רכב והזמנות נוספות</h3><div class="tw"><table class="res-t"><tr><th>תאריך</th><th>הזמנה</th><th class="amt">סכום</th></tr>${resv}</table></div>` : ''}
 ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
 </section>
+${creditSec}
 
 <div class="foot">${esc(title)} · יודל'ה${ver ? ' · ' + esc(ver) : ''}</div>
 </div></body></html>`;
