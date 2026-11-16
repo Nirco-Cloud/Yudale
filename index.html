@@ -1030,7 +1030,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 45 · 16/11/2026 · 8c3699</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 46 · 16/11/2026 · 03a943</span></div>
     </div>
 
   </div>
@@ -1408,6 +1408,7 @@
           RES_FIELDS.forEach(k => { if (typeof r[k] === 'string' && r[k]) o[k] = r[k].slice(0, 200); });
           if (typeof r.price === 'number' && r.price > 0 && r.price <= 1e9 && DEFAULT_RATES[r.currency]) { o.price = r.price; o.currency = r.currency; }
           if (Array.isArray(r.notDup)) o.notDup = r.notDup.filter(x => typeof x === 'string').slice(0, 50);   // "not the same payment" answers
+          if (ISO_DATE.test(r.bookedOn || '') && dateToIso(isoToDate(r.bookedOn)) === r.bookedOn) o.bookedOn = r.bookedOn;   // day the booking was made / paid
           return o;
         });
 
@@ -3497,6 +3498,14 @@
       if (r.kind === 'activity') return r.category === 'restaurant' ? 'אוכל' : r.category === 'transport' ? 'תחבורה' : 'אטרקציות';
       return 'שונות';
     }
+    // ---------- Booking date: the day a booking was made and paid (its charge belongs to that day, not to the travel day) ----------
+    const bookedLabel = (iso, ref) => { const [y, m, d] = iso.split('-'); return `${d}/${m}` + (ref && ref.slice(0, 4) !== y ? `/${y.slice(2)}` : ''); };
+    function applyBookedOn(r) {
+      const e = appData.expenses.find(x => x.resId === r.id); if (!e) return;
+      if (r.bookedOn) e.date = isoToDate(r.bookedOn).toISOString();
+      else if (!e.linkedByUser) e.date = isoToDate(r.date).toISOString();   // cleared: an automatic charge goes back to the travel day
+      if (e.shared) syncShare(e, shareStateOf(e));                          // its settlement entry follows the date
+    }
     function resSubHtml(r) {
       const bits = [], lines = [];
       let links = '';
@@ -3526,6 +3535,7 @@
       const charged = appData.expenses.some(e => e.resId === r.id);
       const dup = charged ? resDuplicate(r) : null;
       const le = charged ? appData.expenses.find(e => e.resId === r.id) : null;
+      if (r.bookedOn) bits.push('📝 הוזמן ' + bookedLabel(r.bookedOn, r.date));
       const paidLine = le ? '💳 נרשם כהוצאה' + (le.shared ? ` · 🤝 שלי ${money(myAmt(le), le.currency)}` : '') : '';   // its own line
       if (charged) { /* shown on its own line below */ }
       else if (r.price) bits.push('לתשלום: ' + money(r.price, r.currency));
@@ -3623,7 +3633,7 @@
           ${more ? `<button type="button" class="nav-link" data-act="more" style="cursor:pointer; margin-top:4px;">הצג עוד הוצאות</button>` : ''}
         </div>` : ''}
         <label class="field-label">סכום ששולם (${escapeHtml(rateOf(r.currency).symbol)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(r.price)}"></label>
-        <label class="field-label">תאריך התשלום<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${dateToIso(new Date())}" max="9999-12-31"></label>
+        <label class="field-label">תאריך התשלום<input type="date" class="text-input" data-el="date" style="direction:ltr;" value="${r.bookedOn || dateToIso(new Date())}" max="9999-12-31"></label>
         <label class="field-label">אמצעי תשלום<select class="select-input" data-el="pay">
           <option value="אשראי">💳 אשראי</option>
           ${sameCur ? '<option value="LAYA">💳 LAYA</option><option value="מזומן">💵 מזומן</option>' : ''}
@@ -3710,17 +3720,17 @@ Return ONLY valid JSON, with no text before or after it and no code fences, in e
       "departure": "YYYY-MM-DDTHH:MM", "arrival": "YYYY-MM-DDTHH:MM",
       "price": 0, "currency": "USD", "payment": "prepaid",
       "confirmation": "", "passengers": ["", ""], "passengersCount": 2,
-      "pricePerPerson": null, "priceSource": "invoice" },
+      "pricePerPerson": null, "priceSource": "invoice", "bookedOn": "YYYY-MM-DD" },
     { "kind": "car", "company": "",
       "pickupPlace": "", "pickupAddress": "", "pickup": "YYYY-MM-DDTHH:MM",
       "returnPlace": "", "returnAddress": "", "return": "YYYY-MM-DDTHH:MM",
       "price": 0, "currency": "JPY", "payment": "pay_later",
-      "confirmation": "" },
+      "confirmation": "", "bookedOn": "YYYY-MM-DD" },
     { "kind": "activity", "category": "restaurant|attraction|tour|show|transport|other",
       "name": "", "address": "", "city": "",
       "date": "YYYY-MM-DD", "time": "HH:MM",
       "people": 2, "price": 0, "currency": "JPY", "payment": "prepaid",
-      "confirmation": "", "provider": "" }
+      "confirmation": "", "provider": "", "bookedOn": "YYYY-MM-DD" }
   ]
 }
 
@@ -3732,6 +3742,7 @@ Rules:
 - For every booking with several people (rooms, tickets, tables), price is the total for everyone, not per person.
 - price = total cost of the booking as a plain number (no currency symbols, no thousands separators), in the currency shown in the email. currency = 3-letter ISO code (JPY, ILS, USD, EUR...).
 - payment = "prepaid" if already charged, "pay_later" if paid at the hotel or at pickup, "unknown" if not clear.
+- bookedOn = the date the booking was made and paid (the date of the booking confirmation, invoice or receipt email), YYYY-MM-DD. This is NOT the travel date.
 - Dates are YYYY-MM-DD. Times are 24-hour HH:MM, local time at that place.
 - address = full street address as written in the email, for hotels, car pickup/return and activities.
 - If a value is not in the email, use null. Never guess or invent values.
@@ -3902,6 +3913,8 @@ Rules:
         it.notes.push(paxN > 1 ? `מחיר לנוסע × ${paxN}` : 'מחיר לנוסע');
       }
       it.paxCount = paxN;
+      { const bd = bkDate(b.bookedOn || b.bookingDate || b.booked_on || b.bookedAt || b.purchaseDate || b.invoiceDate || b.orderDate);
+        if (bd && bd.date && bd.date <= dateToIso(new Date())) it.bookedOn = bd.date; }
       const src = bkStr(b.priceSource, 20).toLowerCase();
       if (it.price && it.kind === 'flight' && src && !/invoice|receipt/.test(src)) it.notes.push('המחיר לא נלקח מחשבונית – בדוק את הסכום');
       const cur = bkCurrency(b.currency, b.price || b.pricePerPerson);
@@ -4066,7 +4079,7 @@ Rules:
       const prepaidExpense = (it, r, category, note) => {
         if (!it.prepaid) return;
         appData.expenses.unshift({ id: newId(), amount: it.price, currency: it.currency || r.currency || curCode(), category, payment: 'אשראי',
-          note, date: isoToDate(r.date).toISOString(), resId: r.id });
+          note, date: isoToDate(it.bookedOn || r.date).toISOString(), resId: r.id });   // paid when booked
         expenses++;
       };
       items.forEach(it => {
@@ -4090,6 +4103,7 @@ Rules:
         const r = { id: newId(), kind: it.kind, date: it.kind === 'car' ? it.checkIn : it.date };
         if (it.price && it.currency) { r.price = it.price; r.currency = it.currency; }
         if (it.confirmation) r.confirmation = it.confirmation;
+        if (it.bookedOn) r.bookedOn = it.bookedOn;
         if (it.kind === 'flight') {
           r.name = cutChars(it.title, 80);
           ['time', 'airline', 'flightNumber', 'from', 'to', 'arrivalDate', 'arrivalTime', 'passengers', 'passengersCount'].forEach(k => { if (it[k]) r[k] = it[k]; });
@@ -4312,6 +4326,9 @@ Rules:
       if (!r) return;
       const charged = appData.expenses.some(e => e.resId === id);
       const car = r.kind === 'car', act = r.kind === 'activity', fl = r.kind === 'flight';
+      const linked = appData.expenses.find(e => e.resId === id);
+      // an expense you entered yourself already carries the real payment day: show it
+      const booked0 = r.bookedOn || (linked && linked.linkedByUser ? dateToIso(new Date(linked.date)) : '');
       const ov = openDialog(`
         <h3>✏️ עריכת הזמנה</h3>
         <label class="field-label">שם<input type="text" class="text-input" data-el="name" maxlength="80" value="${escapeHtml(r.name)}"></label>
@@ -4330,6 +4347,8 @@ Rules:
           <label class="field-label">מחיר (רשות)<input type="number" class="text-input" data-el="price" inputmode="decimal" style="direction:ltr;" value="${r.price ? escapeHtml(r.price) : ''}"></label>
           <label class="field-label">מטבע<select class="select-input" data-el="cur">${currencyOptionsHtml()}</select></label>
         </div>` : charged ? '<p style="font-size:0.75rem;">התשלום כבר נרשם: את הסכום עורכים ברשימת ההוצאות (✏️).</p>' : ''}
+        ${r.kind || charged ? `<label class="field-label">📝 תאריך ביצוע ההזמנה (התשלום)<input type="date" class="text-input" data-el="booked" style="direction:ltr;" value="${escapeHtml(booked0)}" max="${dateToIso(new Date())}"></label>
+          <p style="font-size:0.75rem; margin:4px 0 0;">אם שילמתם כבר כשהזמנתם (למשל טיסה או רכב), החיוב יירשם ביום הזה – ובסיכום האשראי יופיע תחת "לפני הטיול". ריק = יום הנסיעה.</p>` : ''}
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">שמור</button>
@@ -4342,6 +4361,8 @@ Rules:
         if (!name) { markBad(q('name')); return; }
         if (!ISO_DATE.test(date)) { markBad(q('date')); return; }
         if (time && !/^\d{2}:\d{2}$/.test(time)) { markBad(q('time')); return; }
+        const booked = q('booked') ? q('booked').value : booked0;
+        if (booked && (!ISO_DATE.test(booked) || booked > dateToIso(new Date()))) { markBad(q('booked')); return; }
         let rdate = '', rtime = '';
         if (car) {
           rdate = q('rdate').value; rtime = q('rtime').value;
@@ -4364,9 +4385,10 @@ Rules:
           if (a2) r.returnAddress = a2; else delete r.returnAddress;
         } else if (q('addr')) { const a = q('addr').value.trim(); if (a) r.address = a; else delete r.address; }
         if (q('price')) { if (price > 0 && DEFAULT_RATES[cur]) { r.price = price; r.currency = cur; } else { delete r.price; delete r.currency; } }
+        if (booked !== booked0) { if (booked) r.bookedOn = booked; else delete r.bookedOn; applyBookedOn(r); }
         ov.remove();
         saveData();
-        showMsg('res-msg', 'ההזמנה עודכנה');
+        showMsg('res-msg', booked !== booked0 && booked ? `ההזמנה עודכנה · החיוב נרשם ב-${bookedLabel(booked, r.date)}` : 'ההזמנה עודכנה');
       };
     }
 
