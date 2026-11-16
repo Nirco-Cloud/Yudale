@@ -480,6 +480,9 @@
       background: rgba(17, 24, 39, 0.92); color: #fff; font-size: 0.85rem; font-weight: 600; padding: 10px 16px; border-radius: 999px;
       opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
     #app-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .save-exp-btn { transition: background-color .2s ease, transform .15s ease; }
+    .save-exp-btn.saved { background: #16a34a !important; animation: savedPop .35s ease; }
+    @keyframes savedPop { 0% { transform: scale(.96); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
     .settle-btn { padding: 4px 8px; font-size: 0.72rem; white-space: nowrap; min-height: 32px; }
     .settled-head { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin: 12px 4px 6px; }
     .split-settled { opacity: 0.6; }
@@ -744,7 +747,7 @@
         <div class="share-box" id="share-box"></div>
 
         <input type="text" id="inp-note" class="text-input" placeholder="הערה (לדוגמה: ראמן בשינג'וקו)">
-        <button class="primary-btn" onclick="saveExpense()">שמור הוצאה</button>
+        <button class="primary-btn save-exp-btn" id="save-exp-btn" onclick="saveExpense()">שמור הוצאה</button>
       </div>
 
       <!-- Recent Expenses List -->
@@ -1011,7 +1014,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 42 · 15/11/2026 · 817d0f</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 43 · 16/11/2026 · a5d95f</span></div>
     </div>
 
   </div>
@@ -1892,6 +1895,19 @@
       if (persistFailed) showMsg('expense-msg', '⚠️ ההוצאה נרשמה אבל לא נשמרה בזיכרון הטלפון (הזיכרון מלא). ראו את ההודעה האדומה.', 'error');
       else if (warn) showMsg('expense-msg', 'ההוצאה נשמרה' + shTxt + '. ' + warn, 'warn');
       else showMsg('expense-msg', shTxt ? 'הוצאה נשמרה' + shTxt : 'הוצאה נשמרה בהצלחה!');
+      if (!persistFailed) savedFeedback(appData.expenses[0]);
+    }
+
+    // The save button itself confirms (the message above the form is often scrolled out of view)
+    function savedFeedback(e) {
+      const b = document.getElementById('save-exp-btn');
+      if (b && e) {
+        b.textContent = '✓ נשמר · ' + money(e.amount, e.currency);
+        b.classList.add('saved');
+        clearTimeout(savedFeedback.tm);
+        savedFeedback.tm = setTimeout(() => { b.classList.remove('saved'); b.textContent = 'שמור הוצאה'; }, 1500);
+      }
+      try { if (navigator.vibrate) navigator.vibrate(30); } catch (_) { /* iPhone: no vibration from web apps */ }
     }
 
     function clearExpenseSearch() {
