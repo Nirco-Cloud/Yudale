@@ -165,7 +165,7 @@
     .res-row button { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 6px; }
     .conv-result { text-align: center; padding: 14px 8px; border-radius: 14px; background: var(--nav-active-bg); border: 1px solid var(--primary); margin: 4px 0 12px; }
     .conv-result b { display: block; font-size: 1.9rem; direction: ltr; color: var(--primary); }
-    .conv-result small { color: var(--text-muted); font-size: 0.78rem; }
+    .conv-result small { color: var(--text-muted); font-size: 0.78rem; display: block; direction: ltr; unicode-bidi: isolate; }
     .conv-table div { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--card-border); font-size: 0.88rem; }
     .conv-table span { direction: ltr; font-weight: 700; }
     .swap-btn { display: block; margin: -4px auto 8px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--card-border); background: var(--card-bg); font-size: 1.2rem; cursor: pointer; }
@@ -480,7 +480,15 @@
       background: rgba(17, 24, 39, 0.92); color: #fff; font-size: 0.85rem; font-weight: 600; padding: 10px 16px; border-radius: 999px;
       opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
     #app-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #app-toast { width: max-content; line-height: 1.45; }
+    #app-toast.error, #app-toast.warn { border-radius: 14px; font-weight: 700; }
+    #app-toast.error { background: #b91c1c; }
+    #app-toast.warn { background: #92400e; }
+    body.kb-open #app-toast { bottom: calc(16px + env(safe-area-inset-bottom)); }
     .save-exp-btn { transition: background-color .2s ease, transform .15s ease; }
+    /* add-expense form with the keyboard up: a compact Save stays in sight just above the keyboard */
+    body.exp-typing #save-exp-btn { position: sticky; bottom: calc(var(--kb-gap, 0px) + 8px); z-index: 15; padding: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
+    .hotel-pay-btn { width: auto; min-height: 44px; padding: 8px 16px; font-size: 0.85rem; margin-top: 0; }
     .save-exp-btn.saved { background: #16a34a !important; animation: savedPop .35s ease; }
     @keyframes savedPop { 0% { transform: scale(.96); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
     .cr-big { font-size: 2rem; font-weight: 800; color: var(--primary); text-align: center; }
@@ -588,6 +596,10 @@
     .dialog p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
     .dialog-actions { display: flex; gap: 12px; }
     .dialog-actions .primary-btn { margin: 0; }
+    /* Save / Cancel stay pinned to the bottom of a tall dialog: only the fields scroll (small phones, open keyboard) */
+    .dialog > .dialog-actions:last-child { position: sticky; bottom: -20px; z-index: 2; background: var(--card-bg);
+      margin: 0 -20px -20px; padding: 8px 20px 20px; border-radius: 0 0 16px 16px; }
+    .dialog.scrolls > .dialog-actions:last-child { border-top: 1px solid var(--card-border); box-shadow: 0 -6px 12px -8px rgba(0,0,0,0.35); }
     .primary-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
     .btn-green { background: var(--accent-green); }
     .btn-green:active { background: var(--accent-green); filter: brightness(0.92); }
@@ -721,7 +733,7 @@
 
         <div class="field-label">סכום<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="הסכום במטבע שמוצג בתוך השדה. ברירת המחדל היא מטבע הטיול. לחיצה על המטבע מאפשרת לבחור מטבע אחר להוצאה הזו בלבד. אחרי השמירה הוא חוזר למטבע הטיול." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
         <div class="amount-input-box">
-          <input type="number" id="inp-amount" class="amount-input" placeholder="0" inputmode="decimal" oninput="updateLivePreview()">
+          <input type="number" id="inp-amount" class="amount-input" placeholder="0" inputmode="decimal" enterkeyhint="done" oninput="updateLivePreview()">
           <label class="cur-pick" id="exp-cur-pick" title="מטבע ההוצאה – לחץ להחלפה"><span id="ui-input-currency">¥ JPY</span> ▾
             <select id="inp-currency" aria-label="מטבע ההוצאה" onchange="expCurrencyChanged()"></select>
           </label>
@@ -761,7 +773,7 @@
         <div class="pay-auto-note" id="pay-auto-note"></div>
         <div class="share-box" id="share-box"></div>
 
-        <input type="text" id="inp-note" class="text-input" placeholder="הערה (לדוגמה: ראמן בשינג'וקו)">
+        <input type="text" id="inp-note" class="text-input" placeholder="הערה (לדוגמה: ראמן בשינג'וקו)" enterkeyhint="done">
         <button class="primary-btn save-exp-btn" id="save-exp-btn" onclick="saveExpense()">שמור הוצאה</button>
       </div>
 
@@ -1005,7 +1017,7 @@
         <div id="ui-people-settings" class="scroll-list short"></div>
         <div class="scroll-hint" data-for="ui-people-settings"></div>
         <div class="add-row">
-          <input type="text" id="inp-new-person" maxlength="40" class="text-input" placeholder="שם חדש (לדוגמה: דנה ויוסי)" onkeydown="if(event.key==='Enter') addPerson()">
+          <input type="text" id="inp-new-person" maxlength="40" class="text-input" placeholder="שם חדש (לדוגמה: דנה ויוסי)" enterkeyhint="done" onkeydown="if(event.key==='Enter') addPerson()">
           <button class="primary-btn" onclick="addPerson()">➕ הוסף</button>
         </div>
         </div>
@@ -1037,7 +1049,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 48 · 17/11/2026 · 0717fb</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 49 · 17/11/2026 · 44c117</span></div>
     </div>
 
   </div>
@@ -1166,14 +1178,27 @@
     function curCode() { return appData.settings.currency; }
     function rateOf(code) { return appData.settings.rates[code] || appData.settings.rates.JPY; }
 
-    function money(amount, code) {
+    // Every amount shown on screen is wrapped in a left-to-right isolate (U+2066 … U+2069), so in the Hebrew (RTL) text
+    // the sign and the currency symbol stay where they belong: "-¥8,600", not "¥8,600-". Works in innerText, textContent,
+    // innerHTML, dialogs and toasts alike. Files (CSV, HTML report) use the plain *Raw versions.
+    const ltr = s => '\u2066' + s + '\u2069';
+    const stripLtr = s => String(s).replace(/[\u2066\u2069]/g, '');
+    function moneyRaw(amount, code) {
       const r = rateOf(code);
       const sign = amount < 0 && Math.round(Math.abs(amount) * Math.pow(10, r.decimals)) > 0 ? '-' : '';   // never "-¥0"
       const sep = /\p{L}$/u.test(r.symbol) ? ' ' : ''; // "Ft 1,000" but "¥1,000"
       return sign + r.symbol + sep + fmt(Math.abs(amount), 0, r.decimals);
     }
-    function ilsStr(v, d = 2) { return '₪' + fmt(v, d, d); }
-    function usdStr(v, d = 2) { return '$' + fmt(v, d, d); }
+    function ilsRaw(v, d = 2) { return '₪' + fmt(v, d, d); }
+    function usdRaw(v, d = 2) { return '$' + fmt(v, d, d); }
+    function money(amount, code) { return ltr(moneyRaw(amount, code)); }
+    function ilsStr(v, d = 2) { return ltr(ilsRaw(v, d)); }
+    function usdStr(v, d = 2) { return ltr(usdRaw(v, d)); }
+    // an amount with an explicit sign in front ("+¥12,400", "−¥300"), kept together with it
+    function signedMoney(amount, code, minus = '-') {
+      const raw = moneyRaw(Math.abs(amount), code);
+      return ltr((amount < 0 ? minus : '+') + raw);
+    }
 
     function wallet(code = curCode()) {
       if (!appData.balances[code]) appData.balances[code] = { cash: 0, suica: 0, laya: 0 };
@@ -1656,7 +1681,9 @@
       const key = WALLET_KEY[payment];
       if (!key) return '';
       const w = wallet(code);
-      const warn = w[key] < amount ? `שים לב: יתרת ${WALLET_NAME[key]} ירדה למינוס.` : '';
+      // a wallet in another currency than the trip's is not shown on the home screen, so the warning names its currency
+      const where = code !== curCode() ? ` ב-${code}` : '';
+      const warn = w[key] < amount ? `שים לב: יתרת ${WALLET_NAME[key]}${where} ירדה למינוס.` : '';
       w[key] = Math.round((w[key] - amount) * 1e6) / 1e6;
       return warn;
     }
@@ -1686,7 +1713,7 @@
         ov.remove();
         saveData();
         const diff = v - before;
-        showMsg('settings-msg', `יתרת ${name} עודכנה ל-${money(v, code)}` + (Math.abs(diff) >= 0.005 ? ` (${diff > 0 ? '+' : '−'}${money(Math.abs(diff), code)})` : ''));
+        showMsg('settings-msg', `יתרת ${name} עודכנה ל-${money(v, code)}` + (Math.abs(diff) >= 0.005 ? ` (${signedMoney(diff, code, '−')})` : ''));
       };
     }
 
@@ -1728,15 +1755,18 @@
       document.getElementById('exp-cur-pick').classList.toggle('other', other);
       const warn = document.getElementById('exp-cur-warn');
       warn.style.display = other ? 'block' : 'none';
-      warn.textContent = other ? `שים לב: ההוצאה תירשם ב-${code} ולא במטבע הטיול (${trip}). מזומן ו-LAYA ירדו מהיתרה ב-${code}.` : '';
-      // Suica is a Japan card: offered only for yen expenses
-      const suicaOn = code === 'JPY';
+      warn.textContent = other ? `שים לב: ההוצאה תירשם ב-${code} ולא במטבע הטיול (${trip}). במטבע אחר נרשם תשלום באשראי בלבד (כמו במלונות ובהזמנות).` : '';
+      // Another currency than the trip's: credit only. Cash, LAYA and Suica would draw from wallets in that currency,
+      // which the home screen does not show. Suica is a Japan card: offered only for yen expenses.
+      const suicaOn = code === 'JPY' && !other;
+      const grid = document.getElementById('pay-grid');
+      grid.querySelectorAll('.chip-btn').forEach(b => { b.style.display = other && b.dataset.val !== 'אשראי' ? 'none' : ''; });
       const payChip = document.getElementById('pay-card-chip');
       payChip.style.display = suicaOn ? '' : 'none';
-      document.getElementById('pay-grid').style.gridTemplateColumns = suicaOn ? '' : 'repeat(3, 1fr)';
-      if (!suicaOn && payChip.classList.contains('selected')) {
-        document.querySelectorAll('#pay-grid .chip-btn').forEach(b => b.classList.remove('selected'));
-        document.querySelector('#pay-grid .chip-btn').classList.add('selected');
+      grid.style.gridTemplateColumns = other ? '1fr' : suicaOn ? '' : 'repeat(3, 1fr)';
+      const hiddenSel = grid.querySelector('.chip-btn.selected');
+      if (!hiddenSel || hiddenSel.style.display === 'none') {
+        grid.querySelectorAll('.chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === (other ? 'אשראי' : 'מזומן')));
       }
       updateLivePreview();
     }
@@ -1782,6 +1812,10 @@
       if (payTouched) { renderPayAutoNote(null); return; }
       const amount = parseFloat(document.getElementById('inp-amount').value) || 0;
       const ils = amount * rateOf(expCode()).ils;          // value in ₪ before the card fee
+      if (expCode() !== curCode()) {                       // another currency than the trip's: credit only (see renderExpCurrency)
+        document.querySelectorAll('#pay-grid .chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === 'אשראי'));
+        renderPayAutoNote(null); return;
+      }
       const method = pa.on ? autoPayMethod(ils) : 'מזומן';  // turned off: plain default (cash)
       document.querySelectorAll('#pay-grid .chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === method));
       renderPayAutoNote(method === 'מזומן' || !pa.on ? null : { method, ils });
@@ -1795,7 +1829,7 @@
       el.innerHTML = `💳 נבחר ${escapeHtml(info.method)} אוטומטית: ${escapeHtml(ilsStr(info.ils, 0))} (${escapeHtml(why)})`;
       el.style.display = 'block';
     }
-    function fmtShekel(v) { return '₪' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+    function fmtShekel(v) { return ltr('₪' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })); }
     function renderPayAutoSettings() {
       const pa = appData.settings.payAuto || (appData.settings.payAuto = normPayAuto()), on = document.getElementById('setting-payauto-on');
       if (!on) return;
@@ -1893,10 +1927,12 @@
       if (Math.round(amount * Math.pow(10, rateOf(code).decimals)) === 0) { showMsg('expense-msg', 'הסכום קטן מדי עבור המטבע', 'error'); return; }
       const dayIso = expDayIso();
       if (!ISO_DATE.test(dayIso)) { showMsg('expense-msg', 'אנא בחר תאריך', 'error'); return; }
+      if (isSolo()) shareSt = { on: false, partner: '', repaid: 'no' };   // traveling alone: a share left on earlier never applies
       if (shareSt.on && !splitCounterparts().length) { showMsg('expense-msg', 'להוצאה משותפת: הוסיפו קודם שמות בהגדרות', 'error'); return; }
       if (shareSt.on && !shareSt.partner) { showMsg('expense-msg', 'בחרו עבור מי שילמתם', 'error'); return; }
       const category = selectedVal('cat-grid');
-      const payment = selectedVal('pay-grid');
+      // another currency than the trip's is paid by credit in the add form (its cash/LAYA/Suica wallets are not on screen)
+      const payment = code !== curCode() ? 'אשראי' : selectedVal('pay-grid');
       const note = document.getElementById('inp-note').value.trim() || category;
 
       const warn = spendFrom(payment, code, amount);
@@ -1914,7 +1950,7 @@
 
       lastSave.exp = Date.now();
       const st = shareSt;
-      if (st.on) syncShare(appData.expenses[0], st);
+      if (st.on && !isSolo()) syncShare(appData.expenses[0], st);
       const shTxt = shareMsg(appData.expenses[0], st);
       shareSt = { on: false, partner: '', repaid: 'no' };
       const srch = document.getElementById('exp-search');
@@ -1922,7 +1958,7 @@
       saveData();
       if (persistFailed) showMsg('expense-msg', '⚠️ ההוצאה נרשמה אבל לא נשמרה בזיכרון הטלפון (הזיכרון מלא). ראו את ההודעה האדומה.', 'error');
       else if (warn) showMsg('expense-msg', 'ההוצאה נשמרה' + shTxt + '. ' + warn, 'warn');
-      else showMsg('expense-msg', shTxt ? 'הוצאה נשמרה' + shTxt : 'הוצאה נשמרה בהצלחה!');
+      else showMsg('expense-msg', shTxt ? 'הוצאה נשמרה' + shTxt : 'הוצאה נשמרה בהצלחה!', 'ok', !shTxt);   // plain success: the green Save button already says it
       if (!persistFailed) savedFeedback(appData.expenses[0]);
     }
 
@@ -2078,7 +2114,7 @@
       const el = document.getElementById('share-box');
       if (el) renderShareInto(el, shareSt, () => parseFloat(document.getElementById('inp-amount').value) || 0, () => expCur || curCode());
     }
-    const shareMsg = (e, st) => !e.shared ? '' : ` · החלק שלי ${money(myAmt(e), e.currency)}` + (st.repaid === 'bit' ? ' (החזירו בביט)' : st.repaid === 'cash' ? ` (+${money(e.shared.their, e.currency)} למזומן)` : ` · ${e.shared.partner} חייבים ${money(e.shared.their, e.currency)}`);
+    const shareMsg = (e, st) => !e.shared ? '' : ` · החלק שלי ${money(myAmt(e), e.currency)}` + (st.repaid === 'bit' ? ' (החזירו בביט)' : st.repaid === 'cash' ? ` (${signedMoney(e.shared.their, e.currency)} למזומן)` : ` · ${e.shared.partner} חייבים ${money(e.shared.their, e.currency)}`);
 
     // Removes an expense, refunds the wallet, and un-pays a linked hotel
     function removeExpenseRecord(exp) {
@@ -2357,7 +2393,7 @@
               <div class="exp-meta">${meta}</div>
             </div>
             <div class="exp-amounts">
-              <div class="exp-main" style="color:${st ? 'var(--text-muted)' : amountColor};${st ? ' text-decoration:line-through;' : ''}">${isDebt ? '-' : '+'}${money(Math.abs(split.amount), split.currency)}</div>
+              <div class="exp-main" style="color:${st ? 'var(--text-muted)' : amountColor};${st ? ' text-decoration:line-through;' : ''}">${signedMoney(isDebt ? -Math.abs(split.amount) : Math.abs(split.amount), split.currency)}</div>
             </div>
             ${st ? `<button class="edit-btn" data-b="${escapeHtml(st.batch)}" onclick="undoSettle(this.dataset.b)" aria-label="פתח מחדש" title="ביטול הסגירה">↩️</button>`
                  : split.fromExp && appData.expenses.some(e => e.id === split.fromExp) ? `<button class="edit-btn" data-e="${escapeHtml(split.fromExp)}" onclick="editExpense(this.dataset.e)" aria-label="ערוך את ההוצאה" title="נוצר מהוצאה משותפת: עריכה דרך ההוצאה">🤝</button>`
@@ -2469,6 +2505,7 @@
     const isSolo = () => !!(appData && appData.settings && appData.settings.solo);
     function applySoloUi() {
       const solo = isSolo();
+      if (solo && shareSt.on) shareSt = { on: false, partner: '', repaid: 'no' };
       const nav = document.getElementById('nav-splits'); if (nav) nav.style.display = solo ? 'none' : '';
       const sp = document.getElementById('screen-splits');
       if (solo && sp && sp.classList.contains('active')) switchTab('home', document.getElementById('nav-home'));
@@ -2481,7 +2518,11 @@
     }
     function setSolo(on) {
       if (on === isSolo()) return;
-      const done = () => { appData.settings.solo = on; saveData(); showMsg('people-msg', on ? '👤 מצב נוסעים לבד' : '👥 מצב עם עוד זוג'); };
+      const done = () => {
+        appData.settings.solo = on;
+        if (on) { shareSt = { on: false, partner: '', repaid: 'no' }; renderAddShare(); }   // a "🤝" left on in the add form is dropped
+        saveData(); showMsg('people-msg', on ? '👤 מצב נוסעים לבד' : '👥 מצב עם עוד זוג');
+      };
       if (!on) { done(); return; }
       const open = appData.splits.filter(x => !x.settled).length, shared = appData.expenses.filter(e => e.shared).length;
       if (!open && !shared) { done(); return; }
@@ -2621,7 +2662,7 @@
                 ${foreignCur ? '' : `<option value="LAYA" ${payVal === 'LAYA' ? 'selected' : ''}>💳 LAYA</option>
                 <option value="מזומן" ${payVal === 'מזומן' ? 'selected' : ''}>💵 מזומן</option>`}
               </select>${tipHtml(TIPS.hotelPay)}</span>
-              <button class="primary-btn" style="width:auto; padding:6px 12px; font-size:0.8rem; margin-top:0;" data-id="${hid}" onclick="payHotel(this.dataset.id)">אשר חיוב סופי</button>
+              <button class="primary-btn hotel-pay-btn" data-id="${hid}" onclick="payHotel(this.dataset.id)">אשר חיוב סופי</button>
             </div>
             <div class="hotel-remove"><button class="link-btn" data-id="${hid}" onclick="editHotel(this.dataset.id)" title="עריכת פרטי ההזמנה">✏️ ערוך</button><button class="link-btn" data-id="${hid}" onclick="removeHotel(this.dataset.id)" title="הסרה מהרשימה">🗑️ הסר ${h.kind === 'car' ? 'רכב' : 'מלון'}</button></div>
           </div>
@@ -2735,8 +2776,22 @@
       const dateEl = document.getElementById(`hotel-date-${id}`);
       const chargeIso = dateEl ? dateEl.value : dateToIso(new Date());
 
-      if (!finalAmt || finalAmt <= 0) { showMsg('hotel-msg', 'אנא הזן סכום חוקי', 'error'); return; }
-      if (!ISO_DATE.test(chargeIso)) { showMsg('hotel-msg', 'אנא בחר תאריך חיוב', 'error'); return; }
+      const amtEl = document.getElementById(`hotel-amt-${id}`);
+      if (!finalAmt || finalAmt <= 0 || !isFinite(finalAmt) || finalAmt > 1e9) { markBad(amtEl); showMsg('hotel-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (!ISO_DATE.test(chargeIso)) { markBad(dateEl); showMsg('hotel-msg', 'אנא בחר תאריך חיוב', 'error'); return; }
+      // a large sum goes in only after a deliberate second tap that names the amount and how it was paid
+      const payTxt = paymentMethod === 'מזומן' ? '💵 מזומן' : '💳 ' + paymentMethod;
+      confirmDialog({
+        title: h.kind === 'car' ? 'לרשום את חיוב הרכב?' : 'לרשום את חיוב המלון?',
+        text: `${h.name}: ${money(finalAmt, h.currency)} · תשלום: ${payTxt} · תאריך חיוב ${ddmm(chargeIso)}. הסכום יירשם כהוצאה` +
+              (WALLET_KEY[paymentMethod] ? ` וירד מיתרת ${WALLET_NAME[WALLET_KEY[paymentMethod]]}.` : '.'),
+        okLabel: `רשום ${money(finalAmt, h.currency)}`,
+        onOk: () => recordHotelCharge(id, finalAmt, paymentMethod, chargeIso)
+      });
+    }
+    function recordHotelCharge(id, finalAmt, paymentMethod, chargeIso) {
+      const h = appData.hotels.find(x => x.id === id);
+      if (!h || h.paid) return;     // already charged (e.g. a second dialog): never twice
       // today keeps the real time; another day is stored at noon so it always lands on that day
       const chargeDate = chargeIso === dateToIso(new Date()) ? new Date() : isoToDate(chargeIso);
 
@@ -2815,7 +2870,7 @@
           <label class="field-label" style="margin-top:2px;">🏧 עמלת הכספומט (${sym})<input type="number" data-el="atm" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>
           ${code === 'ILS' ? '' : `<label class="field-label" style="margin-top:2px;" data-el="bankwrap">🏦 עמלת הבנק (₪)<input type="number" data-el="bank" class="text-input" value="" placeholder="0" inputmode="decimal" style="direction:ltr;"></label>`}
         </div>
-        ${code === 'JPY' ? '<p style="font-size:0.72rem; margin:4px 0 0;">כספומט ביפן (<bdi>7-Eleven</bdi>, דואר יפן) גובה בדרך כלל <bdi>¥110–330</bdi>.</p>' : ''}
+        ${code === 'JPY' ? '<p style="font-size:0.72rem; margin:4px 0 0;">כספומט ביפן (<bdi>7-Eleven</bdi>, דואר יפן) גובה בדרך כלל <bdi dir="ltr" style="white-space:nowrap;">¥110–330</bdi>.</p>' : ''}
         </div>
         <p data-el="warn" style="font-size:0.8rem; color:var(--accent-red); font-weight:700; margin-top:8px;" hidden></p>
         <div class="dialog-actions">
@@ -2891,7 +2946,7 @@
         if (atm > 0) {
           const pay = src === 'laya' ? 'LAYA' : 'אשראי';
           if (pay === 'LAYA') spendFrom('LAYA', code, atm);
-          appData.expenses.unshift({ id: newId(), amount: atm, currency: code, category: 'שונות', payment: pay, note: `🏧 עמלת כספומט (משיכה של ${money(val, code)})`, date: now });
+          appData.expenses.unshift({ id: newId(), amount: atm, currency: code, category: 'שונות', payment: pay, note: `🏧 עמלת כספומט (משיכה של ${moneyRaw(val, code)})`, date: now });
         }
         if (bank > 0) appData.expenses.unshift({ id: newId(), amount: bank, currency: 'ILS', category: 'שונות', payment: 'אשראי', note: '🏦 עמלת בנק על משיכה', date: now });
         saveData();
@@ -4475,10 +4530,11 @@ Rules:
       const amt = parseFloat(document.getElementById('conv-amount').value);
       const per = convUnit(from) / convUnit(to);                 // 1 FROM = per TO
       const out = document.getElementById('conv-out');
-      out.textContent = isFinite(amt) ? convFmt(amt * per, to) : '—';
-      document.getElementById('conv-rate').textContent = `1 ${from} = ${convRateFmt(per, to)}  ·  1 ${to} = ${convRateFmt(1 / per, from)}`;
+      out.textContent = isFinite(amt) ? ltr(convFmt(amt * per, to)) : '—';
+      // each half is its own left-to-right unit, so "1 JPY = ₪0.01964" never gets its "1" moved to the far end
+      document.getElementById('conv-rate').textContent = `${ltr(`1 ${from} = ${convRateFmt(per, to)}`)}  ·  ${ltr(`1 ${to} = ${convRateFmt(1 / per, from)}`)}`;
       document.getElementById('conv-table').innerHTML = [1, 10, 100, 1000, 10000].map(n =>
-        `<div><span>${escapeHtml(convFmt(n, from))}</span><span>${escapeHtml(convFmt(n * per, to))}</span></div>`).join('');
+        `<div><span>${escapeHtml(ltr(convFmt(n, from)))}</span><span>${escapeHtml(ltr(convFmt(n * per, to)))}</span></div>`).join('');
       document.getElementById('conv-note').textContent = ratesNoteText();
     }
     function swapConverter() {
@@ -4730,7 +4786,7 @@ Rules:
       });
       rows.push(['הגדרה', '', '', 'עמלת אשראי (%)', '', '', appData.settings.fee, '%', '', '', '', '']);
       rows.push(['הגדרה', '', '', 'שם הטיול', '', '', '', '', '', '', '', tripTitle()]);
-      return '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';   // BOM so Excel reads Hebrew correctly
+      return stripLtr('﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n');   // BOM so Excel reads Hebrew correctly
     }
     // ---------- Trip report (self-contained HTML, prints to A4 / PDF) ----------
     function buildHtmlReport(opts) {
@@ -4830,7 +4886,7 @@ Rules:
         <td class="amt">${esc(sumsToString(curOrder(byCat[c].byCur)))}</td><td class="amt">${esc(ilsStr(byCat[c].ils, 0))}</td><td class="c">${Math.round(byCat[c].ils / total * 100)}%</td><td class="amt avg">${esc(avgOf(c))}</td></tr>`).join('');
       const title = tripTitle(), flag = (rateOf(code).flag || '');
 
-      return `<!doctype html>
+      return stripLtr(`<!doctype html>
 <html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · דוח טיול</title>
 <style>
@@ -4919,7 +4975,7 @@ ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
 ${creditSec}
 
 <div class="foot">${esc(title)} · יודל'ה${ver ? ' · ' + esc(ver) : ''}</div>
-</div></body></html>`;
+</div></body></html>`);   // the report isolates its amounts with its own CSS, so the on-screen marks are removed
     }
     // ask first: with or without every expense of every day (default: without)
     function askHtmlReport() {
@@ -5130,6 +5186,10 @@ ${creditSec}
       // a tap on the dim background closes the dialog, unless something was typed in it (use ביטול or Back then)
       overlay.addEventListener('click', e => { if (e.target === overlay && !dirty) overlay.remove(); });
       document.body.appendChild(overlay);
+      // a dialog taller than the screen gets a line above its pinned buttons, as a cue that the fields scroll
+      const dlg = overlay.firstElementChild, mark = () => dlg.classList.toggle('scrolls', dlg.scrollHeight > dlg.clientHeight + 2);
+      requestAnimationFrame(mark);
+      if (window.ResizeObserver) { const ro = new ResizeObserver(mark); ro.observe(dlg); [...dlg.children].forEach(c => ro.observe(c)); }
       return overlay;
     }
 
@@ -5147,14 +5207,35 @@ ${creditSec}
     }
 
     const msgTimers = {};
-    function showMsg(id, text, type = 'ok') {
+    // how long a message stays: errors and warnings longer than successes, and long texts a bit longer
+    const msgMs = (text, type) => Math.min(9000, (type === 'ok' ? 3000 : 5500) + Math.max(0, String(text).length - 50) * 40);
+    function showMsg(id, text, type = 'ok', quiet = false) {
       const el = document.getElementById(id);
       if (!el) return;
       el.innerText = text;
       el.className = 'message-box' + (type === 'error' ? ' error' : type === 'warn' ? ' warn' : '');
       el.style.display = 'block';
       clearTimeout(msgTimers[id]);
-      msgTimers[id] = setTimeout(() => { el.style.display = 'none'; }, type === 'warn' ? 5000 : 3000);
+      msgTimers[id] = setTimeout(() => { el.style.display = 'none'; }, msgMs(text, type));
+      // the box sits at the top of its card: when it is scrolled away, on another tab or behind a dialog, say it in a toast too
+      if (!quiet && !msgBoxInView(el)) showToast(text, type);
+    }
+    function msgBoxInView(el) {
+      if (document.querySelector('body > .overlay')) return false;                    // a dialog covers the screen
+      const scr = el.closest('.screen');
+      if (scr && !scr.classList.contains('active')) return false;                      // its tab is not the one showing
+      const r = el.getBoundingClientRect();
+      if (!r.height) return false;
+      const area = document.getElementById('scroll-area');
+      let top = area ? area.getBoundingClientRect().top : 0;
+      let bottom = area ? area.getBoundingClientRect().bottom : innerHeight;
+      const slim = document.getElementById('hero-slim');                                // slim status bar covers the top of home
+      if (slim && slim.classList.contains('show') && slim.closest('.screen.active')) top = Math.max(top, slim.getBoundingClientRect().bottom);
+      const nav = document.querySelector('.bottom-nav');
+      if (nav && getComputedStyle(nav).display !== 'none') bottom = Math.min(bottom, nav.getBoundingClientRect().top);
+      const vv = window.visualViewport;                                                 // on-screen keyboard
+      if (vv) bottom = Math.min(bottom, vv.offsetTop + vv.height);
+      return r.top >= top - 1 && r.bottom <= bottom + 1;
     }
 
     function switchTab(tabId, el) {
@@ -5168,11 +5249,14 @@ ${creditSec}
     }
 
     // small message above the bottom bar that fades by itself
-    function showToast(text) {
+    function showToast(text, type) {
       let t = document.getElementById('app-toast');
       if (!t) { t = document.createElement('div'); t.id = 'app-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
-      t.textContent = text; t.classList.add('show');
-      clearTimeout(showToast.tm); showToast.tm = setTimeout(() => t.classList.remove('show'), 2500);
+      t.textContent = text;
+      t.classList.toggle('error', type === 'error'); t.classList.toggle('warn', type === 'warn');
+      t.setAttribute('role', type === 'error' || type === 'warn' ? 'alert' : 'status');
+      t.classList.add('show');
+      clearTimeout(showToast.tm); showToast.tm = setTimeout(() => t.classList.remove('show'), type ? msgMs(text, type) : 2500);
     }
 
     // ---------- Back gesture (Android Back / iPhone edge swipe) ----------
@@ -5306,6 +5390,58 @@ ${creditSec}
 
       // the "my part" line of a shared expense follows the amount being typed
       const ia = document.getElementById('inp-amount'); if (ia) ia.addEventListener('input', () => { if (shareSt.on) renderAddShare(); });
+      // keyboard action key: on the amount it only closes the keyboard (category and payment are still to be picked);
+      // on the note (the last field) it saves the expense
+      const enterKey = e => e.key === 'Enter' && !e.isComposing && e.keyCode !== 229;
+      if (ia) ia.addEventListener('keydown', e => { if (enterKey(e)) { e.preventDefault(); ia.blur(); } });
+      const inote = document.getElementById('inp-note');
+      if (inote) inote.addEventListener('keydown', e => { if (enterKey(e)) { e.preventDefault(); inote.blur(); saveExpense(); } });
+      // in dialogs, the action key of a single-line field closes the keyboard instead of doing nothing
+      document.addEventListener('keydown', e => {
+        const t = e.target;
+        if (!enterKey(e) || !t.matches || !t.matches('.dialog input[type=number], .dialog input[type=text]') || t.hasAttribute('onkeydown')) return;
+        e.preventDefault(); t.blur();
+      });
+      document.addEventListener('focusin', e => {
+        const t = e.target;
+        if (t.matches && t.matches('.dialog input[type=number], .dialog input[type=text]') && !t.hasAttribute('enterkeyhint')) t.setAttribute('enterkeyhint', 'done');
+      });
+      // while a field of the add-expense form has the keyboard up, the Save button floats just above the keyboard
+      const form = ia && ia.closest('.card');
+      const vvb = window.visualViewport;
+      const kbGap = () => {
+        const area = document.getElementById('scroll-area');
+        const hidden = vvb && area ? Math.max(0, area.getBoundingClientRect().bottom - (vvb.offsetTop + vvb.height)) : 0;
+        document.body.style.setProperty('--kb-gap', Math.round(hidden) + 'px');
+        requestAnimationFrame(keepFieldClear);
+      };
+      // the floating Save must never sit on the field being typed in: scroll that field up above it
+      const keepFieldClear = () => {
+        const f = document.activeElement, btn = document.getElementById('save-exp-btn'), area = document.getElementById('scroll-area');
+        if (!document.body.classList.contains('exp-typing') || !f || !btn || !area || !form.contains(f) || f === btn) return;
+        const fr = f.getBoundingClientRect(), br = btn.getBoundingClientRect();
+        if (fr.bottom > br.top - 8 && fr.top < br.bottom) area.scrollTop += fr.bottom - br.top + 16;
+      };
+      if (form) {
+        form.addEventListener('focusin', e => { if (e.target.matches('input:not([type=date]):not([type=search])')) { document.body.classList.add('exp-typing'); kbGap(); setTimeout(kbGap, 350); } });
+        // unpin as soon as the typing ends, so the button never moves later under a finger; it stays pinned while
+        // focus moves from field to field, and while Save itself is being pressed (the tap must land where it was)
+        let pinHold = false;
+        const unpin = () => { if (!pinHold) document.body.classList.remove('exp-typing'); };
+        form.addEventListener('focusout', e => {
+          const to = e.relatedTarget;
+          if (to && form.contains(to) && to.matches('input:not([type=date]):not([type=search])')) return;
+          unpin();
+        });
+        const sb = document.getElementById('save-exp-btn');
+        if (sb) {
+          sb.addEventListener('pointerdown', () => { if (document.body.classList.contains('exp-typing')) pinHold = true; });
+          const release = () => setTimeout(() => { pinHold = false; if (!(document.activeElement && form.contains(document.activeElement) && document.activeElement.matches('input'))) unpin(); }, 350);
+          sb.addEventListener('click', release); sb.addEventListener('pointercancel', release);
+          document.addEventListener('pointerup', () => { if (pinHold) release(); });
+        }
+        if (vvb) { vvb.addEventListener('resize', kbGap); vvb.addEventListener('scroll', kbGap); }
+      }
 
       // Hide the bottom bar while the on-screen keyboard is open (iPhone and Android)
       // (dropdowns open a picker, not the keyboard, so they don't hide it)
