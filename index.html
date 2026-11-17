@@ -1030,7 +1030,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 46 · 16/11/2026 · 03a943</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 47 · 16/11/2026 · 9738b0</span></div>
     </div>
 
   </div>
@@ -1457,6 +1457,7 @@
     function initApp() {
       buildCurrencySelect();
       appData = loadData();
+      repairTicketDates();
       initConverter();
       wallet(); // make sure the current currency has a wallet
       persist();
@@ -3506,6 +3507,22 @@
       else if (!e.linkedByUser) e.date = isoToDate(r.date).toISOString();   // cleared: an automatic charge goes back to the travel day
       if (e.shared) syncShare(e, shareStateOf(e));                          // its settlement entry follows the date
     }
+    // A flight ticket covers all its legs (same confirmation code): the booking date belongs to the ticket,
+    // and the charge usually sits on one leg (e.g. LY92 "included in LY91").
+    const ticketLegs = r => r.kind === 'flight' && r.confirmation ? appData.reservations.filter(o => o.kind === 'flight' && o.confirmation === r.confirmation) : [r];
+    function setBookedOn(r, booked) {
+      ticketLegs(r).forEach(x => { if (booked) x.bookedOn = booked; else delete x.bookedOn; applyBookedOn(x); });
+    }
+    // one-time repair: a booking date entered on a leg without the charge reaches the leg that has it
+    function repairTicketDates() {
+      let changed = false;
+      appData.reservations.forEach(r => {
+        const legs = ticketLegs(r); if (legs.length < 2) return;
+        const b = legs.map(x => x.bookedOn).filter(Boolean)[0];
+        if (b && legs.some(x => x.bookedOn !== b)) { legs.forEach(x => { x.bookedOn = b; applyBookedOn(x); }); changed = true; }
+      });
+      return changed;
+    }
     function resSubHtml(r) {
       const bits = [], lines = [];
       let links = '';
@@ -4348,7 +4365,7 @@ Rules:
           <label class="field-label">מטבע<select class="select-input" data-el="cur">${currencyOptionsHtml()}</select></label>
         </div>` : charged ? '<p style="font-size:0.75rem;">התשלום כבר נרשם: את הסכום עורכים ברשימת ההוצאות (✏️).</p>' : ''}
         ${r.kind || charged ? `<label class="field-label">📝 תאריך ביצוע ההזמנה (התשלום)<input type="date" class="text-input" data-el="booked" style="direction:ltr;" value="${escapeHtml(booked0)}" max="${dateToIso(new Date())}"></label>
-          <p style="font-size:0.75rem; margin:4px 0 0;">אם שילמתם כבר כשהזמנתם (למשל טיסה או רכב), החיוב יירשם ביום הזה – ובסיכום האשראי יופיע תחת "לפני הטיול". ריק = יום הנסיעה.</p>` : ''}
+          <p style="font-size:0.75rem; margin:4px 0 0;">אם שילמתם כבר כשהזמנתם (למשל טיסה או רכב), החיוב יירשם ביום הזה – ובסיכום האשראי יופיע תחת "לפני הטיול". ריק = יום הנסיעה.${ticketLegs(r).length > 1 ? ` התאריך חל על כל הטיסות בכרטיס (${escapeHtml(ticketLegs(r).map(x => x.flightNumber || x.name).join(', '))}).` : ''}</p>` : ''}
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">שמור</button>
@@ -4385,10 +4402,12 @@ Rules:
           if (a2) r.returnAddress = a2; else delete r.returnAddress;
         } else if (q('addr')) { const a = q('addr').value.trim(); if (a) r.address = a; else delete r.address; }
         if (q('price')) { if (price > 0 && DEFAULT_RATES[cur]) { r.price = price; r.currency = cur; } else { delete r.price; delete r.currency; } }
-        if (booked !== booked0) { if (booked) r.bookedOn = booked; else delete r.bookedOn; applyBookedOn(r); }
+        const legs = ticketLegs(r);
+        if (booked !== booked0) setBookedOn(r, booked);
         ov.remove();
         saveData();
-        showMsg('res-msg', booked !== booked0 && booked ? `ההזמנה עודכנה · החיוב נרשם ב-${bookedLabel(booked, r.date)}` : 'ההזמנה עודכנה');
+        const others = legs.filter(x => x !== r).map(x => x.flightNumber || x.name);
+        showMsg('res-msg', booked !== booked0 && booked ? `ההזמנה עודכנה · החיוב נרשם ב-${bookedLabel(booked, r.date)}` + (others.length ? ` (גם ל-${others.join(', ')}: אותו כרטיס)` : '') : 'ההזמנה עודכנה');
       };
     }
 
