@@ -495,6 +495,9 @@
     .cr-item .cr-n { min-width: 0; font-weight: 600; overflow-wrap: anywhere; } .cr-item small { display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
     .cr-item .cr-a { text-align: left; font-weight: 800; white-space: nowrap; }
     .cr-empty { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
+    .solo-switch { display: flex; flex-wrap: wrap; gap: 8px; }
+    .solo-switch .chip-btn { flex: 1 1 0; padding: 12px 8px; font-weight: 700; }
+    .solo-note { flex-basis: 100%; font-size: 0.8rem; color: var(--text-muted); margin: 4px 2px 0; }
     .settle-btn { padding: 4px 8px; font-size: 0.72rem; white-space: nowrap; min-height: 32px; }
     .settled-head { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin: 12px 4px 6px; }
     .split-settled { opacity: 0.6; }
@@ -993,14 +996,18 @@
       </div>
 
       <div class="card">
-        <div class="card-title"><span>👥 שמות לקיזוז<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="השמות שיופיעו בבחירה במסך הקיזוזים. אפשר להוסיף ולהסיר בכל זמן." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
+        <div class="card-title"><span>👥 מי נוסע?<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="נוסעים לבד: אין לשונית קיזוזים, אין הוצאות משותפות ואין מזומן מחבר. עם עוד זוג: מזינים כאן את השמות שיופיעו בקיזוזים. אפשר להחליף בכל זמן – שום דבר לא נמחק." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <div id="people-msg" class="message-box"></div>
+        <div class="solo-switch" id="ui-solo-switch"></div>
+        <div id="people-area">
+        <div class="nt-lbl" style="margin:12px 0 6px;">שמות לקיזוז</div>
         <div id="ui-me-select"></div>
         <div id="ui-people-settings" class="scroll-list short"></div>
         <div class="scroll-hint" data-for="ui-people-settings"></div>
         <div class="add-row">
           <input type="text" id="inp-new-person" maxlength="40" class="text-input" placeholder="שם חדש (לדוגמה: דנה ויוסי)" onkeydown="if(event.key==='Enter') addPerson()">
           <button class="primary-btn" onclick="addPerson()">➕ הוסף</button>
+        </div>
         </div>
       </div>
 
@@ -1030,7 +1037,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 47 · 16/11/2026 · 9738b0</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 48 · 17/11/2026 · 0717fb</span></div>
     </div>
 
   </div>
@@ -1348,6 +1355,7 @@
           payAuto: normPayAuto(s.payAuto),
           cashSource: s.cashSource === 'bank' ? 'bank' : 'laya',
           attrMoveAsked: !!s.attrMoveAsked,   // where cash withdrawals come from (remembered)
+          solo: !!s.solo,                     // traveling alone: no settlements, no shared expenses
           dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null,
           me: typeof s.me === 'string' ? (people.find(p => p.toLowerCase() === s.me.trim().toLowerCase()) || null) : null   // who owns this phone (one of the names)
         },
@@ -1523,6 +1531,7 @@
         () => renderSplits(),
         () => renderPeoplePicker(),
         () => renderPeopleSettings(),
+        () => applySoloUi(),
         () => renderReservations(),
         () => renderToday(),
         () => syncSlim(),
@@ -2043,6 +2052,7 @@
     }
     // The "I paid for both" block, used in the add form and in the edit dialog
     function renderShareInto(el, st, amountOf, code) {
+      if (isSolo()) { el.innerHTML = ''; return; }   // traveling alone: no shared expenses (existing ones stay as they are)
       const partners = splitCounterparts();
       if (st.on && !st.partner && partners.length === 1) st.partner = partners[0];
       const amt = amountOf(), dec = rateOf(code()).decimals;
@@ -2455,6 +2465,32 @@
       switchTab('settings', document.getElementById('nav-settings'));
     }
 
+    // ---------- Traveling alone (solo) or with another couple ----------
+    const isSolo = () => !!(appData && appData.settings && appData.settings.solo);
+    function applySoloUi() {
+      const solo = isSolo();
+      const nav = document.getElementById('nav-splits'); if (nav) nav.style.display = solo ? 'none' : '';
+      const sp = document.getElementById('screen-splits');
+      if (solo && sp && sp.classList.contains('active')) switchTab('home', document.getElementById('nav-home'));
+      const area = document.getElementById('people-area'); if (area) area.hidden = solo;
+      const sw = document.getElementById('ui-solo-switch');
+      if (sw) sw.innerHTML = `
+        <button type="button" class="chip-btn${solo ? ' selected' : ''}" onclick="setSolo(true)" aria-pressed="${solo}">👤 נוסעים לבד</button>
+        <button type="button" class="chip-btn${solo ? '' : ' selected'}" onclick="setSolo(false)" aria-pressed="${!solo}">👥 עם עוד זוג</button>
+        ${solo ? '<p class="solo-note">אין לשונית קיזוזים, אין הוצאות משותפות ואין מזומן מחבר.</p>' : ''}`;
+    }
+    function setSolo(on) {
+      if (on === isSolo()) return;
+      const done = () => { appData.settings.solo = on; saveData(); showMsg('people-msg', on ? '👤 מצב נוסעים לבד' : '👥 מצב עם עוד זוג'); };
+      if (!on) { done(); return; }
+      const open = appData.splits.filter(x => !x.settled).length, shared = appData.expenses.filter(e => e.shared).length;
+      if (!open && !shared) { done(); return; }
+      confirmDialog({ title: '👤 נוסעים לבד?', okLabel: 'עבור למצב לבד',
+        text: [open ? `יש ${open === 1 ? 'קיזוז פתוח אחד' : open + ' קיזוזים פתוחים'}` : '', shared ? `${shared === 1 ? 'הוצאה משותפת אחת' : shared + ' הוצאות משותפות'}` : ''].filter(Boolean).join(' ו') +
+          '. שום דבר לא יימחק: הם רק יוסתרו, ויחזרו כשתחזרו ל"עם עוד זוג". הסכומים בסיכום נשארים כפי שהם.',
+        onOk: done });
+    }
+
     function renderPeopleSettings() {
       const el = document.getElementById('ui-people-settings');
       const people = appData.settings.people;
@@ -2755,10 +2791,10 @@
       const ov = openDialog(`
         <h3 data-el="ttl">💵 משיכת מזומן</h3>
         <div class="field-label" style="margin-top:0;">מאיפה המזומן?</div>
-        <div data-el="src" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:10px;">
+        <div data-el="src" style="display:grid; grid-template-columns:${isSolo() ? '1fr 1fr' : '1fr 1fr 1fr'}; gap:6px; margin-bottom:10px;">
           <button type="button" class="chip-btn" data-src="laya" style="padding:8px 4px;">💳 LAYA<small style="display:block; font-size:0.66rem; opacity:.8;">יתרה ${escapeHtml(money(w.laya, code))}</small></button>
           <button type="button" class="chip-btn" data-src="bank" style="padding:8px 4px;">🏦 בנק / אשראי</button>
-          <button type="button" class="chip-btn" data-src="friend" style="padding:8px 4px;">👫 מחבר<small style="display:block; font-size:0.66rem; opacity:.8;">נרשם בקיזוזים</small></button>
+          ${isSolo() ? '' : `<button type="button" class="chip-btn" data-src="friend" style="padding:8px 4px;">👫 מחבר<small style="display:block; font-size:0.66rem; opacity:.8;">נרשם בקיזוזים</small></button>`}
         </div>
         <div data-el="friendwrap" style="margin-bottom:10px;" hidden>
           <div data-el="fdir" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
@@ -3176,7 +3212,7 @@
         <div class="cr-cur"><bdi>${escapeHtml(curLine)}</bdi> · ${nCh(C.items.length)}</div>`;
       html += line('🧳', 'בזמן הטיול', nCh(C.trip.length), escapeHtml(ilsStr(C.tripIls, 0)));
       if (C.pre.length) html += line('🧾', 'לפני הטיול', `${nCh(C.pre.length)} · כנראה כבר חויבו`, escapeHtml(ilsStr(C.preIls, 0)), 'muted');
-      if (C.shared.length) {
+      if (C.shared.length && !isSolo()) {
         const open = C.theirIls - C.theirBackIls;
         html += line('🤝', 'מזה החלק של הזוג השני', [C.theirBackIls >= 0.5 ? `הוחזר ${ilsStr(C.theirBackIls, 0)}` : '', open >= 0.5 ? `עוד לא הוחזר ${ilsStr(open, 0)}` : ''].filter(Boolean).join(' · '), escapeHtml(ilsStr(C.theirIls, 0)), 'share');
         html += line('💳', 'בניכוי החלק שלהם', 'מה שבאמת עלה לכם', escapeHtml(ilsStr(C.total - C.theirIls, 0)));
@@ -3186,7 +3222,7 @@
         let lastD = null;
         html += '<div class="cr-list">' + C.items.slice().reverse().map(x => {
           const head = x.d !== lastD ? `<div class="cr-day">${escapeHtml(x.d ? ddmm(x.d) : '—')}${x.pre ? ' · לפני הטיול' : ''}</div>` : ''; lastD = x.d;
-          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their ? `<small>🤝 החלק שלהם <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
+          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their && !isSolo() ? `<small>🤝 החלק שלהם <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
             <span class="cr-a"><bdi>${escapeHtml(money(x.e.amount, x.e.currency))}</bdi>${x.e.currency === 'ILS' ? '' : `<small><bdi>${escapeHtml(ilsStr(x.ils))}</bdi></small>`}</span></div>`;
         }).join('') + '</div>';
       }
@@ -4644,7 +4680,7 @@ Rules:
         if (CR.items.length) {
           const crRow = (label, list, extra) => { let a = 0, b = 0; list.forEach(x => { const [i, u] = conv(x.e.amount, x.e.currency, x.e.payment); a += i; b += u; });
             return ['סיכום', '', '', label, '', 'אשראי', '', '', num(a), num(b), '', [list.length === 1 ? 'חיוב אחד' : `${list.length} חיובים`, extra].filter(Boolean).join(' · ')]; };
-          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪, הוחזר ${num(CR.theirBackIls)} ₪` : ''));
+          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length && !isSolo() ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪, הוחזר ${num(CR.theirBackIls)} ₪` : ''));
           rows.push(crRow('חיובי אשראי בזמן הטיול', CR.trip));
           if (CR.pre.length) rows.push(crRow('חיובי אשראי לפני הטיול', CR.pre, 'כנראה כבר חויבו'));
         }
@@ -4675,7 +4711,7 @@ Rules:
         rows.push([r.kind === 'flight' ? 'טיסה' : r.kind === 'car' ? 'השכרת רכב' : 'הזמנה', r.date + (r.time ? ' ' + r.time : ''), r.arrivalDate ? r.arrivalDate + (r.arrivalTime ? ' ' + r.arrivalTime : '') : r.returnDate ? r.returnDate + (r.returnTime ? ' ' + r.returnTime : '') : '', r.name, '', '',
           r.price || '', r.price ? r.currency : '', '', '', '', [r.airline, r.confirmation ? `אישור ${r.confirmation}` : ''].filter(Boolean).join(' · ')]);
       });
-      appData.splits.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(x => {
+      (isSolo() ? [] : appData.splits).slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(x => {   // solo: no settlement rows
         used.add(x.currency);
         rows.push(['קיזוז', localDateTime(x.date), '', x.note, x.category, '', x.amount, x.currency, ...conv(x.amount, x.currency, ''),
           x.amount > 0 ? 'חייבים לי' : 'אני חייב', `אדם: ${x.person}` + (x.settled ? ` · נסגר ${x.settled.how === 'cash' ? 'במזומן' : 'בביט / פייבוקס'} ${x.settled.date}` : '')]);
@@ -4707,8 +4743,8 @@ Rules:
       const CR = creditData();
       const creditSec = !CR.items.length ? '' : `<section class="card page"><h2>💳 חיובי אשראי</h2>
 <div class="sub">סה"כ ≈ <b>${esc(ilsStr(CR.total, 0))}</b> · ${esc(Object.entries(CR.byCur).map(([c, v]) => money(v, c)).join(' + '))} · ${CR.items.length} חיובים · כולל עמלת אשראי, לפי השער</div>
-<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}` : ''}${CR.shared.length ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (הוחזר ${esc(ilsStr(CR.theirBackIls, 0))})` : ''}</div>
-<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.their ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
+<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (הוחזר ${esc(ilsStr(CR.theirBackIls, 0))})` : ''}</div>
+<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
 </section>`;
       const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
         + (e.shared ? ` <span class="ils">🤝 מתוך ${esc(money(e.amount, e.currency))}</span>` : '');
@@ -4987,6 +5023,11 @@ ${creditSec}
           </div>
           <div class="nt-lbl">כך תיראה הכותרת:</div>
           <div class="nt-preview" data-el="pv"></div>
+          <div class="nt-lbl">מי נוסע?</div>
+          <div class="solo-switch" data-el="who">
+            <button type="button" class="chip-btn" data-solo="1">👤 נוסעים לבד</button>
+            <button type="button" class="chip-btn" data-solo="0">👥 עם עוד זוג</button>
+          </div>
           <div class="dialog-actions">
             <button class="primary-btn btn-secondary" data-act="back2">→ חזרה</button>
             <button class="primary-btn" data-act="next2">המשך ←</button>
@@ -5009,6 +5050,10 @@ ${creditSec}
         ov.querySelector('.dialog').scrollTop = 0;
       };
       const curSel = el('cur'), nameIn = el('name'), yearIn = el('year');
+      let soloPick = isSolo();
+      const paintWho = () => el('who').querySelectorAll('[data-solo]').forEach(b => b.classList.toggle('selected', (b.dataset.solo === '1') === soloPick));
+      el('who').querySelectorAll('[data-solo]').forEach(b => b.onclick = () => { soloPick = b.dataset.solo === '1'; paintWho(); });
+      paintWho();
       curSel.value = curCode();
       yearIn.value = new Date().getFullYear();
       const newTitle = () => {
@@ -5036,12 +5081,12 @@ ${creditSec}
       q('[data-act="back3"]').onclick = () => show(2);
       q('[data-act="start"]').onclick = () => {
         const y = parseInt(yearIn.value, 10);
-        startNewTrip({ currency: curSel.value, name: nameIn.value.trim(), year: y >= 2000 && y <= 2100 ? y : new Date().getFullYear() });
+        startNewTrip({ currency: curSel.value, name: nameIn.value.trim(), year: y >= 2000 && y <= 2100 ? y : new Date().getFullYear(), solo: soloPick });
         ov.remove();
       };
     }
 
-    function startNewTrip({ currency, name, year }) {
+    function startNewTrip({ currency, name, year, solo }) {
       if (!DEFAULT_RATES[currency]) currency = curCode();
       saveSafetyCopy('לפני טיול חדש');
       const st = appData.settings;
@@ -5063,6 +5108,7 @@ ${creditSec}
       st.tripName = (name || '').slice(0, 40);
       st.tripNameAuto = !st.tripName;
       st.tripYear = year;
+      if (typeof solo === 'boolean') st.solo = solo;
       expCur = null; expDay = 'today'; payTouched = false;
       saveData();
       refreshRates({ force: true });     // get today's rates when online (silently skipped offline)
