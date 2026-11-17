@@ -486,8 +486,13 @@
     #app-toast.warn { background: #92400e; }
     body.kb-open #app-toast { bottom: calc(16px + env(safe-area-inset-bottom)); }
     .save-exp-btn { transition: background-color .2s ease, transform .15s ease; }
-    /* add-expense form with the keyboard up: a compact Save stays in sight just above the keyboard */
-    body.exp-typing #save-exp-btn { position: sticky; bottom: calc(var(--kb-gap, 0px) + 8px); z-index: 15; padding: 11px; box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
+    /* add-expense form with the keyboard up and an amount typed: a slim Save bar sits on top of the keyboard */
+    #kb-save-bar { position: fixed; left: 0; right: 0; bottom: var(--kb-gap, 0px); z-index: 40; display: none; align-items: center; gap: 10px;
+      height: 58px; padding: 0 10px; background: var(--card-bg); border-top: 1px solid var(--card-border); box-sizing: border-box; }
+    body.exp-typing.has-amt #kb-save-bar { display: flex; }
+    #kb-save-sum { flex: 1; min-width: 0; font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #kb-save-go { flex: 0 0 auto; min-height: 44px; border: 0; border-radius: 12px; background: var(--primary); color: #fff;
+      font: inherit; font-size: 1rem; font-weight: 800; padding: 0 16px; white-space: nowrap; }
     .hotel-pay-btn { width: auto; min-height: 44px; padding: 8px 16px; font-size: 0.85rem; margin-top: 0; }
     .save-exp-btn.saved { background: #16a34a !important; animation: savedPop .35s ease; }
     @keyframes savedPop { 0% { transform: scale(.96); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
@@ -1049,7 +1054,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 49 · 17/11/2026 · 44c117</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 50 · 17/11/2026 · 6ff72d</span></div>
     </div>
 
   </div>
@@ -1785,6 +1790,7 @@
       }
       expDay = v;
       renderExpDay();
+      updateKbBar();
     }
     function openDatePicker(el) { if (el.showPicker) { try { el.showPicker(); } catch (e) {} } }
     function renderExpDay() {
@@ -1902,7 +1908,7 @@
     function selectChip(groupId, element) {
       document.getElementById(groupId).querySelectorAll('.chip-btn').forEach(btn => btn.classList.remove('selected'));
       element.classList.add('selected');
-      if (groupId === 'pay-grid') updateLivePreview();
+      if (groupId === 'pay-grid') updateLivePreview(); else updateKbBar();
     }
 
     function updateLivePreview() {
@@ -1913,6 +1919,28 @@
       const label = CARD_METHODS.includes(payment) && code !== 'ILS' ? `עלות + ${appData.settings.fee}% עמלה:` : 'עלות:';
       document.getElementById('ui-live-preview').innerHTML =
         `<span>${label}</span><span>${ilsStr(toIls(amount, code, payment))}  |  ${usdStr(toUsd(amount, code, payment))}</span>`;
+      updateKbBar();
+    }
+    // slim Save bar above the keyboard: shown only with an amount typed; says what will be saved
+    function updateKbBar() {
+      const bar = document.getElementById('kb-save-bar'); if (!bar) return;
+      const amount = parseFloat(document.getElementById('inp-amount').value) || 0;
+      const on = amount > 0 && isFinite(amount);
+      document.body.classList.toggle('has-amt', on);
+      if (!on) return;
+      const cat = selectedVal('cat-grid') || '', pay = selectedVal('pay-grid') || '';
+      const day = expDay === 'today' ? 'היום' : expDay === 'yesterday' ? 'אתמול' : expDay.slice(8, 10) + '/' + expDay.slice(5, 7);
+      document.getElementById('kb-save-sum').textContent = [cat, pay, day].filter(Boolean).join(' · ');
+      document.getElementById('kb-save-go').textContent = '✓ שמור · ' + money(amount, expCode());
+      placeKbBar();
+    }
+    // glue the bar to the bottom of what is actually visible (the top edge of the keyboard), whatever the browser
+    // does with the page behind the keyboard
+    function placeKbBar() {
+      const bar = document.getElementById('kb-save-bar'), vv = window.visualViewport;
+      if (!bar) return;
+      if (vv) { bar.style.top = Math.round(vv.offsetTop + vv.height - 58) + 'px'; bar.style.bottom = 'auto'; }
+      else { bar.style.top = ''; bar.style.bottom = ''; }
     }
 
     const lastSave = {};   // form → time of its last successful save (a quick second tap must not show an error)
@@ -1964,6 +1992,7 @@
 
     // The save button itself confirms (the message above the form is often scrolled out of view)
     function savedFeedback(e) {
+      updateKbBar();
       const b = document.getElementById('save-exp-btn');
       if (b && e) {
         b.textContent = '✓ נשמר · ' + money(e.amount, e.currency);
@@ -5413,32 +5442,37 @@ ${creditSec}
         const area = document.getElementById('scroll-area');
         const hidden = vvb && area ? Math.max(0, area.getBoundingClientRect().bottom - (vvb.offsetTop + vvb.height)) : 0;
         document.body.style.setProperty('--kb-gap', Math.round(hidden) + 'px');
+        placeKbBar();
         requestAnimationFrame(keepFieldClear);
       };
-      // the floating Save must never sit on the field being typed in: scroll that field up above it
+      // the Save bar must never cover the field being typed in (for the amount: nor the live cost line under it)
       const keepFieldClear = () => {
-        const f = document.activeElement, btn = document.getElementById('save-exp-btn'), area = document.getElementById('scroll-area');
-        if (!document.body.classList.contains('exp-typing') || !f || !btn || !area || !form.contains(f) || f === btn) return;
-        const fr = f.getBoundingClientRect(), br = btn.getBoundingClientRect();
-        if (fr.bottom > br.top - 8 && fr.top < br.bottom) area.scrollTop += fr.bottom - br.top + 16;
+        const f = document.activeElement, bar = document.getElementById('kb-save-bar'), area = document.getElementById('scroll-area');
+        if (!document.body.classList.contains('exp-typing') || !f || !bar || !area || !form.contains(f)) return;
+        if (getComputedStyle(bar).display === 'none') return;
+        const tgt = f.id === 'inp-amount' ? (document.getElementById('ui-live-preview') || f) : f;
+        const fr = tgt.getBoundingClientRect(), br = bar.getBoundingClientRect();
+        if (fr.bottom > br.top - 8) area.scrollTop += fr.bottom - br.top + 12;
       };
       if (form) {
         form.addEventListener('focusin', e => { if (e.target.matches('input:not([type=date]):not([type=search])')) { document.body.classList.add('exp-typing'); kbGap(); setTimeout(kbGap, 350); } });
-        // unpin as soon as the typing ends, so the button never moves later under a finger; it stays pinned while
-        // focus moves from field to field, and while Save itself is being pressed (the tap must land where it was)
-        let pinHold = false;
-        const unpin = () => { if (!pinHold) document.body.classList.remove('exp-typing'); };
+        // the bar goes away as soon as the typing ends; it stays while focus moves from field to field
         form.addEventListener('focusout', e => {
           const to = e.relatedTarget;
           if (to && form.contains(to) && to.matches('input:not([type=date]):not([type=search])')) return;
-          unpin();
+          document.body.classList.remove('exp-typing');
         });
-        const sb = document.getElementById('save-exp-btn');
-        if (sb) {
-          sb.addEventListener('pointerdown', () => { if (document.body.classList.contains('exp-typing')) pinHold = true; });
-          const release = () => setTimeout(() => { pinHold = false; if (!(document.activeElement && form.contains(document.activeElement) && document.activeElement.matches('input'))) unpin(); }, 350);
-          sb.addEventListener('click', release); sb.addEventListener('pointercancel', release);
-          document.addEventListener('pointerup', () => { if (pinHold) release(); });
+        form.addEventListener('input', () => requestAnimationFrame(keepFieldClear));
+        const go = document.getElementById('kb-save-go');
+        if (go) {
+          // keep the cursor in the field while pressing, so the keyboard (and the bar) stay put under the finger
+          go.addEventListener('pointerdown', e => e.preventDefault());
+          go.addEventListener('mousedown', e => e.preventDefault());
+          go.addEventListener('click', () => {
+            const before = appData.expenses.length;
+            saveExpense();
+            if (appData.expenses.length > before && document.activeElement && form.contains(document.activeElement)) document.activeElement.blur();
+          });
         }
         if (vvb) { vvb.addEventListener('resize', kbGap); vvb.addEventListener('scroll', kbGap); }
       }
@@ -5480,5 +5514,6 @@ ${creditSec}
     window.onload = () => { initApp(); initPwa(); initTips(); initRates(); initBackup(); initDashboard(); };
     window.addEventListener('resize', () => requestAnimationFrame(updateScrollHints));
   </script>
+  <div id="kb-save-bar" role="toolbar" aria-label="שמירת ההוצאה"><span id="kb-save-sum"></span><button type="button" id="kb-save-go">✓ שמור</button></div>
 </body>
 </html>
