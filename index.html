@@ -1054,7 +1054,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 51 · 18/11/2026 · 71f13b</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 52 · 18/11/2026 · ee3ccd</span></div>
     </div>
 
   </div>
@@ -1386,6 +1386,7 @@
           cashSource: s.cashSource === 'bank' ? 'bank' : 'laya',
           attrMoveAsked: !!s.attrMoveAsked,   // where cash withdrawals come from (remembered)
           solo: !!s.solo,                     // traveling alone: no settlements, no shared expenses
+          cardDay: Math.min(28, Math.max(1, parseInt(s.cardDay, 10) || 2)),   // the card's monthly billing day: charges up to it are already billed
           dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null,
           me: typeof s.me === 'string' ? (people.find(p => p.toLowerCase() === s.me.trim().toLowerCase()) || null) : null   // who owns this phone (one of the names)
         },
@@ -3287,20 +3288,55 @@
 
     // ---------- Summary ----------
     // ---------- Credit card charges: what the card bill will show after the trip ----------
+    // card billing: every charge dated up to the latest billing day (cardDay of this month, or of last month
+    // before that day) has already been billed; later ones go on the next bill
+    function cardBill() {
+      const D = appData.settings.cardDay || 2, t = new Date();
+      let last = new Date(t.getFullYear(), t.getMonth(), D);
+      if (t.getDate() < D) last = new Date(t.getFullYear(), t.getMonth() - 1, D);
+      const next = new Date(last.getFullYear(), last.getMonth() + 1, D);
+      return { day: D, last: dateToIso(last), next: dateToIso(next) };
+    }
+    function setCardDay() {
+      const ov = openDialog(`
+        <h3>💳 יום החיוב בכרטיס</h3>
+        <p>באיזה יום בחודש יורד החיוב של כרטיס האשראי? כל חיוב עד היום הזה מסומן כ"חויב".</p>
+        <input type="number" class="text-input" data-el="day" inputmode="numeric" min="1" max="28" value="${appData.settings.cardDay || 2}" style="direction:ltr; text-align:center; font-weight:700; font-size:1.2rem;">
+        <div class="dialog-actions">
+          <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
+          <button class="primary-btn" data-act="ok">שמור</button>
+        </div>`);
+      const inp = ov.querySelector('[data-el=day]');
+      ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=ok]').onclick = () => {
+        const v = parseInt(inp.value, 10);
+        if (!(v >= 1 && v <= 28)) { inp.style.outline = '2px solid #ef4444'; inp.focus(); return; }
+        appData.settings.cardDay = v; ov.remove(); saveData(); renderCredit();
+      };
+    }
     function creditData() {
-      const start = tripRange().start;
+      const start = tripRange().start, bill = cardBill();
       const items = appData.expenses.filter(e => CARD_METHODS.includes(e.payment)).map(e => {
         const dt = new Date(e.date), d = isNaN(dt) ? '' : dateToIso(dt);
         const sp = e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
-        return { e, d, pre: !!d && d < start, ils: toIls(e.amount, e.currency, e.payment),      // full charge (shared: incl. their half)
+        return { e, d, pre: !!d && d < start, billed: !!d && d <= bill.last, ils: toIls(e.amount, e.currency, e.payment),      // full charge (shared: incl. their half)
           their: e.shared ? e.shared.their : 0, theirIls: e.shared ? toIls(e.shared.their, e.currency, e.payment) : 0,
           back: sp && sp.settled ? sp.settled.how : '' };
       }).sort((a, b) => (a.e.date || '') < (b.e.date || '') ? -1 : 1);
       const sum = l => l.reduce((t, x) => t + x.ils, 0);
       const byCur = {}; items.forEach(x => { byCur[x.e.currency] = Math.round(((byCur[x.e.currency] || 0) + x.e.amount) * 100) / 100; });
       const trip = items.filter(x => !x.pre), pre = items.filter(x => x.pre), sh = items.filter(x => x.their > 0);
-      return { items, trip, pre, byCur, total: sum(items), tripIls: sum(trip), preIls: sum(pre), shared: sh,
+      const billed = items.filter(x => x.billed), due = items.filter(x => !x.billed);
+      return { items, trip, pre, byCur, total: sum(items), tripIls: sum(trip), preIls: sum(pre), shared: sh, bill, billed, due, billedIls: sum(billed), dueIls: sum(due),
         theirIls: sh.reduce((t, x) => t + x.theirIls, 0), theirBackIls: sh.filter(x => x.back).reduce((t, x) => t + x.theirIls, 0) };
+    }
+    // "· חויבו" / "· 3 חויבו · 2 יחויבו ב-02/12" / "· יחויבו ב-02/12"
+    function billNote(list, bill) {
+      if (!list.length) return '';
+      const b = list.filter(x => x.billed).length, n = list.length - b, nx = ddmm(bill.next);
+      if (!n) return ` · ${b === 1 ? 'חויב' : 'חויבו'} עד ${ddmm(bill.last)}`;
+      if (!b) return ` · ${n === 1 ? 'יחויב' : 'יחויבו'} ב-${nx}`;
+      return ` · ${b} חויבו · ${n} ${n === 1 ? 'יחויב' : 'יחויבו'} ב-${nx}`;
     }
     // per charge: the other couple's half is never "paid back" on its own; it goes into the netted קיזוזים balance
     const backTxt = how => how === 'cash' ? 'החשבון נסגר במזומן' : how === 'bit' ? 'החשבון נסגר בביט' : 'נכנס לקיזוזים';
@@ -3315,8 +3351,9 @@
       const line = (ic, label, sub, val, cls = '') => `<div class="cr-row ${cls}"><span class="cr-l"><span aria-hidden="true">${ic}</span> ${label}${sub ? `<small>${sub}</small>` : ''}</span><b class="cr-v"><bdi>${val}</bdi></b></div>`;
       let html = `<div class="cr-big"><bdi>≈ ${escapeHtml(ilsStr(C.total, 0))}</bdi></div>
         <div class="cr-cur"><bdi>${escapeHtml(curLine)}</bdi> · ${nCh(C.items.length)}</div>`;
-      html += line('🧳', 'בזמן הטיול', nCh(C.trip.length), escapeHtml(ilsStr(C.tripIls, 0)));
-      if (C.pre.length) html += line('🧾', 'לפני הטיול', `${nCh(C.pre.length)} · כנראה כבר חויבו`, escapeHtml(ilsStr(C.preIls, 0)), 'muted');
+      html += line('🧳', 'בזמן הטיול', `${nCh(C.trip.length)}${billNote(C.trip, C.bill)}`, escapeHtml(ilsStr(C.tripIls, 0)));
+      if (C.pre.length) html += line('🧾', 'לפני הטיול', `${nCh(C.pre.length)}${billNote(C.pre, C.bill)}`, escapeHtml(ilsStr(C.preIls, 0)), 'muted');
+      if (C.billed.length && C.due.length) html += line('⏳', `יחויב ב-${ddmm(C.bill.next)}`, `${nCh(C.due.length)} ${C.due.length === 1 ? 'שעוד לא חויב' : 'שעוד לא חויבו'}`, escapeHtml(ilsStr(C.dueIls, 0)));
       if (C.shared.length && !isSolo()) {
         html += line('🤝', 'מזה החלק של הזוג השני', 'נכנס לקיזוזים, לא מוחזר בנפרד', escapeHtml(ilsStr(C.theirIls, 0)));
         html += line('💳', 'בניכוי החלק שלהם', 'מה שבאמת עלה לכם', escapeHtml(ilsStr(C.total - C.theirIls, 0)));
@@ -3325,11 +3362,12 @@
           ? net.map(n => `<div class="cr-row"><span class="cr-l"><span aria-hidden="true">⚖️</span> מאזן הקיזוזים<small>${escapeHtml(n.owesMe ? `${n.who} חייבים לכם` : `אתם חייבים ל${n.who}`)} · כל ההוצאות המשותפות יחד</small></span><b class="cr-v" style="color:${n.owesMe ? 'var(--accent-green)' : 'var(--accent-red)'}"><bdi>${escapeHtml(n.amt)}</bdi></b></div>`).join('')
           : line('⚖️', 'מאזן הקיזוזים', 'אף אחד לא חייב לאף אחד', 'מאוזן ✔️');
       }
+      html += `<p class="cr-cur" style="margin:8px 0 0;">יום החיוב בכרטיס: ${C.bill.day} בחודש · <a href="#" onclick="setCardDay(); return false;">שינוי</a></p>`;
       html += `<button type="button" class="primary-btn btn-secondary cr-toggle" onclick="toggleCreditList()" aria-expanded="${creditOpen}">${creditOpen ? '▲ הסתר את החיובים' : `▼ הצג את כל החיובים (${C.items.length})`}</button>`;
       if (creditOpen) {
         let lastD = null;
         html += '<div class="cr-list">' + C.items.slice().reverse().map(x => {
-          const head = x.d !== lastD ? `<div class="cr-day">${escapeHtml(x.d ? ddmm(x.d) : '—')}${x.pre ? ' · לפני הטיול' : ''}</div>` : ''; lastD = x.d;
+          const head = x.d !== lastD ? `<div class="cr-day">${escapeHtml(x.d ? ddmm(x.d) : '—')}${x.pre ? ' · לפני הטיול' : ''}${x.billed ? ' · ✓ חויב' : ''}</div>` : ''; lastD = x.d;
           return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their && !isSolo() ? `<small>🤝 החלק שלהם <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
             <span class="cr-a"><bdi>${escapeHtml(money(x.e.amount, x.e.currency))}</bdi>${x.e.currency === 'ILS' ? '' : `<small><bdi>${escapeHtml(ilsStr(x.ils))}</bdi></small>`}</span></div>`;
         }).join('') + '</div>';
@@ -4791,7 +4829,8 @@ Rules:
             return ['סיכום', '', '', label, '', 'אשראי', '', '', num(a), num(b), '', [list.length === 1 ? 'חיוב אחד' : `${list.length} חיובים`, extra].filter(Boolean).join(' · ')]; };
           rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length && !isSolo() ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪ (נכנס לקיזוזים) · מאזן הקיזוזים: ${splitNetLines().map(n => n.text).join(', ') || 'מאוזן'}` : ''));
           rows.push(crRow('חיובי אשראי בזמן הטיול', CR.trip));
-          if (CR.pre.length) rows.push(crRow('חיובי אשראי לפני הטיול', CR.pre, 'כנראה כבר חויבו'));
+          if (CR.pre.length) rows.push(crRow('חיובי אשראי לפני הטיול', CR.pre, billNote(CR.pre, CR.bill).replace(/^ · /, '')));
+          if (CR.billed.length && CR.due.length) rows.push(crRow(`חיובי אשראי שיחויבו ב-${ddmm(CR.bill.next)}`, CR.due, 'עוד לא חויבו'));
         }
       }
       const byCat = {};
@@ -4852,8 +4891,8 @@ Rules:
       const CR = creditData();
       const creditSec = !CR.items.length ? '' : `<section class="card page"><h2>💳 חיובי אשראי</h2>
 <div class="sub">סה"כ ≈ <b>${esc(ilsStr(CR.total, 0))}</b> · ${esc(Object.entries(CR.byCur).map(([c, v]) => money(v, c)).join(' + '))} · ${CR.items.length} חיובים · כולל עמלת אשראי, לפי השער</div>
-<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (נכנס לקיזוזים)` : ''}</div>${CR.shared.length && !isSolo() ? `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(splitNetLines().map(n => n.text).join(' · ') || 'מאוזן ✔️')}</div>` : ''}
-<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
+<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}${esc(billNote(CR.pre, CR.bill))}` : ''}${CR.billed.length && CR.due.length ? ` · יחויב ב-${esc(ddmm(CR.bill.next))}: ${esc(ilsStr(CR.dueIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (נכנס לקיזוזים)` : ''}</div>${CR.shared.length && !isSolo() ? `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(splitNetLines().map(n => n.text).join(' · ') || 'מאוזן ✔️')}</div>` : ''}
+<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.billed ? ' <span class="ils">· ✓ חויב</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
 </section>`;
       const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
         + (e.shared ? ` <span class="ils">🤝 מתוך ${esc(money(e.amount, e.currency))}</span>` : '');
