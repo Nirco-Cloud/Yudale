@@ -1054,7 +1054,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 53 · 18/11/2026 · 0ec531</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 54 · 18/11/2026 · 835830</span></div>
     </div>
 
   </div>
@@ -2071,9 +2071,19 @@
         const list = document.getElementById(h.dataset.for);
         if (!list || !list.offsetParent) return;          // hidden tab: measured when it is opened
         const more = list.scrollHeight - list.clientHeight > 4;
-        const n = list.children.length;
+        // count real rows only: headings such as "קיזוזים שנסגרו" are not items
+        const rows = list.querySelectorAll(':scope > .expense-item').length;
+        const n = rows || [...list.children].filter(c => !c.classList.contains('settled-head')).length;
         h.classList.toggle('show', more);
-        h.textContent = more ? `⇅ גלול ברשימה (${n} פריטים)` : '';
+        // say where the hidden rows are: above, below or both
+        const top = list.scrollTop < 4, end = list.scrollHeight - list.clientHeight - list.scrollTop < 4;
+        const where = top ? '⇣ יש עוד למטה' : end ? '⇡ יש עוד למעלה' : '⇅ יש עוד למעלה ולמטה';
+        h.textContent = more ? `${where} – גללו בתוך הרשימה (${n} ${n === 1 ? 'פריט' : 'פריטים'} בסך הכל)` : '';
+        if (!list._hintBound) {
+          list._hintBound = true;
+          let raf = 0;
+          list.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; updateScrollHints(); }); }, { passive: true });
+        }
       });
     }
 
