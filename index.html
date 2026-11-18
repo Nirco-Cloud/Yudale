@@ -5806,7 +5806,118 @@ ${creditSec}
       document.addEventListener('touchstart', () => {}, { passive: true });
     }
 
-    window.onload = () => { initApp(); initPwa(); initTips(); initRates(); initBackup(); initDashboard(); };
+    // ---------- Expense from a link (private add-on; nothing in the UI points to it) ----------
+    // Link: …/Yudale/#exp=<base64url JSON {v, id, a: amount, c: currency, k: category, n: note, p: payment, d: YYYY-MM-DD}>.
+    // Opening it saves the expense through the normal form (same checks, wallets and auto payment method),
+    // once per id: a second tap on the same link only says it is already saved.
+    const LINK_SEEN_KEY = 'yudaleLinkSeen';
+    const LINK_CATS = ['אוכל', 'קניות', 'תחבורה', 'אטרקציות', 'שונות'];
+    const LINK_PAYS = ['מזומן', 'אשראי', 'LAYA', 'Suica'];
+    function linkSeen() { try { const a = JSON.parse(localStorage.getItem(LINK_SEEN_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+    function linkMarkSeen(id) { try { const a = linkSeen().filter(x => x !== id); a.push(id); localStorage.setItem(LINK_SEEN_KEY, JSON.stringify(a.slice(-300))); } catch (_) {} }
+    function linkDecode(s) {
+      const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+      return JSON.parse(new TextDecoder().decode(Uint8Array.from(b, c => c.charCodeAt(0))));
+    }
+    function linkFromUrl(url) {
+      const m = /#exp=([A-Za-z0-9_-]+)/.exec(url || '');
+      if (!m) return undefined;
+      try {
+        const x = linkDecode(m[1]);
+        const a = Number(x.a);
+        if (!x || typeof x.id !== 'string' || !x.id || !(a > 0) || !isFinite(a) || a > 1e9) return null;
+        return {
+          id: x.id.slice(0, 40), amount: a,
+          currency: typeof x.c === 'string' && DEFAULT_RATES[x.c] ? x.c : null,
+          category: LINK_CATS.includes(x.k) ? x.k : 'שונות',
+          note: typeof x.n === 'string' ? x.n.trim().slice(0, 120) : '',
+          payment: LINK_PAYS.includes(x.p) ? x.p : null,
+          day: ISO_DATE.test(x.d || '') && dateToIso(isoToDate(x.d)) === x.d ? x.d : null
+        };
+      } catch (_) { return null; }
+    }
+    function handleExpLink(url) {
+      const x = linkFromUrl(url);
+      if (x === undefined) return;
+      try { history.replaceState(history.state, '', location.pathname + location.search); } catch (_) {}   // a reload must not add it again
+      if (x === null) { notifyDialog('⚠️ הקישור לא תקין', 'לא הצלחתי לקרוא את ההוצאה מהקישור. אפשר להוסיף אותה ידנית.'); return; }
+      const have = appData.expenses.find(e => e.lnk === x.id);
+      if (have) { showToast(`✓ ההוצאה הזאת כבר נשמרה (${have.note} · ${money(have.amount, have.currency)})`); return; }
+      if (linkSeen().includes(x.id)) {
+        confirmDialog({ title: 'להוסיף שוב?', text: `ההוצאה "${x.note || x.category}" (${money(x.amount, x.currency || curCode())}) כבר נוספה מהקישור הזה ונמחקה אחר כך. להוסיף אותה שוב?`,
+          okLabel: 'הוסף', onOk: () => addLinkExpense(x) });
+        return;
+      }
+      addLinkExpense(x);
+    }
+    function addLinkExpense(x) {
+      const home = document.getElementById('nav-home');
+      if (home && !onHome()) switchTab('home', home);
+      document.querySelectorAll('body > .overlay').forEach(o => o.remove());
+      const amtEl = document.getElementById('inp-amount'), noteEl = document.getElementById('inp-note');
+      // something typed in the form and not saved yet comes back after the linked expense is saved
+      const kept = amtEl.value ? { amount: amtEl.value, note: noteEl.value, cur: expCur, day: expDay, cat: selectedVal('cat-grid'), pay: selectedVal('pay-grid'), touched: payTouched } : null;
+      const pickChip = (grid, v) => document.querySelectorAll('#' + grid + ' .chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === v));
+
+      amtEl.value = String(x.amount);
+      noteEl.value = x.note;
+      expCur = x.currency && x.currency !== curCode() ? x.currency : null;
+      const t = dateToIso(new Date());
+      let dayOk = true;
+      if (!x.day || x.day === t) expDay = 'today';
+      else if (x.day === addDaysIso(t, -1)) expDay = 'yesterday';
+      else if (x.day > futureLimit()) { expDay = 'today'; dayOk = false; }
+      else expDay = x.day;
+      pickChip('cat-grid', x.category);
+      payTouched = false;
+      shareSt = { on: false, partner: '', repaid: 'no' };
+      renderAddShare();
+      renderExpDay();
+      renderExpCurrency();                       // also picks the payment method by amount (auto) when none was given
+      if (x.payment && document.querySelector(`#pay-grid .chip-btn[data-val="${x.payment}"]`).style.display !== 'none') {
+        payTouched = true; pickChip('pay-grid', x.payment); renderPayAutoNote(null); updateLivePreview();
+      }
+      if (!dayOk) {                              // a day after the trip: leave it in the form to fix by hand
+        showMsg('expense-msg', `ההוצאה מהקישור: התאריך ${ddmm(x.day)} אחרי סוף הטיול. בחרו תאריך ולחצו שמור.`, 'error');
+        amtEl.scrollIntoView({ block: 'center' });
+        return;
+      }
+      const before = appData.expenses[0];
+      lastSave.exp = 0;
+      saveExpense();
+      const e = appData.expenses[0];
+      if (!e || e === before) {                  // the form refused it (its message says why): fix and save by hand
+        amtEl.scrollIntoView({ block: 'center' });
+        return;
+      }
+      e.lnk = x.id;
+      linkMarkSeen(x.id);
+      persist();
+      if (kept) {
+        amtEl.value = kept.amount; noteEl.value = kept.note; expCur = kept.cur; expDay = kept.day;
+        pickChip('cat-grid', kept.cat); renderExpDay(); renderExpCurrency();
+        if (kept.touched) { payTouched = true; pickChip('pay-grid', kept.pay); renderPayAutoNote(null); updateLivePreview(); }
+      }
+      const day = expDayLabel(e);
+      const ov = openDialog(`<h3>✅ ההוצאה נשמרה</h3>
+        <p style="font-size:1.05rem"><b>${escapeHtml(e.note)}</b><br>${money(e.amount, e.currency)} · ${escapeHtml(e.category)} · ${escapeHtml(e.payment)}${day ? ' · ' + day : ''}</p>
+        <div class="dialog-actions"><button class="primary-btn btn-secondary" data-act="undo">↩️ בטל</button><button class="primary-btn" data-act="ok">הבנתי</button></div>`);
+      ov.querySelector('[data-act=ok]').onclick = () => ov.remove();
+      ov.querySelector('[data-act=undo]').onclick = () => { removeExpenseRecord(e); saveData(); ov.remove(); showToast('ההוצאה בוטלה'); };
+    }
+    function expDayLabel(e) {
+      const iso = dateToIso(new Date(e.date)), t = dateToIso(new Date());
+      return iso === t ? '' : iso === addDaysIso(t, -1) ? 'אתמול' : ddmm(iso);
+    }
+    function initExpLink() {
+      try { handleExpLink(location.href); } catch (_) {}   // without a link (normal use) this does nothing
+      window.addEventListener('hashchange', () => { try { handleExpLink(location.href); } catch (_) {} });     // app already open, same page
+      try {   // installed app reopened by the link (Chrome's launch queue)
+        if ('launchQueue' in window) window.launchQueue.setConsumer(p => { try { if (p && p.targetURL) handleExpLink(p.targetURL); } catch (_) {} });
+      } catch (_) {}
+    }
+
+    window.onload = () => { initApp(); initPwa(); initTips(); initRates(); initBackup(); initDashboard(); try { initExpLink(); } catch (_) {} };
     window.addEventListener('resize', () => requestAnimationFrame(updateScrollHints));
   </script>
   <div id="kb-save-bar" role="toolbar" aria-label="שמירת ההוצאה"><span id="kb-save-sum"></span><button type="button" id="kb-save-go">✓ שמור</button></div>
