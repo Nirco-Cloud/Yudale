@@ -1054,7 +1054,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 50 · 17/11/2026 · 6ff72d</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 51 · 18/11/2026 · 71f13b</span></div>
     </div>
 
   </div>
@@ -2129,7 +2129,7 @@
           ${st.locked ? '' : `<p class="share-note">${half ? `החלק שלי <b>${escapeHtml(money(half, code()))}</b>. ` : ''}החצי של ${escapeHtml(st.partner || 'הזוג השני')} נרשם בקיזוזים.</p>`}
           ${st.locked ? '<p class="share-note">✔ החלק שלהם כבר נסגר ב"סגירת חשבון" בקיזוזים, ולכן הוא נשאר כפי ששולם. שינוי הסכום משנה רק את החלק שלכם.</p>' : `
           <div class="share-row">
-            <button type="button" class="chip-btn${st.repaid === 'no' ? ' selected' : ''}" data-sh-r="no">⏳ עוד לא החזירו</button>
+            <button type="button" class="chip-btn${st.repaid === 'no' ? ' selected' : ''}" data-sh-r="no">⚖️ לקיזוזים</button>
             <button type="button" class="chip-btn${st.repaid === 'bit' ? ' selected' : ''}" data-sh-r="bit">📱 החזירו בביט / פייבוקס</button>
             ${code() === curCode() || st.repaid === 'cash' ? `<button type="button" class="chip-btn${st.repaid === 'cash' ? ' selected' : ''}" data-sh-r="cash">💵 החזירו במזומן</button>` : ''}
           </div>`}`}`;
@@ -2193,6 +2193,26 @@
         if (others.length === 1) return others[0];
       }
       return name;
+    }
+
+    // The one source of truth for who owes whom: open entries netted per person and currency (same as the קיזוזים tab).
+    // Every other screen that speaks about money between the couples must say THIS, never a single entry on its own.
+    function splitNet() {
+      const people = {};
+      appData.splits.forEach(s => {
+        if (s.settled) return;
+        const who = splitParty(s), key = who.toLowerCase() + '|' + s.currency;
+        if (!people[key]) people[key] = { person: who, currency: s.currency, total: 0 };
+        people[key].total += s.amount;
+      });
+      return Object.values(people).filter(p => Math.abs(p.total) >= 0.005);
+    }
+    // short Hebrew lines: "אתם חייבים לX ¥700 (≈ ₪14)" / "X חייבים לכם …"; empty list = balanced
+    function splitNetLines(withIls = true) {
+      return splitNet().map(p => {
+        const amt = money(Math.abs(p.total), p.currency) + (withIls && p.currency !== 'ILS' ? ` (≈ ${ilsStr(toIls(Math.abs(p.total), p.currency, 'cash'), 0)})` : '');
+        return { owesMe: p.total > 0, text: p.total > 0 ? `${p.person} חייבים לכם ${amt}` : `אתם חייבים ל${p.person} ${amt}`, who: p.person, amt };
+      });
     }
 
     // Edit a split entry: direction, amount (currency stays as entered), category, description, date and time of day
@@ -2954,8 +2974,8 @@
           // ➕ = we paid, they owe us · ➖ = they paid, we owe them
           appData.splits.unshift({ id: newId(), amount: give ? Math.abs(val) : -Math.abs(val), currency: code, person: friend, category: 'שונות', note: give ? '💵 מזומן שנתנו' : '💵 מזומן שקיבלנו', date: new Date().toISOString() });
           saveData(); ov.remove();
-          showMsg('expense-msg', give ? `${money(val, code)} ירדו מהמזומן · נרשם בקיזוזים: ${friend} חייבים לכם`
-                                      : `${money(val, code)} נוספו למזומן · נרשם בקיזוזים: חייבים ל${friend}`);
+          const net = splitNetLines().map(n => n.text).join(' · ') || 'מאוזן';
+          showMsg('expense-msg', (give ? `${money(val, code)} ירדו מהמזומן` : `${money(val, code)} נוספו למזומן`) + ` · נרשם בקיזוזים · מאזן: ${net}`);
           return;
         }
         const fee = el => { if (!el || el.value.trim() === '' || (el === q('bank') && src !== 'bank')) return 0; const f = parseFloat(el.value); return f >= 0 && f <= 1e6 ? f : NaN; };
@@ -3282,7 +3302,8 @@
       return { items, trip, pre, byCur, total: sum(items), tripIls: sum(trip), preIls: sum(pre), shared: sh,
         theirIls: sh.reduce((t, x) => t + x.theirIls, 0), theirBackIls: sh.filter(x => x.back).reduce((t, x) => t + x.theirIls, 0) };
     }
-    const backTxt = how => how === 'cash' ? 'הוחזר במזומן' : how === 'bit' ? 'הוחזר בביט' : 'עוד לא הוחזר';
+    // per charge: the other couple's half is never "paid back" on its own; it goes into the netted קיזוזים balance
+    const backTxt = how => how === 'cash' ? 'החשבון נסגר במזומן' : how === 'bit' ? 'החשבון נסגר בביט' : 'נכנס לקיזוזים';
     let creditOpen = false;
     function toggleCreditList() { creditOpen = !creditOpen; renderCredit(); }
     function renderCredit() {
@@ -3297,9 +3318,12 @@
       html += line('🧳', 'בזמן הטיול', nCh(C.trip.length), escapeHtml(ilsStr(C.tripIls, 0)));
       if (C.pre.length) html += line('🧾', 'לפני הטיול', `${nCh(C.pre.length)} · כנראה כבר חויבו`, escapeHtml(ilsStr(C.preIls, 0)), 'muted');
       if (C.shared.length && !isSolo()) {
-        const open = C.theirIls - C.theirBackIls;
-        html += line('🤝', 'מזה החלק של הזוג השני', [C.theirBackIls >= 0.5 ? `הוחזר ${ilsStr(C.theirBackIls, 0)}` : '', open >= 0.5 ? `עוד לא הוחזר ${ilsStr(open, 0)}` : ''].filter(Boolean).join(' · '), escapeHtml(ilsStr(C.theirIls, 0)), 'share');
+        html += line('🤝', 'מזה החלק של הזוג השני', 'נכנס לקיזוזים, לא מוחזר בנפרד', escapeHtml(ilsStr(C.theirIls, 0)));
         html += line('💳', 'בניכוי החלק שלהם', 'מה שבאמת עלה לכם', escapeHtml(ilsStr(C.total - C.theirIls, 0)));
+        const net = splitNetLines();
+        html += net.length
+          ? net.map(n => `<div class="cr-row"><span class="cr-l"><span aria-hidden="true">⚖️</span> מאזן הקיזוזים<small>${escapeHtml(n.owesMe ? `${n.who} חייבים לכם` : `אתם חייבים ל${n.who}`)} · כל ההוצאות המשותפות יחד</small></span><b class="cr-v" style="color:${n.owesMe ? 'var(--accent-green)' : 'var(--accent-red)'}"><bdi>${escapeHtml(n.amt)}</bdi></b></div>`).join('')
+          : line('⚖️', 'מאזן הקיזוזים', 'אף אחד לא חייב לאף אחד', 'מאוזן ✔️');
       }
       html += `<button type="button" class="primary-btn btn-secondary cr-toggle" onclick="toggleCreditList()" aria-expanded="${creditOpen}">${creditOpen ? '▲ הסתר את החיובים' : `▼ הצג את כל החיובים (${C.items.length})`}</button>`;
       if (creditOpen) {
@@ -4765,7 +4789,7 @@ Rules:
         if (CR.items.length) {
           const crRow = (label, list, extra) => { let a = 0, b = 0; list.forEach(x => { const [i, u] = conv(x.e.amount, x.e.currency, x.e.payment); a += i; b += u; });
             return ['סיכום', '', '', label, '', 'אשראי', '', '', num(a), num(b), '', [list.length === 1 ? 'חיוב אחד' : `${list.length} חיובים`, extra].filter(Boolean).join(' · ')]; };
-          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length && !isSolo() ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪, הוחזר ${num(CR.theirBackIls)} ₪` : ''));
+          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length && !isSolo() ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪ (נכנס לקיזוזים) · מאזן הקיזוזים: ${splitNetLines().map(n => n.text).join(', ') || 'מאוזן'}` : ''));
           rows.push(crRow('חיובי אשראי בזמן הטיול', CR.trip));
           if (CR.pre.length) rows.push(crRow('חיובי אשראי לפני הטיול', CR.pre, 'כנראה כבר חויבו'));
         }
@@ -4828,7 +4852,7 @@ Rules:
       const CR = creditData();
       const creditSec = !CR.items.length ? '' : `<section class="card page"><h2>💳 חיובי אשראי</h2>
 <div class="sub">סה"כ ≈ <b>${esc(ilsStr(CR.total, 0))}</b> · ${esc(Object.entries(CR.byCur).map(([c, v]) => money(v, c)).join(' + '))} · ${CR.items.length} חיובים · כולל עמלת אשראי, לפי השער</div>
-<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (הוחזר ${esc(ilsStr(CR.theirBackIls, 0))})` : ''}</div>
+<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (נכנס לקיזוזים)` : ''}</div>${CR.shared.length && !isSolo() ? `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(splitNetLines().map(n => n.text).join(' · ') || 'מאוזן ✔️')}</div>` : ''}
 <div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
 </section>`;
       const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
