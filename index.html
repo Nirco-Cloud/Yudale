@@ -460,6 +460,20 @@
     .share-toggle small { font-weight: 500; color: var(--text-muted); }
     .share-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; } .share-row .chip-btn { padding: 8px 10px; font-size: 0.8rem; flex: 1 1 auto; }
     .share-note { font-size: 0.8rem; margin: 8px 0 0; color: var(--text-muted); } .share-note b { color: var(--text-main); }
+    /* group share: one checkbox row per party */
+    .share-for { font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin: 10px 2px 4px; }
+    .share-party { border: 1px solid var(--card-border); border-radius: 12px; background: var(--input-bg); padding: 6px 10px; margin-top: 6px; }
+    .share-party.on { border-color: var(--primary); }
+    .share-party label { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .share-party input[type=checkbox] { width: 20px; height: 20px; flex: 0 0 auto; margin: 0; accent-color: var(--primary); }
+    .share-party .sp-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .share-party .sp-amt { font-weight: 800; white-space: nowrap; }
+    .share-party small { display: block; font-size: 0.75rem; color: var(--text-muted); margin: 0 30px 4px 0; }
+    .share-party .share-rp { margin: 2px 0 4px; padding: 6px 8px; font-size: 0.8rem; min-height: 36px; }
+    .kind-sw { display: inline-flex; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; flex: 0 0 auto; margin-inline-start: auto; margin-inline-end: 6px; }
+    .kind-btn { font: inherit; font-size: 0.72rem; padding: 6px 9px; min-height: 32px; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
+    .kind-btn.on { background: var(--nav-active-bg); color: var(--primary); font-weight: 700; }
+    .nr-name { min-width: 0; overflow-wrap: anywhere; } .nr-name small { color: var(--text-muted); font-weight: 500; }
     .share-sub { color: var(--primary) !important; font-weight: 700; }
     /* booking row: "maybe paid twice" box (own class: .res-row button would make its button big and borderless) */
     .res-dup { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); font-size: 0.75rem; line-height: 1.4; }
@@ -885,7 +899,7 @@
         <div id="ui-cat-summary"></div>
       </div>
       <div class="card">
-        <div class="card-title"><span>💳 חיובי אשראי<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="כל ההוצאות ששולמו ב&quot;אשראי&quot; – מה שיופיע בחשבון כרטיס האשראי אחרי החזרה הביתה. הסכום בשקלים הוא הערכה לפי השער וכולל את עמלת האשראי; החיוב בפועל עשוי להיות שונה מעט. בהוצאה משותפת מוצג החיוב המלא, ולידו החלק של הזוג השני." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
+        <div class="card-title"><span>💳 חיובי אשראי<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="כל ההוצאות ששולמו ב&quot;אשראי&quot; – מה שיופיע בחשבון כרטיס האשראי אחרי החזרה הביתה. הסכום בשקלים הוא הערכה לפי השער וכולל את עמלת האשראי; החיוב בפועל עשוי להיות שונה מעט. בהוצאה משותפת מוצג החיוב המלא, ולידו החלק של מי ששילמתם עבורו." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <div id="ui-credit"></div>
       </div>
       <div class="card">
@@ -1013,7 +1027,7 @@
       </div>
 
       <div class="card">
-        <div class="card-title"><span>👥 מי נוסע?<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="נוסעים לבד: אין לשונית קיזוזים, אין הוצאות משותפות ואין מזומן מחבר. עם עוד זוג: מזינים כאן את השמות שיופיעו בקיזוזים. אפשר להחליף בכל זמן – שום דבר לא נמחק." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
+        <div class="card-title"><span>👥 מי נוסע?<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="נוסעים לבד: אין לשונית קיזוזים, אין הוצאות משותפות ואין מזומן מחבר. עם עוד זוג: הוצאה משותפת מתחלקת חצי-חצי. קבוצה: עד 3 צדדים נוספים (כל צד זוג או חבר/ה), והוצאה משותפת מתחלקת שווה בשווה בין הצדדים שסימנתם. מזינים כאן את השמות שיופיעו בקיזוזים. אפשר להחליף בכל זמן – שום דבר לא נמחק." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></span></div>
         <div id="people-msg" class="message-box"></div>
         <div class="solo-switch" id="ui-solo-switch"></div>
         <div id="people-area">
@@ -1023,8 +1037,9 @@
         <div class="scroll-hint" data-for="ui-people-settings"></div>
         <div class="add-row">
           <input type="text" id="inp-new-person" maxlength="40" class="text-input" placeholder="שם חדש (לדוגמה: דנה ויוסי)" enterkeyhint="done" onkeydown="if(event.key==='Enter') addPerson()">
-          <button class="primary-btn" onclick="addPerson()">➕ הוסף</button>
+          <button class="primary-btn" id="add-person-btn" onclick="addPerson()">➕ הוסף</button>
         </div>
+        <p class="solo-note" id="people-limit" hidden></p>
         </div>
       </div>
 
@@ -1054,7 +1069,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 54 · 18/11/2026 · 835830</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 56 · 18/11/2026 · 07cefc</span></div>
     </div>
 
   </div>
@@ -1386,6 +1401,11 @@
           cashSource: s.cashSource === 'bank' ? 'bank' : 'laya',
           attrMoveAsked: !!s.attrMoveAsked,   // where cash withdrawals come from (remembered)
           solo: !!s.solo,                     // traveling alone: no settlements, no shared expenses
+          // who travels: 'solo' | 'pair' (one other couple, half each) | 'group' (2–3 other parties, an equal share per party).
+          // `solo` stays the truth for solo, so older data and older code paths keep working.
+          mode: s.solo ? 'solo' : s.mode === 'group' ? 'group' : 'pair',
+          // parties marked as a single friend (wording only: "חוב של דנה" instead of "חייבים"); everyone else is a couple
+          kinds: Object.fromEntries(Object.entries(s.kinds && typeof s.kinds === 'object' ? s.kinds : {}).filter(([k, v]) => typeof k === 'string' && v === 'single')),
           cardDay: Math.min(28, Math.max(1, parseInt(s.cardDay, 10) || 2)),   // the card's monthly billing day: charges up to it are already billed
           dailyBudget: typeof s.dailyBudget === 'number' && s.dailyBudget > 0 && s.dailyBudget <= 1e7 ? s.dailyBudget : null,
           me: typeof s.me === 'string' ? (people.find(p => p.toLowerCase() === s.me.trim().toLowerCase()) || null) : null   // who owns this phone (one of the names)
@@ -1415,15 +1435,18 @@
         .filter(e => e && validNum(e.amount))
         .map(e => ({ ...e, id: String(e.id || newId()), currency: DEFAULT_RATES[e.currency] ? e.currency : cur }));
       out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות';
-        const sh = e.shared;   // shared expense: { partner, their (their part, same currency), splitId }
-        if (sh && !(typeof sh === 'object' && typeof sh.partner === 'string' && sh.partner && validNum(sh.their) && sh.their > 0 && sh.their <= e.amount && typeof sh.splitId === 'string')) delete e.shared; });
+        // shared expense: { partner, their (their part, same currency), splitId } for one other party (the original shape),
+        // or with several parties also parts: [{ partner, their, splitId }, ...]; then partner/splitId = the first part and their = all parts together
+        const sh = e.shared, okPart = p => p && typeof p === 'object' && typeof p.partner === 'string' && p.partner && validNum(p.their) && p.their > 0 && typeof p.splitId === 'string';
+        if (sh && typeof sh === 'object' && Array.isArray(sh.parts)) { const parts = sh.parts.filter(okPart); setShareParts(e, parts.reduce((t, p) => t + p.their, 0) < e.amount ? parts : []); }
+        else if (sh && !(okPart(sh) && sh.their <= e.amount)) delete e.shared; });
       out.splits = (Array.isArray(d.splits) ? d.splits : [])
         .filter(x => x && validNum(x.amount) && typeof x.person === 'string' && x.person.trim())
         .map(x => ({ ...x, person: x.person.trim(), note: typeof x.note === 'string' ? x.note : '', category: typeof x.category === 'string' ? x.category : 'שונות', id: String(x.id || newId()), currency: DEFAULT_RATES[x.currency] ? x.currency : cur,
           settled: x.settled && typeof x.settled === 'object' ? { how: x.settled.how === 'cash' ? 'cash' : 'bit', date: String(x.settled.date || ''), batch: String(x.settled.batch || '') || ('b' + String(x.id)),
             ...(x.settled.viaExpense ? { viaExpense: true } : {}), ...(validNum(x.settled.moved) ? { moved: x.settled.moved } : {}) } : undefined }));
       // a shared expense whose settlement entry is gone counts in full again
-      out.expenses.forEach(e => { if (e.shared && !out.splits.some(x => x.id === e.shared.splitId)) delete e.shared; });
+      out.expenses.forEach(e => { if (e.shared) setShareParts(e, shareParts(e).filter(p => out.splits.some(x => x.id === p.splitId))); });
       const seenHotelIds = new Set();
       out.hotels = (Array.isArray(d.hotels) ? d.hotels : base.hotels)
         .filter(h => h && typeof h === 'object')
@@ -1782,11 +1805,19 @@
       if (expDay === 'yesterday') return addDaysIso(dateToIso(t), -1);
       return expDay;
     }
+    // latest day an expense may carry: things paid now for a later day of the trip (tomorrow's breakfast) are fine,
+    // up to the trip's last day; with no bookings to tell the trip's end, up to 30 days ahead
+    function futureLimit() {
+      const t = dateToIso(new Date()), r = tripRange();
+      const lim = r.fromBookings ? r.end : addDaysIso(t, 30);
+      return lim > t ? lim : t;
+    }
+    const isFutureIso = iso => !!iso && iso > dateToIso(new Date());
     function pickExpDay(v) {
       if (v !== 'today' && v !== 'yesterday') {
         if (!ISO_DATE.test(v || '')) return;
-        const t = dateToIso(new Date());
-        if (v > t) v = t;
+        const t = dateToIso(new Date()), lim = futureLimit();
+        if (v > lim) { showMsg('expense-msg', `התאריך אחרי סוף הטיול (${ddmm(lim)})`, 'error'); renderExpDay(); return; }
         v = v === t ? 'today' : v === addDaysIso(t, -1) ? 'yesterday' : v;
       }
       expDay = v;
@@ -1802,9 +1833,9 @@
       document.getElementById('day-yest-lbl').innerText = ddmm(y);
       const which = expDay === 'today' || expDay === 'yesterday' ? expDay : 'other';
       document.querySelectorAll('#day-row .chip-btn').forEach(c => c.classList.toggle('selected', c.dataset.day === which));
-      document.getElementById('day-other-lbl').innerText = which === 'other' ? ddmm(expDay) : 'בחר…';
+      document.getElementById('day-other-lbl').innerText = which === 'other' ? ddmm(expDay) + (isFutureIso(expDay) ? ' 📅' : '') : 'בחר…';
       const inp = document.getElementById('inp-date');
-      inp.max = t;
+      inp.max = futureLimit();
       inp.value = expDayIso();
     }
     let payTouched = false;     // true once the user taps a payment method for this expense
@@ -1958,7 +1989,7 @@
       if (!ISO_DATE.test(dayIso)) { showMsg('expense-msg', 'אנא בחר תאריך', 'error'); return; }
       if (isSolo()) shareSt = { on: false, partner: '', repaid: 'no' };   // traveling alone: a share left on earlier never applies
       if (shareSt.on && !splitCounterparts().length) { showMsg('expense-msg', 'להוצאה משותפת: הוסיפו קודם שמות בהגדרות', 'error'); return; }
-      if (shareSt.on && !shareSt.partner) { showMsg('expense-msg', 'בחרו עבור מי שילמתם', 'error'); return; }
+      if (shareMissing(shareSt)) { showMsg('expense-msg', 'בחרו עבור מי שילמתם', 'error'); return; }
       const category = selectedVal('cat-grid');
       // another currency than the trip's is paid by credit in the add form (its cash/LAYA/Suica wallets are not on screen)
       const payment = code !== curCode() ? 'אשראי' : selectedVal('pay-grid');
@@ -2049,7 +2080,7 @@
           <div class="exp-icon">${CAT_ICONS[exp.category] || '🛒'}</div>
           <div class="exp-details">
             <div class="exp-title">${escapeHtml(exp.note)}</div>
-            <div class="exp-meta">${escapeHtml(payLabel(exp.payment, exp.currency))} • ${expenseWhen(exp.date)}</div>
+            <div class="exp-meta">${escapeHtml(payLabel(exp.payment, exp.currency))} • ${expenseWhen(exp.date)}${!isBookingExp(exp) && isFutureIso(dateToIso(new Date(exp.date))) ? ' • 📅 עתידי' : ''}</div>
           </div>
           <div class="exp-amounts">
             <div class="exp-main">${money(exp.amount, exp.currency)}</div>
@@ -2087,54 +2118,97 @@
       });
     }
 
-    // ---------- Shared expense: I paid for both couples, my part is half ----------
+    // ---------- Shared expense: I paid for others too; every party (a couple or a single friend) pays an equal share ----------
+    // pair mode = one other couple, half each (the same rule with one party)
     const myAmt = e => e && e.shared && e.shared.their > 0 ? Math.max(0, Math.round((e.amount - e.shared.their) * 1e6) / 1e6) : e.amount;
     const r6 = v => Math.round(v * 1e6) / 1e6;
-    // Keeps the expense and its settlement entry in step. st = { on, partner, repaid: 'no' | 'bit' | 'cash' }
+    // every party's part of a shared expense: [{ partner, their, splitId }] (the original one-party shape reads as one part)
+    function shareParts(e) {
+      const sh = e && e.shared;
+      if (!sh) return [];
+      return Array.isArray(sh.parts) ? sh.parts : [{ partner: sh.partner, their: sh.their, splitId: sh.splitId }];
+    }
+    // writes the parts back: one party keeps the original shape exactly; several also keep partner/their/splitId
+    // (first party, all parts together) so myAmt and older readers still count the money right
+    function setShareParts(e, parts) {
+      if (!parts.length) { delete e.shared; return; }
+      if (parts.length === 1) { const p = parts[0]; e.shared = { partner: p.partner, their: p.their, splitId: p.splitId }; return; }
+      e.shared = { partner: parts[0].partner, their: Math.round(parts.reduce((t, p) => t + p.their, 0) * 1e6) / 1e6, splitId: parts[0].splitId,
+        parts: parts.map(p => ({ partner: p.partner, their: p.their, splitId: p.splitId })) };
+    }
+    // the split itself: me + every ticked party get an equal share (rounded to the currency); the rounding remainder stays with me.
+    // A part already closed in "סגירת חשבון" stays what they actually paid. ok = false when it can't be split any more.
+    function shareAmounts(amount, dec, rows) {
+      const f = Math.pow(10, dec), share = Math.round(amount / (rows.length + 1) * f) / f;
+      const theirs = rows.map(r => r.locked ? Math.min(r.lockedAmt, amount) : share);
+      const sum = r6(theirs.reduce((t, v) => t + v, 0));
+      return { share, theirs, mine: r6(amount - sum), ok: rows.length > 0 && (!rows.some(r => !r.locked) || share > 0) && sum < amount };
+    }
+    // the parties a share state asks for: [{ partner, repaid }] (group UI: a list; pair UI: one partner)
+    function stParties(st) {
+      if (!st || !st.on) return [];
+      const seen = new Set();
+      const list = st.group ? (st.parties || []) : st.partner ? [{ partner: st.partner, repaid: st.repaid }] : [];
+      return list.filter(p => p && p.partner && !seen.has(p.partner.toLowerCase()) && seen.add(p.partner.toLowerCase()))
+        .map(p => ({ partner: p.partner, repaid: p.repaid || 'no' }));
+    }
+    const shareMissing = st => !!(st && st.on && !stParties(st).length);   // "🤝" on but nobody chosen
+    // Keeps the expense and its settlement entries (one per party) in step.
+    // st = { on, partner, repaid: 'no' | 'bit' | 'cash' } (pair) or { on, group: true, parties: [{ partner, repaid }] }
     function syncShare(e, st) {
-      let sp = e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
       const undoCash = x => { if (x && x.settled && x.settled.viaExpense && x.settled.how === 'cash') { const w = wallet(x.currency); w.cash = r6(w.cash - x.amount); } };
       const drop = x => { undoCash(x); appData.splits = appData.splits.filter(y => y !== x); };
       // closed in "סגירת חשבון" together with other entries: that money already moved, so the entry stays as history
       const lockedOf = x => !!(x && x.settled && !x.settled.viaExpense);
       const release = x => { if (lockedOf(x)) delete x.fromExp; else drop(x); };
-      if (!st || !st.on) { if (sp) release(sp); delete e.shared; return; }
-      if (sp && splitParty(sp).toLowerCase() !== String(st.partner).toLowerCase()) { release(sp); sp = null; }
-      const dec = rateOf(e.currency).decimals;
-      const lockedByAccount = lockedOf(sp);
-      if (!lockedByAccount && !(Math.round(e.amount / 2 * Math.pow(10, dec)) > 0 && Math.round(e.amount / 2 * Math.pow(10, dec)) / Math.pow(10, dec) < e.amount)) {   // too small to split
-        if (sp) release(sp); delete e.shared; return;
-      }
-      // their part = half; once it was settled in an account it stays what they actually paid (only my part changes)
-      const their = lockedByAccount ? Math.min(sp.amount, e.amount) : Math.round(e.amount / 2 * Math.pow(10, dec)) / Math.pow(10, dec);
-      if (lockedByAccount && (sp.currency !== e.currency || !(their < e.amount))) { release(sp); delete e.shared; return; }   // can't keep it tied any more
-      if (sp && !lockedByAccount) undoCash(sp);
-      if (!sp) { sp = { id: newId(), person: st.partner }; appData.splits.unshift(sp); }
-      if (lockedByAccount) Object.assign(sp, { category: e.category, note: '🤝 ' + (e.note || e.category) + ' – החלק שלהם', fromExp: e.id });
-      else Object.assign(sp, { amount: their, currency: e.currency, category: e.category, note: '🤝 ' + (e.note || e.category) + ' – החלק שלהם', date: e.date, fromExp: e.id });
-      if (!lockedByAccount) {
-        if (st.repaid === 'bit' || st.repaid === 'cash') {
-          const keepDate = sp.settled && sp.settled.how === st.repaid && sp.settled.date;   // saving again must not move the repayment date
-          sp.settled = { how: st.repaid, date: keepDate || dateToIso(new Date()), batch: (sp.settled && sp.settled.batch) || newId(), viaExpense: true };
-          if (st.repaid === 'cash') { const w = wallet(e.currency); w.cash = r6(w.cash + their); }
-        } else delete sp.settled;
-      }
-      e.shared = { partner: st.partner, their, splitId: sp.id };
+      const key = s => String(s).toLowerCase();
+      const old = shareParts(e).map(p => appData.splits.find(x => x.id === p.splitId)).filter(Boolean);
+      const want = stParties(st);
+      // a party that is no longer ticked: its entry goes (or stays as history)
+      old.filter(sp => !want.some(w => key(w.partner) === key(splitParty(sp)))).forEach(release);
+      let rows = want.map(w => ({ w, sp: old.find(sp => key(splitParty(sp)) === key(w.partner)) || null }));
+      // closed in an account in another currency: can't keep it tied any more
+      rows = rows.filter(r => { if (lockedOf(r.sp) && r.sp.currency !== e.currency) { release(r.sp); return false; } return true; });
+      const A = shareAmounts(e.amount, rateOf(e.currency).decimals, rows.map(r => ({ locked: lockedOf(r.sp), lockedAmt: r.sp ? r.sp.amount : 0 })));
+      if (!A.ok) { rows.forEach(r => { if (r.sp) release(r.sp); }); delete e.shared; return; }   // nothing ticked, or too small to split
+      const parts = rows.map((r, i) => {
+        let sp = r.sp; const their = A.theirs[i], locked = lockedOf(sp);
+        if (sp && !locked) undoCash(sp);
+        if (!sp) { sp = { id: newId(), person: r.w.partner }; appData.splits.unshift(sp); }
+        const note = '🤝 ' + (e.note || e.category) + ' – ' + theirPartWord(r.w.partner);
+        if (locked) Object.assign(sp, { category: e.category, note, fromExp: e.id });   // their part stays what they paid (only my part changes)
+        else {
+          Object.assign(sp, { amount: their, currency: e.currency, category: e.category, note, date: e.date, fromExp: e.id });
+          const how = r.w.repaid;
+          if (how === 'bit' || how === 'cash') {
+            const keepDate = sp.settled && sp.settled.how === how && sp.settled.date;   // saving again must not move the repayment date
+            sp.settled = { how, date: keepDate || dateToIso(new Date()), batch: (sp.settled && sp.settled.batch) || newId(), viaExpense: true };
+            if (how === 'cash') { const w = wallet(e.currency); w.cash = r6(w.cash + their); }
+          } else delete sp.settled;
+        }
+        return { partner: r.w.partner, their, splitId: sp.id };
+      });
+      setShareParts(e, parts);
     }
     function shareStateOf(e) {
-      const sp = e && e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
-      return { on: !!sp, partner: sp ? splitParty(sp) : (splitCounterparts().length === 1 ? splitCounterparts()[0] : ''),
-        repaid: sp && sp.settled ? sp.settled.how : 'no', locked: !!(sp && sp.settled && !sp.settled.viaExpense) };
+      const parties = shareParts(e).map(p => appData.splits.find(x => x.id === p.splitId)).filter(Boolean)
+        .map(sp => ({ partner: splitParty(sp), repaid: sp.settled ? sp.settled.how : 'no', locked: !!(sp.settled && !sp.settled.viaExpense), lockedAmt: sp.amount }));
+      const others = splitCounterparts(), first = parties[0];
+      return { on: !!first, partner: first ? first.partner : (others.length === 1 ? others[0] : ''),
+        repaid: first ? first.repaid : 'no', locked: !!(first && first.locked),
+        group: isGroup() || parties.length > 1, parties };   // an expense split between several parties always opens in the group view
     }
-    // The "I paid for both" block, used in the add form and in the edit dialog
+    // The "I paid for others too" block, used in the add form, in the edit dialog and when recording a booking's payment
     function renderShareInto(el, st, amountOf, code) {
       if (isSolo()) { el.innerHTML = ''; return; }   // traveling alone: no shared expenses (existing ones stay as they are)
+      if (isGroup() && !st.group) { st.group = true; st.parties = st.on && st.partner ? [{ partner: st.partner, repaid: st.repaid || 'no' }] : []; }
+      if (st.group) { renderGroupShare(el, st, amountOf, code); return; }
       const partners = splitCounterparts();
       if (st.on && !st.partner && partners.length === 1) st.partner = partners[0];
       const amt = amountOf(), dec = rateOf(code()).decimals;
       const half = amt > 0 ? Math.round(amt / 2 * Math.pow(10, dec)) / Math.pow(10, dec) : 0;
       el.innerHTML = `
-        <button type="button" class="share-toggle${st.on ? ' on' : ''}" data-sh="toggle">${st.on ? '✅' : '🤝'} שילמתי גם עבור הזוג השני <small>(החלק שלי: חצי)</small></button>
+        <button type="button" class="share-toggle${st.on ? ' on' : ''}" data-sh="toggle">${st.on ? '✅' : '🤝'} שילמתי גם עבור ${escapeHtml(partners.length === 1 ? partners[0] : 'הזוג השני')} <small>(החלק שלי: חצי)</small></button>
         ${!st.on ? '' : !partners.length ? '<p class="share-note" style="color:var(--accent-red);">הוסיפו קודם שמות ב-⚙️ הגדרות ← "שמות לקיזוז".</p>' : `
           ${partners.length > 1 ? `<div class="share-row">${partners.map(p => `<button type="button" class="chip-btn${p === st.partner ? ' selected' : ''}" data-sh-p="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join('')}</div>` : ''}
           ${st.locked ? '' : `<p class="share-note">${half ? `החלק שלי <b>${escapeHtml(money(half, code()))}</b>. ` : ''}החצי של ${escapeHtml(st.partner || 'הזוג השני')} נרשם בקיזוזים.</p>`}
@@ -2149,12 +2223,64 @@
       el.querySelectorAll('[data-sh-p]').forEach(b => b.onclick = () => { st.partner = b.dataset.shP; again(); });
       el.querySelectorAll('[data-sh-r]').forEach(b => b.onclick = () => { st.repaid = b.dataset.shR; again(); });
     }
+    // group view: one checkbox per party ("שילמתי גם עבור:"), each ticked party owes an equal share and has its own entry
+    function renderGroupShare(el, st, amountOf, code) {
+      const key = s => String(s).toLowerCase();
+      const partners = splitCounterparts().slice();
+      (st.parties || []).forEach(p => { if (!partners.some(x => key(x) === key(p.partner))) partners.push(p.partner); });   // a removed name that still has a part
+      const ticked = name => (st.parties || []).find(p => key(p.partner) === key(name));
+      const rows = partners.map(ticked).filter(Boolean);
+      const amt = amountOf(), A = amt > 0 && rows.length ? shareAmounts(amt, rateOf(code()).decimals, rows) : null;
+      const cashOk = code() === curCode();
+      const partyHtml = name => {
+        const t = ticked(name), i = t ? rows.indexOf(t) : -1, n = escapeHtml(name);
+        const sel = t && !t.locked ? `<select class="select-input share-rp" data-sh-rp="${n}" aria-label="איך ${n} מחזירים">
+              <option value="no"${t.repaid === 'no' ? ' selected' : ''}>⚖️ לקיזוזים</option>
+              <option value="bit"${t.repaid === 'bit' ? ' selected' : ''}>📱 הוחזר בביט / פייבוקס</option>
+              ${cashOk || t.repaid === 'cash' ? `<option value="cash"${t.repaid === 'cash' ? ' selected' : ''}>💵 הוחזר במזומן</option>` : ''}
+            </select>` : '';
+        return `<div class="share-party${t ? ' on' : ''}">
+            <label><input type="checkbox" data-sh-t="${n}"${t ? ' checked' : ''}><span class="sp-name">${n}</span>${A && t ? `<bdi class="sp-amt">${escapeHtml(money(A.theirs[i], code()))}</bdi>` : ''}</label>
+            ${t && t.locked ? '<small>✔ נסגר ב"סגירת חשבון": נשאר כפי ששולם</small>' : sel}
+          </div>`;
+      };
+      el.innerHTML = `
+        <button type="button" class="share-toggle${st.on ? ' on' : ''}" data-sh="toggle">${st.on ? '✅' : '🤝'} שילמתי גם עבור אחרים <small>(חלק שווה לכל צד)</small></button>
+        ${!st.on ? '' : !partners.length ? '<p class="share-note" style="color:var(--accent-red);">הוסיפו קודם שמות ב-⚙️ הגדרות ← "שמות לקיזוז".</p>' : `
+          <div class="share-for">שילמתי גם עבור:</div>
+          ${partners.map(partyHtml).join('')}
+          <p class="share-note">${!rows.length ? 'סמנו עבור מי שילמתם.' : `${A ? `החלק שלי <b>${escapeHtml(money(A.mine, code()))}</b>. ` : ''}${rows.length > 1 ? 'כל צד נרשם בקיזוזים בנפרד.' : `החלק של ${escapeHtml(rows[0].partner)} נרשם בקיזוזים.`}`}</p>`}`;
+      const again = () => renderGroupShare(el, st, amountOf, code);
+      el.querySelector('[data-sh=toggle]').onclick = () => {
+        st.on = !st.on;
+        if (st.on && !(st.parties || []).length) st.parties = splitCounterparts().map(p => ({ partner: p, repaid: 'no' }));   // usually for everyone: untick who isn't
+        again();
+      };
+      el.querySelectorAll('[data-sh-t]').forEach(c => c.onchange = () => {
+        const name = c.dataset.shT;
+        st.parties = (st.parties || []).filter(p => key(p.partner) !== key(name));
+        if (c.checked) st.parties.push({ partner: name, repaid: 'no' });
+        st.parties.sort((a, b) => partners.findIndex(x => key(x) === key(a.partner)) - partners.findIndex(x => key(x) === key(b.partner)));
+        again();
+      });
+      el.querySelectorAll('[data-sh-rp]').forEach(s => s.onchange = () => { const t = ticked(s.dataset.shRp); if (t) t.repaid = s.value; again(); });
+    }
     let shareSt = { on: false, partner: '', repaid: 'no' };
     function renderAddShare() {
       const el = document.getElementById('share-box');
       if (el) renderShareInto(el, shareSt, () => parseFloat(document.getElementById('inp-amount').value) || 0, () => expCur || curCode());
     }
-    const shareMsg = (e, st) => !e.shared ? '' : ` · החלק שלי ${money(myAmt(e), e.currency)}` + (st.repaid === 'bit' ? ' (החזירו בביט)' : st.repaid === 'cash' ? ` (${signedMoney(e.shared.their, e.currency)} למזומן)` : ` · ${e.shared.partner} חייבים ${money(e.shared.their, e.currency)}`);
+    // toast text after saving a shared expense: my part, and what each party owes (or how they paid back)
+    const shareMsg = (e, st) => {
+      if (!e.shared) return '';
+      const parts = shareParts(e);
+      if (parts.length === 1 && !(st && st.group))
+        return ` · החלק שלי ${money(myAmt(e), e.currency)}` + (st.repaid === 'bit' ? ' (החזירו בביט)' : st.repaid === 'cash' ? ` (${signedMoney(e.shared.their, e.currency)} למזומן)` : ` · ${owePhrase(e.shared.partner)} ${money(e.shared.their, e.currency)}`);
+      return ` · החלק שלי ${money(myAmt(e), e.currency)}` + parts.map(p => {
+        const sp = appData.splits.find(x => x.id === p.splitId), how = sp && sp.settled && sp.settled.viaExpense ? sp.settled.how : '';
+        return how === 'bit' ? ` · ${p.partner}: הוחזר בביט` : how === 'cash' ? ` · ${p.partner}: ${signedMoney(p.their, e.currency)} למזומן` : ` · ${owePhrase(p.partner)} ${money(p.their, e.currency)}`;
+      }).join('');
+    };
 
     // Removes an expense, refunds the wallet, and un-pays a linked hotel
     function removeExpenseRecord(exp) {
@@ -2178,7 +2304,7 @@
       const hotelNote = exp.hotelId ? (linked && linked.kind === 'car' ? ' השכרת הרכב תחזור לסטטוס "ממתין".' : ' המלון יחזור לסטטוס "ממתין".') : '';
       confirmDialog({
         title: 'מחיקת הוצאה',
-        text: `למחוק את "${exp.note}" (${money(exp.amount, exp.currency)})?${refundNote}${hotelNote}${exp.shared ? ` גם הרישום בקיזוזים (${exp.shared.partner} – ${money(exp.shared.their, exp.currency)}) יימחק.` : ''}`,
+        text: `למחוק את "${exp.note}" (${money(exp.amount, exp.currency)})?${refundNote}${hotelNote}${exp.shared ? (shareParts(exp).length > 1 ? ` גם הרישומים בקיזוזים (${shareParts(exp).map(p => `${p.partner} – ${money(p.their, exp.currency)}`).join(', ')}) יימחקו.` : ` גם הרישום בקיזוזים (${exp.shared.partner} – ${money(exp.shared.their, exp.currency)}) יימחק.`) : ''}`,
         okLabel: 'מחק', danger: true,
         onOk: () => { removeExpenseRecord(exp); saveData(); }
       });
@@ -2218,13 +2344,42 @@
       });
       return Object.values(people).filter(p => Math.abs(p.total) >= 0.005);
     }
-    // short Hebrew lines: "אתם חייבים לX ¥700 (≈ ₪14)" / "X חייבים לכם …"; empty list = balanced
+    // short Hebrew lines: "אתם חייבים לX ¥700 (≈ ₪14)" / "X חייבים לכם …" / "חוב של דנה אליכם …"; empty list = balanced. rel = the words without the amount
     function splitNetLines(withIls = true) {
       return splitNet().map(p => {
         const amt = money(Math.abs(p.total), p.currency) + (withIls && p.currency !== 'ILS' ? ` (≈ ${ilsStr(toIls(Math.abs(p.total), p.currency, 'cash'), 0)})` : '');
-        return { owesMe: p.total > 0, text: p.total > 0 ? `${p.person} חייבים לכם ${amt}` : `אתם חייבים ל${p.person} ${amt}`, who: p.person, amt };
+        const rel = p.total > 0 ? owePhrase(p.person, WE) : owePhrase(WE, p.person);
+        return { owesMe: p.total > 0, text: `${rel} ${amt}`, rel, who: p.person, amt };
       });
     }
+
+    // ---------- Who owes whom, in words ----------
+    // A couple "חייבים" (plural). A single friend gets a gender-free form: "חוב של דנה אליכם" / "חוב שלך לרון ומיכל".
+    // Set in group mode (the זוג / חבר/ה buttons); a name never marked is a couple, so "עם עוד זוג" reads as before.
+    const WE = { we: 1 }, ME_I = { i: 1 };   // the phone's owner as "אתם" (or "את/ה") · as "אני" (no name chosen)
+    const isGroup = () => tripMode() === 'group';
+    function isSingleParty(name) {
+      if (!name || typeof name !== 'string') return false;
+      const k = appData.settings.kinds || {}, n = name.toLowerCase();
+      return Object.keys(k).some(x => x.toLowerCase() === n && k[x] === 'single');
+    }
+    // d owes c (no amount). d / c: a name, WE or ME_I; c may be left out ("X חייבים" / "חוב של X")
+    function owePhrase(d, c) {
+      const meSingle = isSingleParty(appData.settings.me);
+      const to = noun => c == null ? '' : c === WE ? (noun ? (meSingle ? ' אליך' : ' אליכם') : (meSingle ? ' לך' : ' לכם')) : c === ME_I ? (noun ? ' אליי' : ' לי') : ' ל' + c;
+      if (d === WE) return meSingle ? `חוב שלך${to(true)}` : `אתם חייבים${to(false)}`;
+      if (d === ME_I) return `אני חייב/ת${to(false)}`;
+      return isSingleParty(d) ? `חוב של ${d}${to(true)}` : `${d} חייבים${to(false)}`;
+    }
+    // "החלק שלהם" for a couple, "החלק של דנה" for a single friend
+    const theirPartWord = name => isSingleParty(name) ? `החלק של ${name}` : 'החלק שלהם';
+    // who "the others" are in a summary line: the other couple (pair mode), the one party involved, or "האחרים"
+    function othersLabel(names) {
+      if (!isGroup()) return 'הזוג השני';
+      const u = [...new Set((names || splitCounterparts()).map(n => String(n).toLowerCase()))];
+      return u.length === 1 ? (names || splitCounterparts()).find(n => String(n).toLowerCase() === u[0]) : 'האחרים';
+    }
+    const sharedNames = list => list.flatMap(e => shareParts(e).map(p => p.partner));
 
     // Edit a split entry: direction, amount (currency stays as entered), category, description, date and time of day
     function editSplit(id) {
@@ -2232,10 +2387,10 @@
       if (!sp) return;
       const me = appData.settings.me, party = splitParty(sp), others = splitCounterparts();
       const d = new Date(sp.date), iso = isNaN(d) ? dateToIso(new Date()) : dateToIso(d);
-      const maxDay = iso > dateToIso(new Date()) ? iso : dateToIso(new Date());
+      const maxDay = iso > futureLimit() ? iso : futureLimit();
       const cats = SUMMARY_CATS.slice(); if (!cats.includes(sp.category)) cats.push(sp.category);
       const people = others.includes(party) ? others : [party].concat(others);
-      const dirLabel = (plus, who) => me ? (plus ? `${who} חייבים ל${me}` : `${me} חייבים ל${who}`) : (plus ? `${who} חייבים לי` : `אני חייב/ת ל${who}`);
+      const dirLabel = (plus, who) => me ? (plus ? owePhrase(who, me) : owePhrase(me, who)) : (plus ? owePhrase(who, ME_I) : owePhrase(ME_I, who));
       const ov = openDialog(`
         <h3>✏️ עריכת קיזוז</h3>
         ${people.length > 1 ? `<label class="field-label">עם מי<select class="select-input" data-el="person">${optionHtml(people, party)}</select></label>` : ''}
@@ -2284,7 +2439,7 @@
       ov.querySelector('[data-act=ok]').onclick = () => {
         const amt = parseFloat(q('amt').value), day = q('date').value, cat = q('cat').value;
         if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(sp.currency).decimals)) === 0) { markBad(q('amt')); return; }
-        if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); return; }
+        if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); showToast(ISO_DATE.test(day) ? `התאריך אחרי סוף הטיול (${ddmm(maxDay)})` : 'נא לבחור תאריך', 'error'); return; }
         const hm = part === 'exact' ? q('time').value : DAY_PARTS.find(x => x[0] === part)[2];
         if (!/^\d{2}:\d{2}$/.test(hm || '')) { markBad(q('time')); return; }
         if (!appData.splits.includes(sp)) { ov.remove(); return; }
@@ -2408,7 +2563,7 @@
       }
 
       // Net balance per person, per currency (entries recorded under my own name count against the other side)
-      const me = appData.settings.me, meName = me ? escapeHtml(me) : '';
+      const me = appData.settings.me;
       const people = {};
       appData.splits.forEach(s => {
         const who = splitParty(s);
@@ -2427,8 +2582,8 @@
           return `<div class="person-row"><span>${name}</span><span style="display:flex; align-items:center; gap:6px;"><span style="color:var(--text-muted);">מאוזן ✔️</span>${btn}</span></div>`;
         }
         const owesMe = p.total > 0;
-        const text = me ? (owesMe ? `${name} חייבים ל${meName}` : `${meName} חייבים ל${name}`)
-                        : (owesMe ? `${name} חייבים לי` : `אני חייב/ת ל${name}`);
+        const text = escapeHtml(me ? (owesMe ? owePhrase(p.person, me) : owePhrase(me, p.person))
+                                   : (owesMe ? owePhrase(p.person, ME_I) : owePhrase(ME_I, p.person)));
         const color = owesMe ? 'var(--accent-green)' : 'var(--accent-red)';
         return `<div class="person-row"><span>${text}</span><span style="display:flex; align-items:center; gap:6px;"><strong style="color:${color}; white-space:nowrap;">${money(Math.abs(p.total), p.currency)}</strong>${btn}</span></div>`;
       }).join('');
@@ -2438,10 +2593,10 @@
         const isDebt = split.amount < 0;
         const titleColor = isDebt ? 'var(--accent-red)' : 'var(--primary)';
         const amountColor = isDebt ? 'var(--accent-red)' : 'var(--accent-green)';
-        const person = escapeHtml(splitParty(split));
+        const party = splitParty(split);
         const note = escapeHtml(split.note);
-        const titleText = me ? (isDebt ? `${meName} חייבים ל${person}: ${note}` : `${person} חייבים ל${meName}: ${note}`)
-                             : (isDebt ? `אני חייב/ת ל${person}: ${note}` : `${person} חייבים: ${note}`);
+        const titleText = escapeHtml(me ? (isDebt ? owePhrase(me, party) : owePhrase(party, me))
+                                        : (isDebt ? owePhrase(ME_I, party) : owePhrase(party))) + ': ' + note;
         const st = split.settled;
         const meta = st ? `✔️ נסגר ${st.how === 'cash' ? 'במזומן 💵' : 'בביט / פייבוקס 📱'}${st.date ? ' ב-' + escapeHtml(ddmm(st.date)) : ''} • ${escapeHtml(split.category)} • ${expenseWhen(split.date)}`
                         : `${escapeHtml(split.category)} • ${expenseWhen(split.date)}`;
@@ -2486,7 +2641,7 @@
         return;
       }
       const amt = money(Math.abs(net), code);
-      const line = net < 0 ? `${me ? me + ' חייבים' : 'אני חייב/ת'} ל${who} ${amt}` : `${who} חייבים ${me ? 'ל' + me : 'לי'} ${amt}`;
+      const line = (net < 0 ? owePhrase(me || ME_I, who) : owePhrase(who, me || ME_I)) + ' ' + amt;
       const ov = openDialog(`
         <h3>✔️ סגירת חשבון</h3>
         <p>${escapeHtml(line)} (${items.length} קיזוזים פתוחים). איך ${net < 0 ? 'שילמתם' : 'קיבלתם'} את הכסף?</p>
@@ -2514,7 +2669,8 @@
           items.forEach(x => { delete x.settled; });
           if (cashBack) { const w = wallet(code); w.cash = Math.round((w.cash - net) * 1e6) / 1e6; }
           // reopened halves of shared expenses follow their expense again (its amount may have changed while closed)
-          items.forEach(x => { const e = x.fromExp && appData.expenses.find(y => y.id === x.fromExp && y.shared && y.shared.splitId === x.id); if (e) syncShare(e, shareStateOf(e)); });
+          const back = new Set(items.map(x => x.fromExp && appData.expenses.find(y => y.id === x.fromExp && shareParts(y).some(p => p.splitId === x.id))).filter(Boolean));
+          back.forEach(e => syncShare(e, shareStateOf(e)));
           saveData();
         }
       });
@@ -2523,15 +2679,24 @@
     function deleteSplit(id) {
       const s = appData.splits.find(x => x.id === id);
       if (!s) return;
-      const fromE = s.fromExp ? appData.expenses.find(e => e.id === s.fromExp && e.shared && e.shared.splitId === s.id) : null;
+      const fromE = s.fromExp ? appData.expenses.find(e => e.id === s.fromExp && shareParts(e).some(p => p.splitId === s.id)) : null;
+      // other parties of the same expense stay on it: like unticking this party, the expense is split again equally between the rest
+      const others = fromE ? shareParts(fromE).filter(p => p.splitId !== s.id) : [];
       confirmDialog({
         title: 'מחיקת קיזוז',
-        text: `למחוק את הקיזוז "${s.note}" של ${s.person}?` + (fromE ? ` ההוצאה "${fromE.note}" תיספר שוב במלואה (${money(fromE.amount, fromE.currency)}).` : '')
+        text: `למחוק את הקיזוז "${s.note}" של ${s.person}?` + (fromE ? (others.length ? ` ההוצאה "${fromE.note}" תתחלק מחדש שווה בשווה, בלי ${s.person}.` : ` ההוצאה "${fromE.note}" תיספר שוב במלואה (${money(fromE.amount, fromE.currency)}).`) : '')
           + (fromE && s.settled && s.settled.viaExpense && s.settled.how === 'cash' ? ` ${money(s.amount, s.currency)} שנוספו למזומן כשהחזירו יירדו ממנו.` : ''),
         okLabel: 'מחק', danger: true,
         onOk: () => {
-          if (fromE) delete fromE.shared;
-          if (fromE && s.settled && s.settled.viaExpense && s.settled.how === 'cash') { const w = wallet(s.currency); w.cash = r6(w.cash - s.amount); }   // the cash this entry added goes back
+          if (!appData.splits.some(x => x.id === id)) return;   // already gone (two dialogs confirmed)
+          if (fromE && others.length) {
+            const st = shareStateOf(fromE), who = splitParty(s).toLowerCase();
+            st.group = true; st.parties = st.parties.filter(p => p.partner.toLowerCase() !== who);
+            syncShare(fromE, st);   // drops this entry (and the cash it added) and re-splits the rest
+          } else {
+            if (fromE) delete fromE.shared;
+            if (fromE && s.settled && s.settled.viaExpense && s.settled.how === 'cash') { const w = wallet(s.currency); w.cash = r6(w.cash - s.amount); }   // the cash this entry added goes back
+          }
           appData.splits = appData.splits.filter(x => x.id !== id); saveData();
         }
       });
@@ -2561,40 +2726,60 @@
       switchTab('settings', document.getElementById('nav-settings'));
     }
 
-    // ---------- Traveling alone (solo) or with another couple ----------
+    // ---------- Who travels: alone (solo), with another couple (pair) or a group (2–3 other parties) ----------
+    const MAX_PARTIES = 3;   // other parties besides me
     const isSolo = () => !!(appData && appData.settings && appData.settings.solo);
+    function tripMode() { return isSolo() ? 'solo' : appData && appData.settings && appData.settings.mode === 'group' ? 'group' : 'pair'; }
+    const MODE_BTNS = [['solo', '👤 נוסעים לבד'], ['pair', '👥 עם עוד זוג'], ['group', '👨‍👩‍👧 קבוצה']];
     function applySoloUi() {
-      const solo = isSolo();
+      const solo = isSolo(), mode = tripMode();
       if (solo && shareSt.on) shareSt = { on: false, partner: '', repaid: 'no' };
       const nav = document.getElementById('nav-splits'); if (nav) nav.style.display = solo ? 'none' : '';
       const sp = document.getElementById('screen-splits');
       if (solo && sp && sp.classList.contains('active')) switchTab('home', document.getElementById('nav-home'));
       const area = document.getElementById('people-area'); if (area) area.hidden = solo;
       const sw = document.getElementById('ui-solo-switch');
-      if (sw) sw.innerHTML = `
-        <button type="button" class="chip-btn${solo ? ' selected' : ''}" onclick="setSolo(true)" aria-pressed="${solo}">👤 נוסעים לבד</button>
-        <button type="button" class="chip-btn${solo ? '' : ' selected'}" onclick="setSolo(false)" aria-pressed="${!solo}">👥 עם עוד זוג</button>
-        ${solo ? '<p class="solo-note">אין לשונית קיזוזים, אין הוצאות משותפות ואין מזומן מחבר.</p>' : ''}`;
+      const extra = splitCounterparts().length - MAX_PARTIES;
+      if (sw) sw.innerHTML = MODE_BTNS.map(([m, label]) =>
+          `<button type="button" class="chip-btn${m === mode ? ' selected' : ''}" onclick="setMode('${m}')" aria-pressed="${m === mode}">${label}</button>`).join('') +
+        (solo ? '<p class="solo-note">אין לשונית קיזוזים, אין הוצאות משותפות ואין מזומן מחבר.</p>'
+          : mode === 'group' ? `<p class="solo-note">עד ${MAX_PARTIES} צדדים נוספים, כל צד זוג או חבר/ה. הוצאה משותפת מתחלקת שווה בשווה בין הצדדים שסימנתם.${extra > 0 ? ` ברשימה יש ${splitCounterparts().length} צדדים: כולם נשמרים, אבל אי אפשר להוסיף עוד.` : ''}</p>` : '');
     }
-    function setSolo(on) {
-      if (on === isSolo()) return;
+    function setSolo(on) { setMode(on ? 'solo' : 'pair'); }   // older callers
+    function setMode(m) {
+      if (!MODE_BTNS.some(x => x[0] === m) || m === tripMode()) return;
       const done = () => {
-        appData.settings.solo = on;
-        if (on) { shareSt = { on: false, partner: '', repaid: 'no' }; renderAddShare(); }   // a "🤝" left on in the add form is dropped
-        saveData(); showMsg('people-msg', on ? '👤 מצב נוסעים לבד' : '👥 מצב עם עוד זוג');
+        appData.settings.mode = m; appData.settings.solo = m === 'solo';
+        shareSt = { on: false, partner: '', repaid: 'no' }; renderAddShare();   // a "🤝" left on in the add form starts over in the new mode
+        saveData(); showMsg('people-msg', m === 'solo' ? '👤 מצב נוסעים לבד' : m === 'pair' ? '👥 מצב עם עוד זוג' : '👨‍👩‍👧 מצב קבוצה');
       };
-      if (!on) { done(); return; }
-      const open = appData.splits.filter(x => !x.settled).length, shared = appData.expenses.filter(e => e.shared).length;
-      if (!open && !shared) { done(); return; }
-      confirmDialog({ title: '👤 נוסעים לבד?', okLabel: 'עבור למצב לבד',
-        text: [open ? `יש ${open === 1 ? 'קיזוז פתוח אחד' : open + ' קיזוזים פתוחים'}` : '', shared ? `${shared === 1 ? 'הוצאה משותפת אחת' : shared + ' הוצאות משותפות'}` : ''].filter(Boolean).join(' ו') +
-          '. שום דבר לא יימחק: הם רק יוסתרו, ויחזרו כשתחזרו ל"עם עוד זוג". הסכומים בסיכום נשארים כפי שהם.',
+      if (m === 'solo') {
+        const open = appData.splits.filter(x => !x.settled).length, shared = appData.expenses.filter(e => e.shared).length;
+        if (!open && !shared) { done(); return; }
+        confirmDialog({ title: '👤 נוסעים לבד?', okLabel: 'עבור למצב לבד',
+          text: [open ? `יש ${open === 1 ? 'קיזוז פתוח אחד' : open + ' קיזוזים פתוחים'}` : '', shared ? `${shared === 1 ? 'הוצאה משותפת אחת' : shared + ' הוצאות משותפות'}` : ''].filter(Boolean).join(' ו') +
+            `. שום דבר לא יימחק: הם רק יוסתרו, ויחזרו כשתחזרו ל"${tripMode() === 'group' ? 'קבוצה' : 'עם עוד זוג'}". הסכומים בסיכום נשארים כפי שהם.`,
+          onOk: done });
+        return;
+      }
+      // from a group back to one couple: expenses split between several parties stay exactly as they are
+      const multi = m === 'pair' ? appData.expenses.filter(e => shareParts(e).length > 1).length : 0;
+      if (!multi) { done(); return; }
+      confirmDialog({ title: '👥 עם עוד זוג?', okLabel: 'עבור לעם עוד זוג',
+        text: `${multi === 1 ? 'הוצאה משותפת אחת מתחלקת' : multi + ' הוצאות משותפות מתחלקות'} בין כמה צדדים. ${multi === 1 ? 'היא נשארת' : 'הן נשארות'} כפי שהן, עם הקיזוזים של כל צד (אפשר לערוך). הוצאה משותפת חדשה: חצי לזוג השני.`,
         onOk: done });
+    }
+    // couple or single friend: wording only ("חייבים" / "חוב של …"); shown in group mode
+    function setPartyKind(name, kind) {
+      const k = appData.settings.kinds = { ...(appData.settings.kinds || {}) };
+      Object.keys(k).forEach(x => { if (x.toLowerCase() === name.toLowerCase()) delete k[x]; });
+      if (kind === 'single') k[name] = 'single';
+      saveData();
     }
 
     function renderPeopleSettings() {
       const el = document.getElementById('ui-people-settings');
-      const people = appData.settings.people;
+      const people = appData.settings.people, group = isGroup(), me = appData.settings.me;
       const meEl = document.getElementById('ui-me-select');
       if (meEl) meEl.innerHTML = people.length ? `
         <label class="me-row">אני (בעל/ת הטלפון):
@@ -2603,13 +2788,24 @@
             ${people.map(p => `<option value="${escapeHtml(p)}" ${p === appData.settings.me ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
           </select>
         </label>` : '';
+      const kindBtns = p => { const one = isSingleParty(p), n = escapeHtml(p);
+        return `<span class="kind-sw" role="group" aria-label="זוג או חבר/ה">
+          <button type="button" class="kind-btn${one ? '' : ' on'}" data-name="${n}" onclick="setPartyKind(this.dataset.name, 'couple')" aria-pressed="${!one}">זוג</button>
+          <button type="button" class="kind-btn${one ? ' on' : ''}" data-name="${n}" onclick="setPartyKind(this.dataset.name, 'single')" aria-pressed="${one}">חבר/ה</button></span>`; };
       el.innerHTML = people.length
         ? people.map(p => `
             <div class="name-row">
-              <span>${escapeHtml(p)}</span>
+              <span class="nr-name">${escapeHtml(p)}${me && p === me ? ' <small>(אני)</small>' : ''}</span>
+              ${group ? kindBtns(p) : ''}
               <button class="del-btn" data-name="${escapeHtml(p)}" onclick="removePerson(this.dataset.name)" aria-label="הסר" title="הסר שם מהרשימה">✕</button>
             </div>`).join('')
         : '<div style="font-size:0.85rem; color:var(--text-muted);">אין שמות ברשימה.</div>';
+      // at most 3 other parties: a 4th can't be added (names already on the list are never removed)
+      const full = people.length >= MAX_PARTIES + 1, btn = document.getElementById('add-person-btn'), lim = document.getElementById('people-limit');
+      if (btn) btn.disabled = full;
+      if (lim) { lim.hidden = !full; lim.textContent = people.length > MAX_PARTIES + 1
+        ? `ברשימה ${people.length} שמות: כולם נשמרים, אבל אי אפשר להוסיף עוד (עד ${MAX_PARTIES} צדדים נוספים מלבדכם).`
+        : `אפשר עד ${MAX_PARTIES} צדדים נוספים מלבדכם (${MAX_PARTIES + 1} שמות ברשימה).`; }
     }
 
     function addPerson() {
@@ -2620,6 +2816,7 @@
         showMsg('people-msg', 'השם כבר קיים ברשימה', 'error');
         return;
       }
+      if (appData.settings.people.length >= MAX_PARTIES + 1) { showMsg('people-msg', `אפשר עד ${MAX_PARTIES} צדדים נוספים מלבדכם`, 'error'); return; }
       appData.settings.people.push(name);
       inp.value = '';
       saveData();
@@ -2953,8 +3150,8 @@
           : src === 'bank'
           ? 'המזומן נוסף ליתרת המזומן. החיוב בכרטיס הבנק אינו הוצאה – ההוצאה נרשמת כשמשלמים במזומן.'
           : fdir === 'in'
-          ? `המזומן נוסף ליתרת המזומן, ובלשונית ⚖️ קיזוזים נרשם שאתם חייבים ${friend ? 'ל' + friend : 'לחבר'} את הסכום. זו לא הוצאה.`
-          : `הסכום יורד מיתרת המזומן, ובלשונית ⚖️ קיזוזים נרשם ש${friend || 'החבר'} חייבים לכם אותו. זו לא הוצאה.`;
+          ? `המזומן נוסף ליתרת המזומן, ובלשונית ⚖️ קיזוזים נרשם ${isSingleParty(appData.settings.me) ? owePhrase(WE, friend || 'חבר') + ' בסכום הזה' : 'ש' + owePhrase(WE, friend || 'חבר') + ' את הסכום'}. זו לא הוצאה.`
+          : `הסכום יורד מיתרת המזומן, ובלשונית ⚖️ קיזוזים נרשם ${friend && isSingleParty(friend) ? owePhrase(friend, WE) + ' בסכום הזה' : 'ש' + (friend ? owePhrase(friend, WE) : 'החבר חייבים לכם') + ' אותו'}. זו לא הוצאה.`;
         ov.querySelectorAll('[data-fdir]').forEach(b => b.classList.toggle('selected', b.dataset.fdir === fdir));
         if (q('fwho')) q('fwho').textContent = fdir === 'in' ? 'מי נתן את הכסף?' : 'למי נתתם את הכסף?';
         q('ttl').textContent = src !== 'friend' ? '💵 משיכת מזומן' : fdir === 'in' ? '💵 קיבלנו מזומן מחבר' : '💵 נתנו מזומן לחבר';
@@ -3328,10 +3525,10 @@
       const start = tripRange().start, bill = cardBill();
       const items = appData.expenses.filter(e => CARD_METHODS.includes(e.payment)).map(e => {
         const dt = new Date(e.date), d = isNaN(dt) ? '' : dateToIso(dt);
-        const sp = e.shared ? appData.splits.find(x => x.id === e.shared.splitId) : null;
+        const sps = shareParts(e).map(p => appData.splits.find(x => x.id === p.splitId));
         return { e, d, pre: !!d && d < start, billed: !!d && d <= bill.last, ils: toIls(e.amount, e.currency, e.payment),      // full charge (shared: incl. their half)
           their: e.shared ? e.shared.their : 0, theirIls: e.shared ? toIls(e.shared.their, e.currency, e.payment) : 0,
-          back: sp && sp.settled ? sp.settled.how : '' };
+          back: sps.length && sps.every(sp => sp && sp.settled) ? sps[0].settled.how : '' };   // every party's part closed
       }).sort((a, b) => (a.e.date || '') < (b.e.date || '') ? -1 : 1);
       const sum = l => l.reduce((t, x) => t + x.ils, 0);
       const byCur = {}; items.forEach(x => { byCur[x.e.currency] = Math.round(((byCur[x.e.currency] || 0) + x.e.amount) * 100) / 100; });
@@ -3350,6 +3547,8 @@
     }
     // per charge: the other couple's half is never "paid back" on its own; it goes into the netted קיזוזים balance
     const backTxt = how => how === 'cash' ? 'החשבון נסגר במזומן' : how === 'bit' ? 'החשבון נסגר בביט' : 'נכנס לקיזוזים';
+    // "החלק שלהם" (pair) · "החלק של רון ומיכל" / "החלק של האחרים" (group) for one shared charge
+    const theirPartOf = e => !isGroup() ? 'החלק שלהם' : 'החלק של ' + othersLabel(shareParts(e).map(p => p.partner));
     let creditOpen = false;
     function toggleCreditList() { creditOpen = !creditOpen; renderCredit(); }
     function renderCredit() {
@@ -3365,11 +3564,12 @@
       if (C.pre.length) html += line('🧾', 'לפני הטיול', `${nCh(C.pre.length)}${billNote(C.pre, C.bill)}`, escapeHtml(ilsStr(C.preIls, 0)), 'muted');
       if (C.billed.length && C.due.length) html += line('⏳', `יחויב ב-${ddmm(C.bill.next)}`, `${nCh(C.due.length)} ${C.due.length === 1 ? 'שעוד לא חויב' : 'שעוד לא חויבו'}`, escapeHtml(ilsStr(C.dueIls, 0)));
       if (C.shared.length && !isSolo()) {
-        html += line('🤝', 'מזה החלק של הזוג השני', 'נכנס לקיזוזים, לא מוחזר בנפרד', escapeHtml(ilsStr(C.theirIls, 0)));
-        html += line('💳', 'בניכוי החלק שלהם', 'מה שבאמת עלה לכם', escapeHtml(ilsStr(C.total - C.theirIls, 0)));
+        const who = othersLabel(sharedNames(C.shared.map(x => x.e)));
+        html += line('🤝', escapeHtml(`מזה החלק של ${who}`), 'נכנס לקיזוזים, לא מוחזר בנפרד', escapeHtml(ilsStr(C.theirIls, 0)));
+        html += line('💳', isGroup() ? escapeHtml(`בניכוי החלק של ${who}`) : 'בניכוי החלק שלהם', 'מה שבאמת עלה לכם', escapeHtml(ilsStr(C.total - C.theirIls, 0)));
         const net = splitNetLines();
         html += net.length
-          ? net.map(n => `<div class="cr-row"><span class="cr-l"><span aria-hidden="true">⚖️</span> מאזן הקיזוזים<small>${escapeHtml(n.owesMe ? `${n.who} חייבים לכם` : `אתם חייבים ל${n.who}`)} · כל ההוצאות המשותפות יחד</small></span><b class="cr-v" style="color:${n.owesMe ? 'var(--accent-green)' : 'var(--accent-red)'}"><bdi>${escapeHtml(n.amt)}</bdi></b></div>`).join('')
+          ? net.map(n => `<div class="cr-row"><span class="cr-l"><span aria-hidden="true">⚖️</span> מאזן הקיזוזים<small>${escapeHtml(n.rel)} · כל ההוצאות המשותפות יחד</small></span><b class="cr-v" style="color:${n.owesMe ? 'var(--accent-green)' : 'var(--accent-red)'}"><bdi>${escapeHtml(n.amt)}</bdi></b></div>`).join('')
           : line('⚖️', 'מאזן הקיזוזים', 'אף אחד לא חייב לאף אחד', 'מאוזן ✔️');
       }
       html += `<p class="cr-cur" style="margin:8px 0 0;">יום החיוב בכרטיס: ${C.bill.day} בחודש · <a href="#" onclick="setCardDay(); return false;">שינוי</a></p>`;
@@ -3378,7 +3578,7 @@
         let lastD = null;
         html += '<div class="cr-list">' + C.items.slice().reverse().map(x => {
           const head = x.d !== lastD ? `<div class="cr-day">${escapeHtml(x.d ? ddmm(x.d) : '—')}${x.pre ? ' · לפני הטיול' : ''}${x.billed ? ' · ✓ חויב' : ''}</div>` : ''; lastD = x.d;
-          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their && !isSolo() ? `<small>🤝 החלק שלהם <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
+          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their && !isSolo() ? `<small>🤝 ${escapeHtml(theirPartOf(x.e))} <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
             <span class="cr-a"><bdi>${escapeHtml(money(x.e.amount, x.e.currency))}</bdi>${x.e.currency === 'ILS' ? '' : `<small><bdi>${escapeHtml(ilsStr(x.ils))}</bdi></small>`}</span></div>`;
         }).join('') + '</div>';
       }
@@ -3659,9 +3859,9 @@
       if (!r) return;
       const exp = appData.expenses.find(e => e.resId === id);
       let text = `למחוק את "${r.name}" (${reservationDateLabel(r.date).top})?`;
-      const shSp = exp && exp.shared ? appData.splits.find(x => x.id === exp.shared.splitId) : null;
+      const cashBack = (exp ? shareParts(exp) : []).map(p => appData.splits.find(x => x.id === p.splitId)).filter(sp => sp && sp.settled && sp.settled.viaExpense && sp.settled.how === 'cash');
       if (exp && exp.linkedByUser) text += ` ההוצאה "${exp.note || exp.category}" שקישרתם אליה תישאר ברשימת ההוצאות.`;
-      else if (shSp && shSp.settled && shSp.settled.viaExpense && shSp.settled.how === 'cash') text += ` גם החצי של ${exp.shared.partner} שהוחזר במזומן (${money(shSp.amount, shSp.currency)}) יירד מהמזומן.`;
+      else if (cashBack.length) text += ` גם ${cashBack.length > 1 ? 'החלקים' : shareParts(exp).length > 1 || isGroup() ? 'החלק' : 'החצי'} של ${cashBack.map(sp => splitParty(sp)).join(' ו')} שהוחזר${cashBack.length > 1 ? 'ו' : ''} במזומן (${money(cashBack.reduce((t, sp) => r6(t + sp.amount), 0), cashBack[0].currency)}) יירד מהמזומן.`;
       else if (exp) text += ` ההוצאה של ${money(exp.amount, exp.currency)} שנרשמה עבורה תימחק מהסיכום.`;
       confirmDialog({
         title: 'מחיקת הזמנה', text, okLabel: 'מחק', danger: true,
@@ -3828,7 +4028,11 @@
       ov.querySelector('[data-act=yes]').onclick = () => {
         ov.remove();
         let moveShare = null;
-        if (auto.shared && !mine.shared) { moveShare = shareStateOf(auto); const sp = appData.splits.find(x => x.id === auto.shared.splitId); if (sp) { sp.fromExp = mine.id; mine.shared = { ...auto.shared }; } delete auto.shared; }
+        if (auto.shared && !mine.shared) {   // every party's entry moves to the expense you keep
+          moveShare = shareStateOf(auto);
+          const parts = shareParts(auto).filter(p => { const sp = appData.splits.find(x => x.id === p.splitId); if (sp) sp.fromExp = mine.id; return !!sp; });
+          setShareParts(mine, parts); delete auto.shared;
+        }
         removeExpenseRecord(auto);   // same wallet rules as a normal delete
         mine.resId = resId; mine.linkedByUser = true;
         if (moveShare && mine.shared) syncShare(mine, moveShare);   // their half follows your amount (unless already settled in an account)
@@ -3881,7 +4085,7 @@
         const minUnit = 1 / Math.pow(10, rateOf(r.currency).decimals);
         if (!(amt >= minUnit) || amt > 1e9) { q('amt').style.outline = '2px solid #ef4444'; q('amt').focus(); return; }
         if (!ISO_DATE.test(iso)) { q('date').style.outline = '2px solid #ef4444'; return; }
-        if (st.on && !st.partner) { q('share').scrollIntoView({ block: 'center' }); return; }
+        if (shareMissing(st)) { q('share').scrollIntoView({ block: 'center' }); return; }
         if (appData.expenses.some(e => e.resId === id)) { ov.remove(); return; }
         const warn = spendFrom(pay, r.currency, amt);
         appData.expenses.unshift({ id: newId(), amount: amt, currency: r.currency, category: resExpenseCategory(r), payment: pay,
@@ -4411,7 +4615,7 @@ Rules:
       const e = appData.expenses.find(x => x.id === id);
       if (!e) return;
       const d = new Date(e.date), iso = isNaN(d) ? dateToIso(new Date()) : dateToIso(d);
-      const maxDay = iso > dateToIso(new Date()) ? iso : dateToIso(new Date());   // prepaid bookings are dated on their travel day
+      const maxDay = iso > futureLimit() ? iso : futureLimit();   // prepaid bookings keep their travel day; others: up to the trip's end
       const pays = ['אשראי', 'מזומן', 'LAYA'].concat(e.currency === 'JPY' || e.payment === 'Suica' ? ['Suica'] : []);
       if (!pays.includes(e.payment)) pays.push(e.payment);
       const cats = Object.keys(CAT_ICONS); if (!cats.includes(e.category)) cats.push(e.category);
@@ -4457,9 +4661,9 @@ Rules:
         const hm = part === 'exact' ? q('time').value : DAY_PARTS.find(x => x[0] === part)[2];
         if (!/^\d{2}:\d{2}$/.test(hm || '')) { markBad(q('time')); return; }
         if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(e.currency).decimals)) === 0) { markBad(q('amt')); return; }
-        if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); return; }
+        if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); showToast(ISO_DATE.test(day) ? `התאריך אחרי סוף הטיול (${ddmm(maxDay)})` : 'נא לבחור תאריך', 'error'); return; }
         if (!appData.expenses.includes(e)) { ov.remove(); return; }
-        if (canShare && st.on && !st.partner) { q('share').scrollIntoView({ block: 'center' }); return; }
+        if (canShare && shareMissing(st)) { q('share').scrollIntoView({ block: 'center' }); return; }
         // undo the old payment, then apply the new one: wallets stay exact even when amount or method changed
         const oldKey = WALLET_KEY[e.payment];
         if (oldKey) { const w = wallet(e.currency); w[oldKey] = Math.round((w[oldKey] + e.amount) * 1e6) / 1e6; }
@@ -4848,7 +5052,10 @@ Rules:
         if (CR.items.length) {
           const crRow = (label, list, extra) => { let a = 0, b = 0; list.forEach(x => { const [i, u] = conv(x.e.amount, x.e.currency, x.e.payment); a += i; b += u; });
             return ['סיכום', '', '', label, '', 'אשראי', '', '', num(a), num(b), '', [list.length === 1 ? 'חיוב אחד' : `${list.length} חיובים`, extra].filter(Boolean).join(' · ')]; };
-          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length && !isSolo() ? `מזה החלק של הזוג השני ${num(CR.theirIls)} ₪ (נכנס לקיזוזים) · מאזן הקיזוזים: ${splitNetLines().map(n => n.text).join(', ') || 'מאוזן'}` : ''));
+          const grp = isGroup(), netL = CR.shared.length && !isSolo() ? splitNetLines() : [];
+          rows.push(crRow('סה"כ חיובי אשראי (חיוב מלא)', CR.items, CR.shared.length && !isSolo() ? `מזה החלק של ${othersLabel(sharedNames(CR.shared.map(x => x.e)))} ${num(CR.theirIls)} ₪ (נכנס לקיזוזים)` + (grp && netL.length ? '' : ` · מאזן הקיזוזים: ${netL.map(n => n.text).join(', ') || 'מאוזן'}`) : ''));
+          // a group: one ⚖️ row per party (what each one owes, netted over everything, as in the קיזוזים tab)
+          if (grp) netL.forEach(n => rows.push(['סיכום', '', '', `⚖️ מאזן הקיזוזים – ${n.who}`, '', '', '', '', '', '', n.owesMe ? 'חייבים לי' : 'אני חייב', n.text]));
           rows.push(crRow('חיובי אשראי בזמן הטיול', CR.trip));
           if (CR.pre.length) rows.push(crRow('חיובי אשראי לפני הטיול', CR.pre, billNote(CR.pre, CR.bill).replace(/^ · /, '')));
           if (CR.billed.length && CR.due.length) rows.push(crRow(`חיובי אשראי שיחויבו ב-${ddmm(CR.bill.next)}`, CR.due, 'עוד לא חויבו'));
@@ -4865,7 +5072,7 @@ Rules:
       appData.expenses.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(e => {
         used.add(e.currency);
         rows.push(['הוצאה', localDateTime(e.date), '', e.note, e.category, e.payment, myAmt(e), e.currency, ...conv(myAmt(e), e.currency, e.payment), '',
-          [e.shared ? `הוצאה משותפת: שולם ${e.amount} ${e.currency}, החלק של ${e.shared.partner} ${e.shared.their}` : '', e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
+          [e.shared ? `הוצאה משותפת: שולם ${e.amount} ${e.currency}, ${shareParts(e).map(p => `החלק של ${p.partner} ${p.their}`).join(', ')}` : '', e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
       });
       sortedHotels().forEach(h => {
         used.add(h.currency);
@@ -4912,8 +5119,9 @@ Rules:
       const CR = creditData();
       const creditSec = !CR.items.length ? '' : `<section class="card page"><h2>💳 חיובי אשראי</h2>
 <div class="sub">סה"כ ≈ <b>${esc(ilsStr(CR.total, 0))}</b> · ${esc(Object.entries(CR.byCur).map(([c, v]) => money(v, c)).join(' + '))} · ${CR.items.length} חיובים · כולל עמלת אשראי, לפי השער</div>
-<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}${esc(billNote(CR.pre, CR.bill))}` : ''}${CR.billed.length && CR.due.length ? ` · יחויב ב-${esc(ddmm(CR.bill.next))}: ${esc(ilsStr(CR.dueIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של הזוג השני ${esc(ilsStr(CR.theirIls, 0))} (נכנס לקיזוזים)` : ''}</div>${CR.shared.length && !isSolo() ? `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(splitNetLines().map(n => n.text).join(' · ') || 'מאוזן ✔️')}</div>` : ''}
-<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.billed ? ' <span class="ils">· ✓ חויב</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 החלק שלהם ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
+<div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}${esc(billNote(CR.pre, CR.bill))}` : ''}${CR.billed.length && CR.due.length ? ` · יחויב ב-${esc(ddmm(CR.bill.next))}: ${esc(ilsStr(CR.dueIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של ${esc(othersLabel(sharedNames(CR.shared.map(x => x.e))))} ${esc(ilsStr(CR.theirIls, 0))} (נכנס לקיזוזים)` : ''}</div>${CR.shared.length && !isSolo() ? (isGroup() && splitNetLines().length ? splitNetLines().map(n => `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(n.text)}</div>`).join('')   // a group: one line per party
+  : `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(splitNetLines().map(n => n.text).join(' · ') || 'מאוזן ✔️')}</div>`) : ''}
+<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.billed ? ' <span class="ils">· ✓ חויב</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 ${esc(theirPartOf(x.e))} ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
 </section>`;
       const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
         + (e.shared ? ` <span class="ils">🤝 מתוך ${esc(money(e.amount, e.currency))}</span>` : '');
@@ -5196,6 +5404,7 @@ ${creditSec}
           <div class="solo-switch" data-el="who">
             <button type="button" class="chip-btn" data-solo="1">👤 נוסעים לבד</button>
             <button type="button" class="chip-btn" data-solo="0">👥 עם עוד זוג</button>
+            <button type="button" class="chip-btn" data-solo="g">👨‍👩‍👧 קבוצה</button>
           </div>
           <div class="dialog-actions">
             <button class="primary-btn btn-secondary" data-act="back2">→ חזרה</button>
@@ -5219,9 +5428,10 @@ ${creditSec}
         ov.querySelector('.dialog').scrollTop = 0;
       };
       const curSel = el('cur'), nameIn = el('name'), yearIn = el('year');
-      let soloPick = isSolo();
-      const paintWho = () => el('who').querySelectorAll('[data-solo]').forEach(b => b.classList.toggle('selected', (b.dataset.solo === '1') === soloPick));
-      el('who').querySelectorAll('[data-solo]').forEach(b => b.onclick = () => { soloPick = b.dataset.solo === '1'; paintWho(); });
+      const MODE_OF = { '1': 'solo', '0': 'pair', g: 'group' };   // data-solo → mode
+      let modePick = tripMode();
+      const paintWho = () => el('who').querySelectorAll('[data-solo]').forEach(b => b.classList.toggle('selected', MODE_OF[b.dataset.solo] === modePick));
+      el('who').querySelectorAll('[data-solo]').forEach(b => b.onclick = () => { modePick = MODE_OF[b.dataset.solo]; paintWho(); });
       paintWho();
       curSel.value = curCode();
       yearIn.value = new Date().getFullYear();
@@ -5250,12 +5460,12 @@ ${creditSec}
       q('[data-act="back3"]').onclick = () => show(2);
       q('[data-act="start"]').onclick = () => {
         const y = parseInt(yearIn.value, 10);
-        startNewTrip({ currency: curSel.value, name: nameIn.value.trim(), year: y >= 2000 && y <= 2100 ? y : new Date().getFullYear(), solo: soloPick });
+        startNewTrip({ currency: curSel.value, name: nameIn.value.trim(), year: y >= 2000 && y <= 2100 ? y : new Date().getFullYear(), mode: modePick });
         ov.remove();
       };
     }
 
-    function startNewTrip({ currency, name, year, solo }) {
+    function startNewTrip({ currency, name, year, solo, mode }) {
       if (!DEFAULT_RATES[currency]) currency = curCode();
       saveSafetyCopy('לפני טיול חדש');
       const st = appData.settings;
@@ -5277,7 +5487,8 @@ ${creditSec}
       st.tripName = (name || '').slice(0, 40);
       st.tripNameAuto = !st.tripName;
       st.tripYear = year;
-      if (typeof solo === 'boolean') st.solo = solo;
+      if (typeof solo === 'boolean' && !mode) mode = solo ? 'solo' : 'pair';   // older callers pass solo
+      if (MODE_BTNS.some(x => x[0] === mode)) { st.mode = mode; st.solo = mode === 'solo'; }
       expCur = null; expDay = 'today'; payTouched = false;
       saveData();
       refreshRates({ force: true });     // get today's rates when online (silently skipped offline)
