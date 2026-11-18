@@ -1054,7 +1054,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 52 · 18/11/2026 · ee3ccd</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 53 · 18/11/2026 · 0ec531</span></div>
     </div>
 
   </div>
@@ -3391,11 +3391,22 @@
       const D = dayListData(), nDays = D.days.length;
       const dailyCat = {};
       D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
+      const bookCat = {};
+      appData.expenses.forEach(e => { if (!isBookingExp(e)) return; const k = byCat[e.category] ? e.category : 'שונות'; bookCat[k] = (bookCat[k] || 0) + toIls(myAmt(e), e.currency, e.payment); });
       const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || ''))
         .reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
       const avgLine = cat => {
         if (cat === 'מלון') return nights ? `ממוצע ללילה: ${ilsStr(byCat[cat].ils / nights, 0)} · ${nights} לילות` : '';
-        return nDays && dailyCat[cat] ? `ממוצע ליום: ${ilsStr(dailyCat[cat] / nDays, 0)}` : '';
+        if (!nDays || !dailyCat[cat]) return '';
+        // say what the average is built from, so it is never read as "the total above ÷ days"
+        const base = dailyCat[cat], left = byCat[cat].ils - base;
+        let why = '';
+        if (left >= 1) {
+          const book = bookCat[cat] || 0, other = left - book;
+          const parts = [...(book >= 1 ? (cat === 'תחבורה' ? ['טיסות', 'הזמנות'] : ['הזמנות']) : []), ...(other >= 1 ? ['מה שנקנה לפני הטיול'] : [])];
+          if (parts.length) why = ` (בלי ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' ו' + parts[parts.length - 1] : parts[0]})`;
+        }
+        return `ממוצע ליום: ${ilsStr(base / nDays, 0)} · מתוך ${ilsStr(base, 0)}${why}`;
       };
 
       let totalIls = 0;
