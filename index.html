@@ -5826,6 +5826,7 @@ ${creditSec}
         const x = linkDecode(m[1]);
         const a = Number(x.a);
         if (!x || typeof x.id !== 'string' || !x.id || !(a > 0) || !isFinite(a) || a > 1e9) return null;
+        if (x.c != null && !(typeof x.c === 'string' && DEFAULT_RATES[x.c])) return { badCurrency: String(x.c).slice(0, 8) };   // never save it in the wrong currency
         return {
           id: x.id.slice(0, 40), amount: a,
           currency: typeof x.c === 'string' && DEFAULT_RATES[x.c] ? x.c : null,
@@ -5841,6 +5842,7 @@ ${creditSec}
       if (x === undefined) return;
       try { history.replaceState(history.state, '', location.pathname + location.search); } catch (_) {}   // a reload must not add it again
       if (x === null) { notifyDialog('⚠️ הקישור לא תקין', 'לא הצלחתי לקרוא את ההוצאה מהקישור. אפשר להוסיף אותה ידנית.'); return; }
+      if (x.badCurrency) { notifyDialog('⚠️ מטבע לא מוכר', `המטבע ${x.badCurrency} לא קיים ב-Yudale, אז ההוצאה לא נשמרה. אפשר להוסיף אותה ידנית.`); return; }
       const have = appData.expenses.find(e => e.lnk === x.id);
       if (have) { showToast(`✓ ההוצאה הזאת כבר נשמרה (${have.note} · ${money(have.amount, have.currency)})`); return; }
       if (linkSeen().includes(x.id)) {
