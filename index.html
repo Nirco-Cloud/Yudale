@@ -1069,7 +1069,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 56 · 18/11/2026 · 07cefc</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 57 · 19/11/2026 · 280e89</span></div>
     </div>
 
   </div>
@@ -5137,7 +5137,17 @@ Rules:
       appData.expenses.forEach(e => { const c = byCat[catOf(e)]; c.ils += ilsOf(e); c.byCur[e.currency] = (c.byCur[e.currency] || 0) + myAmt(e); });
       const dailyCat = {}; D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
       const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '')).reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
-      const avgOf = c => c === 'מלון' ? (nights ? `${ilsStr(byCat[c].ils / nights, 0)} ללילה` : '—') : (D.days.length && dailyCat[c] ? `${ilsStr(dailyCat[c] / D.days.length, 0)} ליום` : '—');
+      // average + what it is built from (same wording as the app's category summary)
+      const bookCat = {}; appData.expenses.forEach(e => { if (isBookingExp(e)) { const k = catOf(e); bookCat[k] = (bookCat[k] || 0) + ilsOf(e); } });
+      const avgOf = c => {
+        if (c === 'מלון') return nights ? `<b>${esc(ilsStr(byCat[c].ils / nights, 0))} ללילה</b><small>${nights} לילות</small>` : '—';
+        const base = dailyCat[c] || 0;
+        if (!D.days.length || !base) return '—';
+        const left = byCat[c].ils - base, book = bookCat[c] || 0, other = left - book;
+        const parts = left >= 1 ? [...(book >= 1 ? (c === 'תחבורה' ? ['טיסות', 'הזמנות'] : ['הזמנות']) : []), ...(other >= 1 ? ['מה שנקנה לפני הטיול'] : [])] : [];
+        const why = parts.length ? ` (בלי ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' ו' + parts[parts.length - 1] : parts[0]})` : '';
+        return `<b>${esc(ilsStr(base / D.days.length, 0))} ליום</b>${why ? `<small>מתוך ${esc(ilsStr(base, 0))}${esc(why)}</small>` : ''}`;
+      };
       const curOrder = o => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (b === code) - (a === code)));
       const w = wallet(code);
 
@@ -5203,8 +5213,8 @@ Rules:
 
       const ver = (document.querySelector('[data-appver]') || {}).textContent || '';
       const kpi = (k, v, sub) => `<div class="kpi"><small>${k}</small><b>${v}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
-      const catRows = SUMMARY_CATS.filter(c => byCat[c].ils > 0).map(c => `<tr><td><i class="dot" style="background:${COL[c]}"></i>${CAT_ICONS[c] || ''} ${c}</td>
-        <td class="amt">${esc(sumsToString(curOrder(byCat[c].byCur)))}</td><td class="amt">${esc(ilsStr(byCat[c].ils, 0))}</td><td class="c">${Math.round(byCat[c].ils / total * 100)}%</td><td class="amt avg">${esc(avgOf(c))}</td></tr>`).join('');
+      const catRows = SUMMARY_CATS.filter(c => byCat[c].ils > 0).map(c => `<tr><td class="cn"><i class="dot" style="background:${COL[c]}"></i>${CAT_ICONS[c] || ''} ${c}</td>
+        <td class="amt co">${esc(sumsToString(curOrder(byCat[c].byCur)))}</td><td class="amt ci">${esc(ilsStr(byCat[c].ils, 0))}</td><td class="c cp">${Math.round(byCat[c].ils / total * 100)}%</td><td class="avg ca">${avgOf(c)}</td></tr>`).join('');
       const title = tripTitle(), flag = (rateOf(code).flag || '');
 
       return stripLtr(`<!doctype html>
@@ -5234,6 +5244,7 @@ td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top;overfl
 tr:last-child td{border-bottom:0}
 .amt{text-align:left;white-space:nowrap;direction:ltr;unicode-bidi:plaintext}
 .c{text-align:center}.avg{color:var(--green);font-weight:700}
+.cats .cn{white-space:nowrap}.cats .ca{min-width:120px}.cats .ca b{white-space:nowrap}.cats .ca small{display:block;color:var(--muted);font-weight:400;font-size:.78em;line-height:1.3}
 .ils{color:var(--muted);font-size:.8em}
 .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:6px}
 .sub{color:var(--muted);font-size:.75rem}
@@ -5256,6 +5267,18 @@ a{text-decoration:none}
 .cats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.8rem;align-items:center}.cl{white-space:nowrap;direction:ltr;unicode-bidi:isolate}.cats .sub{margin-inline-start:auto}
 .foot{color:var(--muted);font-size:.72rem;text-align:center;margin:12px 0 24px}
 @media (max-width:520px){.sumgrid{grid-template-columns:1fr;justify-items:center}.items .pay{display:none}
+  /* category table on a phone: one block per category instead of five cramped columns */
+  .sumgrid .cats,.cats tbody{display:block;width:100%;justify-self:stretch}
+  .cats tr:first-child{display:none}
+  .cats tr{display:grid;grid-template-columns:1fr auto;column-gap:10px;row-gap:2px;padding:10px 2px;border-bottom:1px solid var(--line)}
+  .cats tr:last-child{border-bottom:0}
+  .cats td{border:0;padding:0}
+  .cats .cn{grid-row:1;grid-column:1;font-weight:700;font-size:.95rem}
+  .cats .ci{grid-row:1;grid-column:2;font-weight:800;font-size:.95rem}
+  .cats .co{grid-row:2;grid-column:1;text-align:right;color:var(--muted);white-space:normal}
+  .cats .cp{grid-row:2;grid-column:2;text-align:left;color:var(--muted)}
+  .cats .ca{grid-row:3;grid-column:1/-1;min-width:0}
+  .cats .ca b::before{content:"ממוצע: "}
   table{font-size:.8rem}th,td{padding:6px 3px}.amt .ils{display:block}.res-t td:nth-child(2){min-width:0}}
 @page{size:A4;margin:12mm}
 @media print{
@@ -5279,7 +5302,7 @@ ${kpi('ממוצע ליום בטיול', esc(ilsStr(D.avg, 0)), `${D.days.length}
 ${kpi('הזמנות', esc(ilsStr(bookTotal, 0)), `${D.bookings.length} חיובים`)}
 ${kpi('יתרות', esc(money(w.cash, code)), `LAYA ${esc(money(w.laya, code))}${code === 'JPY' ? ` · Suica ${esc(money(w.suica, code))}` : ''}`)}
 </div>
-${total > 0 ? `<div class="sumgrid">${donut}<table><tr><th>קטגוריה</th><th class="amt">סכום</th><th class="amt">₪</th><th class="c">%</th><th class="amt">ממוצע</th></tr>${catRows}</table></div>
+${total > 0 ? `<div class="sumgrid">${donut}<table class="cats"><tr><th>קטגוריה</th><th class="amt">סכום</th><th class="amt">₪</th><th class="c">%</th><th>ממוצע</th></tr>${catRows}</table></div>
 <div class="note">הממוצע ליום מחושב על ימי הטיול עד היום, בלי הזמנות (טיסות, מלונות, רכב, כרטיסים) ובלי קניות מלפני הטיול. במלונות: ממוצע ללילה. סכומים בשקלים כוללים עמלת אשראי.</div>` : '<div class="note">טרם נרשמו הוצאות.</div>'}
 </section>
 
