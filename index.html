@@ -438,6 +438,13 @@
     .exp-meta { font-size: 0.75rem; color: var(--text-muted); }
     .exp-amounts { text-align: left; }
     .exp-main { font-weight: 700; color: var(--text-main); font-size: 0.95rem; }
+    /* ↩️ זיכוי (refund): negative amount in green */
+    .exp-main.refund-amt, .exp-sub.refund-amt, .cr-a.refund-amt, .dash-refund .v, .sum-refund strong { color: var(--accent-green) !important; }
+    .refund-tag { color: var(--accent-green); font-weight: 700; }
+    .refund-note { font-size: 0.78rem; color: var(--accent-green); font-weight: 600; margin: 6px 0 2px; }
+    .live-preview.refund { gap: 8px; }
+    .live-preview.refund span:first-child { min-width: 0; }
+    .live-preview.refund span:last-child { white-space: nowrap; }
     .exp-sub { font-size: 0.75rem; color: var(--text-muted); }
 
     /* Per-person balances */
@@ -773,13 +780,14 @@
           </label>
         </div>
 
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">קטגוריה:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="הקטגוריה קובעת איך ההוצאה תופיע במסך הסיכום." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">קטגוריה:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="הקטגוריה קובעת איך ההוצאה תופיע במסך הסיכום. ↩️ זיכוי הוא כסף שחזר אליך (למשל החזר Tax-Free): הוא נרשם בסימן מינוס ומקטין את סך ההוצאות. אמצעי התשלום אומר לאן הכסף חזר." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
         <div class="grid-3" id="cat-grid">
           <div class="chip-btn selected" data-val="אוכל" onclick="selectChip('cat-grid', this)">🍜<br>אוכל</div>
           <div class="chip-btn" data-val="קניות" onclick="selectChip('cat-grid', this)">🛍️<br>קניות</div>
           <div class="chip-btn" data-val="תחבורה" onclick="selectChip('cat-grid', this)">🚄<br>תחבורה</div>
           <div class="chip-btn" data-val="אטרקציות" onclick="selectChip('cat-grid', this)">🎟️<br>אטרקציות</div>
           <div class="chip-btn" data-val="שונות" onclick="selectChip('cat-grid', this)">📦<br>שונות</div>
+          <div class="chip-btn refund-chip" data-val="זיכוי" onclick="selectChip('cat-grid', this)">↩️<br>זיכוי</div>
         </div>
 
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;">אמצעי תשלום:<button type="button" class="tip-btn" aria-label="הסבר" aria-expanded="false" data-tip="מזומן, LAYA ו-Suica מורידים מהיתרה שלהם בארנק. אשראי לא משנה יתרות ומוסיף את עמלת ההמרה שהגדרת. LAYA כבר כוללת עמלה, ולכן נספרת בלי תוספת. העלות בשקלים ובדולרים מוצגת מעל, לפי השערים בהגדרות." onclick="event.stopPropagation();toggleTip(this)">ⓘ</button></div>
@@ -788,6 +796,7 @@
           <div class="chip-btn" data-val="אשראי" onclick="pickPay(this)">💳<br>אשראי</div>
           <div class="chip-btn" data-val="LAYA" onclick="pickPay(this)">💳<br>LAYA</div>
           <div class="chip-btn" data-val="Suica" id="pay-card-chip" onclick="pickPay(this)">🐧<br>Suica</div>
+          <div class="chip-btn" data-val="ביט" id="pay-bit-chip" onclick="pickPay(this)" style="display:none">📱<br>ביט</div>
         </div>
         <div class="pay-auto-note" id="pay-auto-note"></div>
         <div class="share-box" id="share-box"></div>
@@ -1071,7 +1080,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 60 · 20/11/2026 · 8b69fc</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 62 · 20/11/2026 · 30f16f</span></div>
     </div>
 
   </div>
@@ -1176,7 +1185,16 @@
 
     const DEFAULT_HOTELS = [];
 
-    const CAT_ICONS = { 'אוכל': '🍜', 'קניות': '🛍️', 'תחבורה': '🚄', 'אטרקציות': '🎟️', 'שונות': '📦', 'מלון': '🏨', 'דלק': '⛽' };
+    const CAT_ICONS = { 'אוכל': '🍜', 'קניות': '🛍️', 'תחבורה': '🚄', 'אטרקציות': '🎟️', 'שונות': '📦', 'מלון': '🏨', 'דלק': '⛽', 'זיכוי': '↩️' };
+    // Refund ("זיכוי", e.g. a tax-free refund): stored as an expense with a NEGATIVE amount and this category, always both.
+    // Its payment method says where the money came back to: cash / LAYA / Suica go up, a card refund lowers the card charges, ביט touches no wallet.
+    const REFUND_CAT = 'זיכוי';
+    const REFUND_PAYS = ['מזומן', 'אשראי'];   // a refund comes back only in cash or to the credit card
+    const isRefund = e => !!e && e.amount < 0;
+    // where a refund went, as "יוחזר …" / "חזרו …" says it
+    const REFUND_TO_TXT = { 'מזומן': 'למזומן', 'LAYA': 'ל-LAYA', 'Suica': 'ל-Suica', 'אשראי': 'לכרטיס האשראי', 'ביט': 'בביט / העברה' };
+    const refundTo = payment => REFUND_TO_TXT[payment] || 'ל' + payment;
+    const NEG_MSG = 'סכום במינוס נרשם רק כ-↩️ זיכוי: בחרו ↩️ זיכוי או הורידו את המינוס';
     const SUMMARY_CATS = ['אוכל', 'קניות', 'תחבורה', 'מלון', 'אטרקציות', 'שונות'];
 
     let appData = {};
@@ -1211,8 +1229,10 @@
       const sep = /\p{L}$/u.test(r.symbol) ? ' ' : ''; // "Ft 1,000" but "¥1,000"
       return sign + r.symbol + sep + fmt(Math.abs(amount), 0, r.decimals);
     }
-    function ilsRaw(v, d = 2) { return '₪' + fmt(v, d, d); }
-    function usdRaw(v, d = 2) { return '$' + fmt(v, d, d); }
+    // a negative amount keeps its sign in front of the symbol ("-₪120", never "₪-120"); never "-₪0"
+    const negSign = (v, d) => v < 0 && Math.round(Math.abs(v) * Math.pow(10, d)) > 0 ? '-' : '';
+    function ilsRaw(v, d = 2) { return negSign(v, d) + '₪' + fmt(Math.abs(v), d, d); }
+    function usdRaw(v, d = 2) { return negSign(v, d) + '$' + fmt(Math.abs(v), d, d); }
     function money(amount, code) { return ltr(moneyRaw(amount, code)); }
     function ilsStr(v, d = 2) { return ltr(ilsRaw(v, d)); }
     function usdStr(v, d = 2) { return ltr(usdRaw(v, d)); }
@@ -1437,6 +1457,9 @@
         .filter(e => e && validNum(e.amount))
         .map(e => ({ ...e, id: String(e.id || newId()), currency: DEFAULT_RATES[e.currency] ? e.currency : cur }));
       out.expenses.forEach(e => { e.note = typeof e.note === 'string' ? e.note : ''; e.category = typeof e.category === 'string' ? e.category : 'שונות';
+        // a refund is always both: negative amount + ↩️ זיכוי, never shared (kept as is, never turned positive)
+        if (e.amount < 0 && !e.hotelId && !e.resId) { e.category = REFUND_CAT; delete e.shared; }
+        else if (e.category === REFUND_CAT && e.amount > 0 && !e.hotelId && !e.resId) e.amount = -e.amount;
         // shared expense: { partner, their (their part, same currency), splitId } for one other party (the original shape),
         // or with several parties also parts: [{ partner, their, splitId }, ...]; then partner/splitId = the first part and their = all parts together
         const sh = e.shared, okPart = p => p && typeof p === 'object' && typeof p.partner === 'string' && p.partner && validNum(p.their) && p.their > 0 && typeof p.splitId === 'string';
@@ -1714,11 +1737,11 @@
       const w = wallet(code);
       // a wallet in another currency than the trip's is not shown on the home screen, so the warning names its currency
       const where = code !== curCode() ? ` ב-${code}` : '';
-      const warn = w[key] < amount ? `שים לב: יתרת ${WALLET_NAME[key]}${where} ירדה למינוס.` : '';
+      const warn = amount > 0 && w[key] < amount ? `שים לב: יתרת ${WALLET_NAME[key]}${where} ירדה למינוס.` : '';
       w[key] = Math.round((w[key] - amount) * 1e6) / 1e6;
       return warn;
     }
-    const refundNoteFor = payment => WALLET_KEY[payment] ? ` הסכום יוחזר ליתרת ${WALLET_NAME[WALLET_KEY[payment]]}.` : '';
+    const refundNoteFor = (payment, refund) => WALLET_KEY[payment] ? (refund ? ` הסכום ירד מיתרת ${WALLET_NAME[WALLET_KEY[payment]]}.` : ` הסכום יוחזר ליתרת ${WALLET_NAME[WALLET_KEY[payment]]}.`) : '';
 
     // Set a wallet to its real balance (what's actually on the card / in the wallet)
     function setWalletBalance(key) {
@@ -1791,10 +1814,14 @@
       // which the home screen does not show. Suica is a Japan card: offered only for yen expenses.
       const suicaOn = code === 'JPY' && !other;
       const grid = document.getElementById('pay-grid');
-      grid.querySelectorAll('.chip-btn').forEach(b => { b.style.display = other && b.dataset.val !== 'אשראי' ? 'none' : ''; });
+      const refund = refundPicked();       // a refund: cash or credit only
+      grid.querySelectorAll('.chip-btn').forEach(b => { b.style.display = (other && b.dataset.val !== 'אשראי') || (refund && !REFUND_PAYS.includes(b.dataset.val)) ? 'none' : ''; });
       const payChip = document.getElementById('pay-card-chip');
-      payChip.style.display = suicaOn ? '' : 'none';
-      grid.style.gridTemplateColumns = other ? '1fr' : suicaOn ? '' : 'repeat(3, 1fr)';
+      payChip.style.display = suicaOn && !refund ? '' : 'none';
+      const bitChip = document.getElementById('pay-bit-chip');
+      if (bitChip) bitChip.style.display = 'none';
+      const nPay = other ? 1 : refund ? 2 : 3 + (suicaOn ? 1 : 0);
+      grid.style.gridTemplateColumns = other ? '1fr' : nPay === 4 ? '' : `repeat(${nPay}, 1fr)`;
       const hiddenSel = grid.querySelector('.chip-btn.selected');
       if (!hiddenSel || hiddenSel.style.display === 'none') {
         grid.querySelectorAll('.chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === (other ? 'אשראי' : 'מזומן')));
@@ -1850,10 +1877,14 @@
     function autoPay() {
       const pa = appData.settings.payAuto || (appData.settings.payAuto = normPayAuto());
       if (payTouched) { renderPayAutoNote(null); return; }
-      const amount = parseFloat(document.getElementById('inp-amount').value) || 0;
+      const amount = Math.abs(parseFloat(document.getElementById('inp-amount').value) || 0);
       const ils = amount * rateOf(expCode()).ils;          // value in ₪ before the card fee
       if (expCode() !== curCode()) {                       // another currency than the trip's: credit only (see renderExpCurrency)
         document.querySelectorAll('#pay-grid .chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === 'אשראי'));
+        renderPayAutoNote(null); return;
+      }
+      if (refundPicked()) {                                // a refund: where the money comes back to, not by size (default cash)
+        document.querySelectorAll('#pay-grid .chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === 'מזומן'));
         renderPayAutoNote(null); return;
       }
       const method = pa.on ? autoPayMethod(ils) : 'מזומן';  // turned off: plain default (cash)
@@ -1942,24 +1973,47 @@
     function selectChip(groupId, element) {
       document.getElementById(groupId).querySelectorAll('.chip-btn').forEach(btn => btn.classList.remove('selected'));
       element.classList.add('selected');
-      if (groupId === 'pay-grid') updateLivePreview(); else updateKbBar();
+      if (groupId === 'pay-grid') updateLivePreview();
+      else if (groupId === 'cat-grid') catPicked();
+      else updateKbBar();
+    }
+
+    // ---------- Refund in the add form: ↩️ זיכוי picked, or a minus typed (Samsung's keypad has one; the iPhone's doesn't) ----------
+    const refundPicked = () => selectedVal('cat-grid') === REFUND_CAT;
+    let amtWasNeg = false;      // typing the minus picks ↩️ זיכוי once; picking another category afterwards shows NEG_MSG
+    function formAmount() {     // the amount the add form will store: negative for a refund
+      const v = parseFloat(document.getElementById('inp-amount').value) || 0;
+      return refundPicked() ? -Math.abs(v) : v;
+    }
+    function pickCatChip(v) { document.querySelectorAll('#cat-grid .chip-btn').forEach(b => b.classList.toggle('selected', b.dataset.val === v)); }
+    function catPicked() {
+      const v = parseFloat(document.getElementById('inp-amount').value) || 0;
+      if (v < 0 && !refundPicked()) showMsg('expense-msg', NEG_MSG, 'error');
+      if (refundPicked()) shareSt = { on: false, partner: '', repaid: 'no' };   // a refund is never shared
+      renderExpCurrency();   // payment chips (ביט for a refund) + preview + kb bar
+      renderAddShare();
     }
 
     function updateLivePreview() {
+      const raw = parseFloat(document.getElementById('inp-amount').value) || 0;
+      if (raw < 0 && !amtWasNeg && !refundPicked()) { amtWasNeg = true; pickCatChip(REFUND_CAT); catPicked(); return; }
+      amtWasNeg = raw < 0;
       autoPay();
-      const amount = parseFloat(document.getElementById('inp-amount').value) || 0;
+      const amount = formAmount();
       const payment = selectedVal('pay-grid');
       const code = expCode();
-      const label = CARD_METHODS.includes(payment) && code !== 'ILS' ? `עלות + ${appData.settings.fee}% עמלה:` : 'עלות:';
-      document.getElementById('ui-live-preview').innerHTML =
-        `<span>${label}</span><span>${ilsStr(toIls(amount, code, payment))}  |  ${usdStr(toUsd(amount, code, payment))}</span>`;
+      const label = refundPicked() ? `↩️ זיכוי: יוחזר ${refundTo(payment)}` + (CARD_METHODS.includes(payment) && code !== 'ILS' ? ` (כולל ${appData.settings.fee}% עמלה)` : '') + ':'
+        : CARD_METHODS.includes(payment) && code !== 'ILS' ? `עלות + ${appData.settings.fee}% עמלה:` : 'עלות:';
+      const el = document.getElementById('ui-live-preview');
+      el.classList.toggle('refund', refundPicked());
+      el.innerHTML = `<span>${label}</span><span>${ilsStr(toIls(amount, code, payment))}  |  ${usdStr(toUsd(amount, code, payment))}</span>`;
       updateKbBar();
     }
     // slim Save bar above the keyboard: shown only with an amount typed; says what will be saved
     function updateKbBar() {
       const bar = document.getElementById('kb-save-bar'); if (!bar) return;
-      const amount = parseFloat(document.getElementById('inp-amount').value) || 0;
-      const on = amount > 0 && isFinite(amount);
+      const amount = formAmount();
+      const on = amount !== 0 && isFinite(amount);
       document.body.classList.toggle('has-amt', on);
       if (!on) return;
       const cat = selectedVal('cat-grid') || '', pay = selectedVal('pay-grid') || '';
@@ -1980,27 +2034,31 @@
     const lastSave = {};   // form → time of its last successful save (a quick second tap must not show an error)
     const justSaved = k => Date.now() - (lastSave[k] || 0) < 1500;
     function saveExpense() {
-      const amount = parseFloat(document.getElementById('inp-amount').value);
+      const typed = parseFloat(document.getElementById('inp-amount').value);
       if (!document.getElementById('inp-amount').value && justSaved('exp')) return;
-      if (!amount || amount <= 0 || !isFinite(amount)) { showMsg('expense-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (!typed || !isFinite(typed)) { showMsg('expense-msg', 'אנא הזן סכום חוקי', 'error'); return; }
+      if (typed < 0 && !refundPicked()) { showMsg('expense-msg', NEG_MSG, 'error'); return; }   // a negative amount is a refund only
+      const refund = refundPicked(), amount = Math.abs(typed);   // checked as a positive amount; a refund is stored negative
       if (amount > 1e9) { showMsg('expense-msg', 'הסכום גדול מדי', 'error'); return; }
 
       const code = expCode();
       if (Math.round(amount * Math.pow(10, rateOf(code).decimals)) === 0) { showMsg('expense-msg', 'הסכום קטן מדי עבור המטבע', 'error'); return; }
       const dayIso = expDayIso();
       if (!ISO_DATE.test(dayIso)) { showMsg('expense-msg', 'אנא בחר תאריך', 'error'); return; }
-      if (isSolo()) shareSt = { on: false, partner: '', repaid: 'no' };   // traveling alone: a share left on earlier never applies
+      if (isSolo() || refund) shareSt = { on: false, partner: '', repaid: 'no' };   // traveling alone / a refund: a share left on earlier never applies
       if (shareSt.on && !splitCounterparts().length) { showMsg('expense-msg', 'להוצאה משותפת: הוסיפו קודם שמות בהגדרות', 'error'); return; }
       if (shareMissing(shareSt)) { showMsg('expense-msg', 'בחרו עבור מי שילמתם', 'error'); return; }
       const category = selectedVal('cat-grid');
       // another currency than the trip's is paid by credit in the add form (its cash/LAYA/Suica wallets are not on screen)
-      const payment = code !== curCode() ? 'אשראי' : selectedVal('pay-grid');
+      let payment = code !== curCode() ? 'אשראי' : selectedVal('pay-grid');
+      if (category === REFUND_CAT && !REFUND_PAYS.includes(payment)) payment = 'מזומן';   // a refund: cash or credit only
       const note = document.getElementById('inp-note').value.trim() || category;
 
-      const warn = spendFrom(payment, code, amount);
+      const stored = refund ? -amount : amount;
+      const warn = spendFrom(payment, code, stored);   // a refund raises the wallet it came back to (never a "ירד למינוס" warning)
 
       appData.expenses.unshift({
-        id: newId(), amount, currency: code, category, payment, note,
+        id: newId(), amount: stored, currency: code, category, payment, note,
         // today keeps the real time; another day is stored at noon so it always lands on that day
         date: (dayIso === dateToIso(new Date()) ? new Date() : isoToDate(dayIso)).toISOString()
       });
@@ -2009,6 +2067,7 @@
       document.getElementById('inp-note').value = '';
       expCur = null; expDay = 'today';      // back to trip currency and today
       payTouched = false;                   // next expense: payment method chosen by amount again
+      if (refund) pickCatChip('אוכל');      // the next expense must not become a refund by mistake
 
       lastSave.exp = Date.now();
       const st = shareSt;
@@ -2020,6 +2079,7 @@
       saveData();
       if (persistFailed) showMsg('expense-msg', '⚠️ ההוצאה נרשמה אבל לא נשמרה בזיכרון הטלפון (הזיכרון מלא). ראו את ההודעה האדומה.', 'error');
       else if (warn) showMsg('expense-msg', 'ההוצאה נשמרה' + shTxt + '. ' + warn, 'warn');
+      else if (refund) showMsg('expense-msg', `↩️ הזיכוי נשמר: ${money(stored, code)} חזרו ${refundTo(payment)}`, 'ok');
       else showMsg('expense-msg', shTxt ? 'הוצאה נשמרה' + shTxt : 'הוצאה נשמרה בהצלחה!', 'ok', !shTxt);   // plain success: the green Save button already says it
       if (!persistFailed) savedFeedback(appData.expenses[0]);
     }
@@ -2077,7 +2137,20 @@
         if (!displayList.length) { listEl.innerHTML = ''; moreEl.innerHTML = ''; return; }
       } else infoEl.hidden = true;
 
-      listEl.innerHTML = displayList.map(exp => `
+      listEl.innerHTML = displayList.map(exp => isRefund(exp) ? `
+        <div class="expense-item refund-item">
+          <div class="exp-icon">${CAT_ICONS[REFUND_CAT]}</div>
+          <div class="exp-details">
+            <div class="exp-title">${escapeHtml(exp.note)}</div>
+            <div class="exp-meta"><span class="refund-tag">↩️ זיכוי</span> • ${escapeHtml(payLabel(exp.payment, exp.currency))} • ${expenseWhen(exp.date)}</div>
+          </div>
+          <div class="exp-amounts">
+            <div class="exp-main refund-amt">${signedMoney(exp.amount, exp.currency)}</div>
+            ${exp.currency === 'ILS' ? '' : `<div class="exp-sub refund-amt">${ilsStr(toIls(exp.amount, exp.currency, exp.payment))}</div>`}
+          </div>
+          <button class="edit-btn" data-id="${escapeHtml(exp.id)}" onclick="editExpense(this.dataset.id)" aria-label="ערוך" title="עריכה">✏️</button>
+          <button class="del-btn" data-id="${escapeHtml(exp.id)}" onclick="deleteExpense(this.dataset.id)" aria-label="מחק" title="מחק">🗑️</button>
+        </div>` : `
         <div class="expense-item">
           <div class="exp-icon">${CAT_ICONS[exp.category] || '🛒'}</div>
           <div class="exp-details">
@@ -2270,6 +2343,7 @@
     let shareSt = { on: false, partner: '', repaid: 'no' };
     function renderAddShare() {
       const el = document.getElementById('share-box');
+      if (el && refundPicked()) { el.innerHTML = ''; return; }   // a refund is never shared
       if (el) renderShareInto(el, shareSt, () => parseFloat(document.getElementById('inp-amount').value) || 0, () => expCur || curCode());
     }
     // toast text after saving a shared expense: my part, and what each party owes (or how they paid back)
@@ -2301,11 +2375,11 @@
     function deleteExpense(id) {
       const exp = appData.expenses.find(e => e.id === id);
       if (!exp) return;
-      const refundNote = refundNoteFor(exp.payment);
+      const refundNote = refundNoteFor(exp.payment, isRefund(exp));
       const linked = exp.hotelId ? appData.hotels.find(h => h.id === exp.hotelId) : null;
       const hotelNote = exp.hotelId ? (linked && linked.kind === 'car' ? ' השכרת הרכב תחזור לסטטוס "ממתין".' : ' המלון יחזור לסטטוס "ממתין".') : '';
       confirmDialog({
-        title: 'מחיקת הוצאה',
+        title: isRefund(exp) ? 'מחיקת זיכוי' : 'מחיקת הוצאה',
         text: `למחוק את "${exp.note}" (${money(exp.amount, exp.currency)})?${refundNote}${hotelNote}${exp.shared ? (shareParts(exp).length > 1 ? ` גם הרישומים בקיזוזים (${shareParts(exp).map(p => `${p.partner} – ${money(p.their, exp.currency)}`).join(', ')}) יימחקו.` : ` גם הרישום בקיזוזים (${exp.shared.partner} – ${money(exp.shared.their, exp.currency)}) יימחק.`) : ''}`,
         okLabel: 'מחק', danger: true,
         onOk: () => { removeExpenseRecord(exp); saveData(); }
@@ -3270,14 +3344,18 @@
     }
 
     // ---------- Dashboard (Summary tab): by category + per day, all in shekels ----------
-    const DASH_COLORS = { 'אוכל': 'var(--c-food)', 'קניות': 'var(--c-shop)', 'תחבורה': 'var(--c-trans)', 'מלון': 'var(--c-hotel)', 'אטרקציות': 'var(--c-attr)', 'שונות': 'var(--c-misc)' };
+    const DASH_COLORS = { 'אוכל': 'var(--c-food)', 'קניות': 'var(--c-shop)', 'תחבורה': 'var(--c-trans)', 'מלון': 'var(--c-hotel)', 'אטרקציות': 'var(--c-attr)', 'שונות': 'var(--c-misc)', 'זיכוי': 'var(--accent-green)' };
+    // the category of an expense in summaries: one of SUMMARY_CATS, or ↩️ זיכוי for a refund (kept apart: it is not a slice of the spend)
+    const sumCatOf = e => isRefund(e) ? REFUND_CAT : SUMMARY_CATS.includes(e.category) ? e.category : 'שונות';
     const DASH_MAX_DAYS = 31;
     function dashData() {
       const cats = {}; SUMMARY_CATS.forEach(c => cats[c] = 0);
       const days = {};
+      let refund = 0;   // refunds (negative): lower the total, not a slice of the donut
       appData.expenses.forEach(e => {
         const v = toIls(myAmt(e), e.currency, e.payment);
-        cats[cats[e.category] !== undefined ? e.category : 'שונות'] += v;
+        if (isRefund(e)) refund += v;
+        else cats[cats[e.category] !== undefined ? e.category : 'שונות'] += v;
         const d = new Date(e.date);
         if (isNaN(d)) return;
         const k = dateToIso(d);
@@ -3291,10 +3369,10 @@
         for (let k = keys[0]; k <= last && list.length < 400; k = addDaysIso(k, 1)) list.push({ day: k, v: days[k] || 0 });
         list = list.slice(-DASH_MAX_DAYS);
       }
-      const total = Object.values(cats).reduce((a, b) => a + b, 0);
-      return { cats, list, total };
+      const gross = Object.values(cats).reduce((a, b) => a + b, 0);
+      return { cats, list, total: gross + refund, gross, refund };   // total = net of refunds; gross = what the slices add up to
     }
-    function dashDonut(cats, total) {
+    function dashDonut(cats, total, net = total) {   // slices are parts of the gross spend; the center shows the net total
       const entries = SUMMARY_CATS.map(c => [c, cats[c]]).filter(([, v]) => v > 0);
       const R = 62, r = 40, cx = 100, cy = 76;
       let paths = '', a = -Math.PI / 2;
@@ -3313,19 +3391,21 @@
       }
       return `<svg viewBox="0 0 200 152" role="img" aria-label="הוצאות לפי קטגוריה">${paths}` +
         `<text x="${cx}" y="${cy - 2}" text-anchor="middle" font-size="9" fill="var(--text-muted)">סה"כ</text>` +
-        `<text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text-main)">${escapeHtml(ilsStr(total, 0))}</text></svg>`;
+        `<text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text-main)">${escapeHtml(ilsStr(net, 0))}</text></svg>`;
     }
     function renderDashboard() {
       const el = document.getElementById('ui-dashboard');
       if (!el) return;
-      const { cats, list, total } = dashData();
-      if (!total || !list.length) { el.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; padding:8px 0;">אין הוצאות להצגה עדיין.</div>'; return; }
+      const { cats, list, total, gross, refund } = dashData();
+      if (!(gross || refund) || !list.length) { el.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; padding:8px 0;">אין הוצאות להצגה עדיין.</div>'; return; }
       const todayIso = dateToIso(new Date());
       const todayV = (list.find(x => x.day === todayIso) || { v: 0 }).v;
       const past = list.filter(x => x.day <= todayIso), avgList = past.length ? past : list;
       const avg = avgList.reduce((t, x) => t + x.v, 0) / avgList.length;   // average over days so far (future prepaid bookings don't dilute it)
       const legend = SUMMARY_CATS.filter(c => cats[c] > 0).map(c =>
-        `<div data-dtip="${escapeHtml(`${c} · ${ilsStr(cats[c], 0)} · ${Math.round(cats[c] / total * 100)}%`)}"><i style="background:${DASH_COLORS[c]}"></i>${CAT_ICONS[c] || ''} ${escapeHtml(c)}<span class="v">${escapeHtml(ilsStr(cats[c], 0))}</span><span class="p">${Math.round(cats[c] / total * 100)}%</span></div>`).join('');
+        `<div data-dtip="${escapeHtml(`${c} · ${ilsStr(cats[c], 0)} · ${Math.round(cats[c] / gross * 100)}%`)}"><i style="background:${DASH_COLORS[c]}"></i>${CAT_ICONS[c] || ''} ${escapeHtml(c)}<span class="v">${escapeHtml(ilsStr(cats[c], 0))}</span><span class="p">${Math.round(cats[c] / gross * 100)}%</span></div>`).join('')
+        // refunds: their own row, negative, no percentage (the percentages are of the spend before refunds, so they add up to 100%)
+        + (refund ? `<div class="dash-refund" data-dtip="${escapeHtml(`${REFUND_CAT} · ${ilsStr(refund, 0)} · הוחזר מתוך ההוצאות`)}"><i style="background:${DASH_COLORS[REFUND_CAT]}"></i>${CAT_ICONS[REFUND_CAT]} ${REFUND_CAT}<span class="v">${escapeHtml(ilsStr(refund, 0))}</span><span class="p">—</span></div>` : '');
       el.innerHTML =
         `<div class="dash-kpis">` +
           `<div class="dash-kpi"><small>סה"כ</small><b>${escapeHtml(ilsStr(total, 0))}</b></div>` +
@@ -3333,7 +3413,7 @@
           `<div class="dash-kpi"><small>היום (${ddmm(todayIso)})</small><b>${escapeHtml(ilsStr(todayV, 0))}</b></div>` +
         `</div>` +
         `<div class="dash-title">לפי קטגוריה</div><div class="dash-sub">חלק מסך ההוצאות</div>` +
-        dashDonut(cats, total) + `<div class="dash-legend">${legend}</div>` +
+        (gross > 0 ? dashDonut(cats, gross, total) : '') + `<div class="dash-legend">${legend}</div>` +
         `<div class="dash-tip" id="dash-tip">לחץ על פרוסה לפרטים</div>` +
         `<div class="dash-title" style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;"><span>לפי יום</span><span class="dl-sub" id="dl-range"></span></div>` +
         `<div id="ui-daylist"></div>`;
@@ -3372,7 +3452,7 @@
       appData.expenses.forEach(e => {
         const d = new Date(e.date); if (isNaN(d)) return;
         const k = dateToIso(d);
-        (byDay[k] = byDay[k] || []).push({ e, ils: toIls(myAmt(e), e.currency, e.payment), cat: SUMMARY_CATS.includes(e.category) ? e.category : 'שונות', booking: isBookingExp(e) });
+        (byDay[k] = byDay[k] || []).push({ e, ils: toIls(myAmt(e), e.currency, e.payment), cat: sumCatOf(e), booking: isBookingExp(e) });   // a refund lowers its day's total
       });
       const last = today < end ? today : end, days = [];
       if (start <= last) for (let d = start, n = 0; d <= last && n < 400; d = addDaysIso(d, 1), n++) {
@@ -3441,7 +3521,7 @@
         const pre = x.pre.length ? `<span class="dl-pre">${x.pre.map(p => `<span>${icon(p.cat)} +${num(ils(p.ils))} הזמנה</span>`).join('')}</span>` : '';
         h += `<li class="dl-item${isToday ? ' dl-today' : ''}${isOpen ? ' dl-open' : ''}" data-day="${x.d}"><button type="button" class="dl-row" data-key="${x.d}" aria-expanded="${isOpen}" aria-label="${escapeHtml(ddmm(x.d) + ', ' + ils(x.total))}">` +
           `<span class="dl-date"><span class="dl-dd">${num(ddmm(x.d))}</span>${isToday ? '<span class="dl-chip">היום</span>' : `<span class="dl-wd">יום ${wd(x.d)}</span>`}</span>` +
-          `<span class="dl-bar" aria-hidden="true"><span class="dl-fill" style="width:${(x.total / scale * 100).toFixed(1)}%">${segs}</span>${tick}</span>` +
+          `<span class="dl-bar" aria-hidden="true"><span class="dl-fill" style="width:${(Math.max(0, x.total) / scale * 100).toFixed(1)}%">${segs}</span>${tick}</span>` +
           `<span class="dl-amt${x.total ? '' : ' dl-zero'}">${x.total ? num(ils(x.total)) : '—'}</span>${chev}${pre}</button>` +
           `<div class="dl-detail"${isOpen ? '' : ' hidden'}>` +
           (x.daily.length ? `<div class="dl-cats">${Object.keys(x.cat).sort((a, b) => x.cat[b] - x.cat[a]).map(c => `<span class="dl-cat"><span aria-hidden="true">${icon(c)}</span>${escapeHtml(c)} <b>${num(ils(x.cat[c]))}</b></span>`).join('')}</div>` +
@@ -3580,8 +3660,8 @@
         let lastD = null;
         html += '<div class="cr-list">' + C.items.slice().reverse().map(x => {
           const head = x.d !== lastD ? `<div class="cr-day">${escapeHtml(x.d ? ddmm(x.d) : '—')}${x.pre ? ' · לפני הטיול' : ''}${x.billed ? ' · ✓ חויב' : ''}</div>` : ''; lastD = x.d;
-          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${x.their && !isSolo() ? `<small>🤝 ${escapeHtml(theirPartOf(x.e))} <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
-            <span class="cr-a"><bdi>${escapeHtml(money(x.e.amount, x.e.currency))}</bdi>${x.e.currency === 'ILS' ? '' : `<small><bdi>${escapeHtml(ilsStr(x.ils))}</bdi></small>`}</span></div>`;
+          return head + `<div class="cr-item"><span class="cr-n">${CAT_ICONS[x.e.category] || '📦'} ${escapeHtml(x.e.note || x.e.category)}${isRefund(x.e) ? '<small>↩️ זיכוי לכרטיס</small>' : ''}${x.their && !isSolo() ? `<small>🤝 ${escapeHtml(theirPartOf(x.e))} <bdi>${escapeHtml(money(x.their, x.e.currency))}</bdi> · ${backTxt(x.back)}</small>` : ''}</span>
+            <span class="cr-a${isRefund(x.e) ? ' refund-amt' : ''}"><bdi>${escapeHtml(money(x.e.amount, x.e.currency))}</bdi>${x.e.currency === 'ILS' ? '' : `<small><bdi>${escapeHtml(ilsStr(x.ils))}</bdi></small>`}</span></div>`;
         }).join('') + '</div>';
       }
       el.innerHTML = html;
@@ -3591,9 +3671,10 @@
       const code = curCode();
       const byCat = {};
       SUMMARY_CATS.forEach(c => byCat[c] = { byCur: {}, ils: 0 });
+      byCat[REFUND_CAT] = { byCur: {}, ils: 0 };   // last: refunds, negative
 
       appData.expenses.forEach(e => {
-        const key = byCat[e.category] ? e.category : 'שונות';
+        const key = sumCatOf(e);
         byCat[key].ils += toIls(myAmt(e), e.currency, e.payment);
         byCat[key].byCur[e.currency] = (byCat[key].byCur[e.currency] || 0) + myAmt(e);   // every currency, e.g. "¥8,000 + $1,000"
       });
@@ -3604,10 +3685,11 @@
       const dailyCat = {};
       D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
       const bookCat = {};
-      appData.expenses.forEach(e => { if (!isBookingExp(e)) return; const k = byCat[e.category] ? e.category : 'שונות'; bookCat[k] = (bookCat[k] || 0) + toIls(myAmt(e), e.currency, e.payment); });
+      appData.expenses.forEach(e => { if (!isBookingExp(e)) return; const k = sumCatOf(e); bookCat[k] = (bookCat[k] || 0) + toIls(myAmt(e), e.currency, e.payment); });
       const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || ''))
         .reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
       const avgLine = cat => {
+        if (cat === REFUND_CAT) return '';   // no daily average for refunds themselves (they already lower the trip's average)
         if (cat === 'מלון') return nights ? `ממוצע ללילה: ${ilsStr(byCat[cat].ils / nights, 0)} · ${nights} לילות` : '';
         if (!nDays || !dailyCat[cat]) return '';
         // say what the average is built from, so it is never read as "the total above ÷ days"
@@ -3624,14 +3706,15 @@
       let totalIls = 0;
       let html = '';
       for (const [cat, v] of Object.entries(byCat)) {
-        if (v.ils <= 0) continue;
+        const ref = cat === REFUND_CAT;
+        if (ref ? !Object.values(v.byCur).some(x => x) : v.ils <= 0) continue;
         totalIls += v.ils;
         const avg = avgLine(cat);
         html += `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--card-border);">
+          <div${ref ? ' class="sum-refund"' : ''} style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--card-border);">
             <span>${CAT_ICONS[cat] || ''} ${cat}</span>
             <span style="text-align:left;">
-              <strong style="color:var(--primary);">${escapeHtml(sumsToString(Object.fromEntries(Object.entries(v.byCur).sort(([a], [b]) => (b === code) - (a === code)))))}</strong>
+              <strong style="color:${ref ? 'var(--accent-green)' : 'var(--primary)'};">${escapeHtml(sumsToString(Object.fromEntries(Object.entries(v.byCur).sort(([a], [b]) => (b === code) - (a === code)))))}</strong>
               ${Object.keys(v.byCur).length === 1 && v.byCur.ILS !== undefined && Math.abs(v.ils - v.byCur.ILS) < 0.005 ? '' : `<div style="font-size:0.75rem; color:var(--text-muted);">${ilsStr(v.ils)}</div>`}
               ${avg ? `<div style="font-size:0.75rem; color:var(--accent-green); font-weight:600;">${escapeHtml(avg)}</div>` : ''}
             </span>
@@ -3981,7 +4064,7 @@
     // free expenses (not tied to any booking), closest in amount to the booking first
     function linkCandidates(r) {
       const target = r.price ? toIls(r.price, r.currency, 'אשראי') : 0, cat = resExpenseCategory(r);
-      return appData.expenses.filter(e => !e.resId && !e.hotelId).map(e => {
+      return appData.expenses.filter(e => !e.resId && !e.hotelId && !isRefund(e)).map(e => {
         const same = e.currency === r.currency && r.price && Math.abs(e.amount - r.price) <= Math.max(1, r.price * 0.02);
         const diff = target ? Math.abs(toIls(e.amount, e.currency, e.payment) - target) / target : 1;
         return { e, close: !!same, likely: same || diff < 0.15, score: (same ? 0 : diff) + (e.category === cat ? 0 : 0.3) };
@@ -3989,7 +4072,7 @@
     }
     function linkExpenseToReservation(expId, resId) {
       const e = appData.expenses.find(x => x.id === expId), r = appData.reservations.find(x => x.id === resId);
-      if (!e || !r || appData.expenses.some(x => x.resId === resId)) return;
+      if (!e || !r || isRefund(e) || appData.expenses.some(x => x.resId === resId)) return;   // a refund is never a booking's payment
       e.resId = resId; e.linkedByUser = true;
       saveData();
       showMsg('res-msg', `"${e.note || e.category}" קושרה ל${r.name} – ההזמנה מסומנת כשולמה, והסכום נספר פעם אחת`);
@@ -4005,7 +4088,7 @@
       const linked = appData.expenses.find(e => e.resId === r.id);
       if (!linked) return null;
       const ok = r.notDup || [];
-      return appData.expenses.find(e => e !== linked && !e.resId && !e.hotelId && !ok.includes(e.id) && e.currency === linked.currency
+      return appData.expenses.find(e => e !== linked && !e.resId && !e.hotelId && !isRefund(e) && !ok.includes(e.id) && e.currency === linked.currency
         && Math.abs(e.amount - linked.amount) <= Math.max(1, linked.amount * 0.02)
         && (e.category === linked.category || e.category === resExpenseCategory(r))) || null;
     }
@@ -4621,11 +4704,15 @@ Rules:
       const maxDay = iso > futureLimit() ? iso : futureLimit();   // prepaid bookings keep their travel day; others: up to the trip's end
       const pays = ['אשראי', 'מזומן', 'LAYA'].concat(e.currency === 'JPY' || e.payment === 'Suica' ? ['Suica'] : []);
       if (!pays.includes(e.payment)) pays.push(e.payment);
-      const cats = Object.keys(CAT_ICONS); if (!cats.includes(e.category)) cats.push(e.category);
+      // a refund (↩️ זיכוי) is shown as a positive amount with the category ↩️ זיכוי, and stays negative when saved.
+      // An expense tied to a booking or a hotel can't become a refund.
+      const linkedExp = !!(e.hotelId || e.resId);
+      const cats = Object.keys(CAT_ICONS).filter(c => c !== REFUND_CAT || !linkedExp || e.category === REFUND_CAT); if (!cats.includes(e.category)) cats.push(e.category);
       const canShare = !e.hotelId;   // regular expenses and bookings (flights, cars, trains, tickets); hotels stay per couple
       const ov = openDialog(`
-        <h3>✏️ עריכת הוצאה</h3>
-        <label class="field-label">סכום (${escapeHtml(rateOf(e.currency).symbol)} · ${escapeHtml(e.currency)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(e.amount)}"></label>
+        <h3>✏️ ${isRefund(e) ? 'עריכת זיכוי' : 'עריכת הוצאה'}</h3>
+        <label class="field-label">סכום (${escapeHtml(rateOf(e.currency).symbol)} · ${escapeHtml(e.currency)})<input type="number" class="text-input" data-el="amt" inputmode="decimal" style="direction:ltr;" value="${escapeHtml(Math.abs(e.amount))}"></label>
+        <div class="refund-note" data-el="refnote"></div>
         <label class="field-label">תיאור<input type="text" class="text-input" data-el="note" maxlength="120" value="${escapeHtml(e.note)}"></label>
         <div class="dlg-row">
           <label class="field-label">קטגוריה<select class="select-input" data-el="cat">${optionHtml(cats, e.category, c => (CAT_ICONS[c] || '') + ' ' + c)}</select></label>
@@ -4650,6 +4737,22 @@ Rules:
         const paintShare = () => renderShareInto(q('share'), st, () => parseFloat(q('amt').value) || 0, () => e.currency);
         paintShare(); q('amt').addEventListener('input', () => { if (st.on) paintShare(); });
       }
+      // refund: no sharing, ביט offered as where the money came back to, a short line says what happens
+      const paintRefund = () => {
+        const ref = q('cat').value === REFUND_CAT, ps = q('pay');
+        if (canShare) q('share').style.display = ref ? 'none' : '';
+        // a refund comes back only in cash or to the card: the other payment methods are hidden while ↩️ זיכוי is chosen
+        ps.querySelectorAll('option').forEach(o => { o.hidden = o.disabled = ref && !REFUND_PAYS.includes(o.value); });
+        if (ref && !REFUND_PAYS.includes(ps.value)) ps.value = [...ps.options].some(o => o.value === 'מזומן') ? 'מזומן' : 'אשראי';
+        q('refnote').textContent = ref ? `↩️ זיכוי: נרשם במינוס ומקטין את סך ההוצאות. אמצעי התשלום = לאן הכסף חזר: מזומן או אשראי.` : '';
+        q('refnote').style.display = ref ? '' : 'none';
+      };
+      q('cat').addEventListener('change', paintRefund);
+      q('pay').addEventListener('change', paintRefund);
+      q('amt').addEventListener('input', () => {   // a minus typed here also means a refund
+        if ((parseFloat(q('amt').value) || 0) < 0 && q('cat').value !== REFUND_CAT && cats.includes(REFUND_CAT)) { q('cat').value = REFUND_CAT; paintRefund(); }
+      });
+      paintRefund();
       const origPart = isNaN(d) ? 'exact' : (dayPartOf(d) || 'exact');
       let part = origPart;
       const paintParts = () => {
@@ -4660,29 +4763,37 @@ Rules:
       paintParts();
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
-        const amt = parseFloat(q('amt').value), note = q('note').value.trim(), cat = q('cat').value, pay = q('pay').value, day = q('date').value;
+        const typed = parseFloat(q('amt').value), note = q('note').value.trim(), cat = q('cat').value, day = q('date').value;
+        const refund = cat === REFUND_CAT, amt = Math.abs(typed);
+        let pay = q('pay').value;
+        if (refund && !REFUND_PAYS.includes(pay)) pay = 'מזומן';   // a refund comes back only in cash or to the card
         const hm = part === 'exact' ? q('time').value : DAY_PARTS.find(x => x[0] === part)[2];
         if (!/^\d{2}:\d{2}$/.test(hm || '')) { markBad(q('time')); return; }
+        if (typed < 0 && !refund) { markBad(q('amt')); showToast(NEG_MSG, 'error'); return; }
+        if (refund && linkedExp) { markBad(q('cat')); return; }
         if (!(amt > 0) || amt > 1e9 || Math.round(amt * Math.pow(10, rateOf(e.currency).decimals)) === 0) { markBad(q('amt')); return; }
         if (!ISO_DATE.test(day) || day > maxDay) { markBad(q('date')); showToast(ISO_DATE.test(day) ? `התאריך אחרי סוף הטיול (${ddmm(maxDay)})` : 'נא לבחור תאריך', 'error'); return; }
         if (!appData.expenses.includes(e)) { ov.remove(); return; }
-        if (canShare && shareMissing(st)) { q('share').scrollIntoView({ block: 'center' }); return; }
-        // undo the old payment, then apply the new one: wallets stay exact even when amount or method changed
+        if (canShare && !refund && shareMissing(st)) { q('share').scrollIntoView({ block: 'center' }); return; }
+        // undo the old payment, then apply the new one: wallets stay exact even when amount, method or the sign (refund ↔ expense) changed
         const oldKey = WALLET_KEY[e.payment];
         if (oldKey) { const w = wallet(e.currency); w[oldKey] = Math.round((w[oldKey] + e.amount) * 1e6) / 1e6; }
-        const warn = spendFrom(pay, e.currency, amt);
-        e.amount = amt; e.payment = pay; e.category = cat; e.note = note || cat;
+        const stored = refund ? -amt : amt;
+        const warn = spendFrom(pay, e.currency, stored);
+        const autoNote = !note || (note === e.category && (cat === REFUND_CAT || e.category === REFUND_CAT));   // "זיכוי" as the note follows refund ↔ expense
+        e.amount = stored; e.payment = pay; e.category = cat; e.note = autoNote ? cat : note;
         const origHm = isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
         if (day !== iso || part !== origPart || (part === 'exact' && hm !== origHm)) {   // only touch the date when something changed
           const [Y, M, Dd] = day.split('-').map(Number), [H, Mi] = hm.split(':').map(Number);
           e.date = new Date(Y, M - 1, Dd, H, Mi, 0, 0).toISOString();
         }
         if (e.hotelId) { const h = appData.hotels.find(x => x.id === e.hotelId); if (h) { h.finalPrice = amt; h.payment = pay; } }
-        if (canShare && (st.on || e.shared)) syncShare(e, st);   // amount, date, note or the share itself changed: keep the settlement entry in step
+        if (refund) { if (e.shared) syncShare(e, null); }        // a refund is never shared: its settlement entries go
+        else if (canShare && (st.on || e.shared)) syncShare(e, st);   // amount, date, note or the share itself changed: keep the settlement entry in step
         ov.remove();
         saveData();
         const shTxt = JSON.stringify(st) !== st0 && e.shared ? shareMsg(e, st) : '';
-        showMsg('expense-msg', warn ? 'ההוצאה עודכנה' + shTxt + '. ' + warn : 'ההוצאה עודכנה' + shTxt, warn ? 'warn' : 'ok');
+        showMsg('expense-msg', refund ? '↩️ הזיכוי עודכן' : warn ? 'ההוצאה עודכנה' + shTxt + '. ' + warn : 'ההוצאה עודכנה' + shTxt, warn ? 'warn' : 'ok');
       };
     }
 
@@ -5149,17 +5260,20 @@ Rules:
         }
       }
       const byCat = {};
-      appData.expenses.forEach(e => { const c = SUMMARY_CATS.includes(e.category) ? e.category : 'שונות'; (byCat[c] = byCat[c] || []).push(e); });
-      SUMMARY_CATS.filter(c => byCat[c]).forEach(c => {
-        const r = sumRow(`סה"כ ${c}`, c, byCat[c]);
-        if (all.ils) { const pct = r.ils / all.ils * 100; r.row[11] += ` · ${pct > 0 && pct < 0.5 ? '<1' : Math.round(pct)}%`; }
+      appData.expenses.forEach(e => { const c = sumCatOf(e); (byCat[c] = byCat[c] || []).push(e); });
+      const catRows = SUMMARY_CATS.filter(c => byCat[c]).map(c => sumRow(`סה"כ ${c}`, c, byCat[c]));
+      // percentages are of the spend before refunds, so they add up to 100%; the refunds row has none
+      const gross = byCat[REFUND_CAT] ? num(catRows.reduce((t, r) => t + r.ils, 0)) : all.ils;
+      catRows.forEach(r => {
+        if (gross) { const pct = r.ils / gross * 100; r.row[11] += ` · ${pct > 0 && pct < 0.5 ? '<1' : Math.round(pct)}%`; }
         rows.push(r.row);
       });
+      if (byCat[REFUND_CAT]) { const r = sumRow(`סה"כ ${REFUND_CAT}`, REFUND_CAT, byCat[REFUND_CAT]); r.row[11] = (byCat[REFUND_CAT].length === 1 ? 'זיכוי אחד' : `${byCat[REFUND_CAT].length} זיכויים`) + ' · מקטין את סך ההוצאות'; rows.push(r.row); }
 
       appData.expenses.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(e => {
         used.add(e.currency);
         rows.push(['הוצאה', localDateTime(e.date), '', e.note, e.category, e.payment, myAmt(e), e.currency, ...conv(myAmt(e), e.currency, e.payment), '',
-          [e.shared ? `הוצאה משותפת: שולם ${e.amount} ${e.currency}, ${shareParts(e).map(p => `החלק של ${p.partner} ${p.their}`).join(', ')}` : '', e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
+          [isRefund(e) ? `זיכוי: חזר ${refundTo(e.payment)}` : '', e.shared ? `הוצאה משותפת: שולם ${e.amount} ${e.currency}, ${shareParts(e).map(p => `החלק של ${p.partner} ${p.their}`).join(', ')}` : '', e.hotelId ? ((appData.hotels.find(h => h.id === e.hotelId) || {}).kind === 'car' ? 'השכרת רכב' : 'חיוב מלון') : e.resId ? (k => k === 'flight' ? 'טיסה' : k === 'car' ? 'השכרת רכב' : 'הזמנה')((appData.reservations.find(r => r.id === e.resId) || {}).kind) : '', feeFor(e.payment, e.currency) !== 1 ? `כולל עמלת אשראי ${appData.settings.fee}%` : ''].filter(Boolean).join(' · ')]);
       });
       sortedHotels().forEach(h => {
         used.add(h.currency);
@@ -5208,25 +5322,29 @@ Rules:
 <div class="sub">סה"כ ≈ <b>${esc(ilsStr(CR.total, 0))}</b> · ${esc(Object.entries(CR.byCur).map(([c, v]) => money(v, c)).join(' + '))} · ${CR.items.length} חיובים · כולל עמלת אשראי, לפי השער</div>
 <div class="sub">בזמן הטיול ${esc(ilsStr(CR.tripIls, 0))}${CR.pre.length ? ` · לפני הטיול ${esc(ilsStr(CR.preIls, 0))}${esc(billNote(CR.pre, CR.bill))}` : ''}${CR.billed.length && CR.due.length ? ` · יחויב ב-${esc(ddmm(CR.bill.next))}: ${esc(ilsStr(CR.dueIls, 0))}` : ''}${CR.shared.length && !isSolo() ? ` · מזה החלק של ${esc(othersLabel(sharedNames(CR.shared.map(x => x.e))))} ${esc(ilsStr(CR.theirIls, 0))} (נכנס לקיזוזים)` : ''}</div>${CR.shared.length && !isSolo() ? (isGroup() && splitNetLines().length ? splitNetLines().map(n => `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(n.text)}</div>`).join('')   // a group: one line per party
   : `<div class="sub">⚖️ מאזן הקיזוזים: ${esc(splitNetLines().map(n => n.text).join(' · ') || 'מאוזן ✔️')}</div>`) : ''}
-<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.billed ? ' <span class="ils">· ✓ חויב</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 ${esc(theirPartOf(x.e))} ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
+<div class="tw"><table class="items"><tr><th>תאריך</th><th>תיאור</th><th class="amt">חיוב</th></tr>${CR.items.map(x => `<tr${x.pre ? ' class="muted"' : ''}><td>${esc(x.d ? ddmm(x.d) : '')}</td><td>${esc((CAT_ICONS[x.e.category] || '') + ' ' + (x.e.note || x.e.category))}${isRefund(x.e) ? ' <span class="ils">· ↩️ זיכוי לכרטיס</span>' : ''}${x.pre ? ' <span class="ils">· לפני הטיול</span>' : ''}${x.billed ? ' <span class="ils">· ✓ חויב</span>' : ''}${x.their && !isSolo() ? `<div class="ils">🤝 ${esc(theirPartOf(x.e))} ${esc(money(x.their, x.e.currency))} · ${backTxt(x.back)}</div>` : ''}</td><td class="amt">${esc(money(x.e.amount, x.e.currency))}${x.e.currency === 'ILS' ? '' : ` <span class="ils">(${esc(ilsStr(x.ils, 0))})</span>`}</td></tr>`).join('')}</table></div>
 </section>`;
       const both = e => (e.currency === 'ILS' ? orig(e) : `${orig(e)} <span class="ils">(${ilsStr(ilsOf(e), 0)})</span>`)
         + (e.shared ? ` <span class="ils">🤝 מתוך ${esc(money(e.amount, e.currency))}</span>` : '');
       const dlab = d => { const l = reservationDateLabel(d); return `${l.day} · ${l.top}`; };
       const isoOf = e => { const d = new Date(e.date); return isNaN(d) ? '' : dateToIso(d); };
       const COL = { 'אוכל': '#2a78d6', 'קניות': '#eb6834', 'תחבורה': '#1baf7a', 'מלון': '#eda100', 'אטרקציות': '#8b5cf6', 'שונות': '#e87ba4' };
-      const catOf = e => SUMMARY_CATS.includes(e.category) ? e.category : 'שונות';
+      const catOf = sumCatOf;   // a refund is its own (negative) row
+      COL[REFUND_CAT] = '#059669';
 
       // ---- summary numbers ----
       const total = appData.expenses.reduce((t, e) => t + ilsOf(e), 0);
       const bookTotal = D.bookings.reduce((t, x) => t + x.ils, 0);
-      const byCat = {}; SUMMARY_CATS.forEach(c => byCat[c] = { ils: 0, byCur: {} });
+      const byCat = {}; SUMMARY_CATS.concat(REFUND_CAT).forEach(c => byCat[c] = { ils: 0, byCur: {} });
       appData.expenses.forEach(e => { const c = byCat[catOf(e)]; c.ils += ilsOf(e); c.byCur[e.currency] = (c.byCur[e.currency] || 0) + myAmt(e); });
       const dailyCat = {}; D.days.forEach(d => d.daily.forEach(x => { dailyCat[x.cat] = (dailyCat[x.cat] || 0) + x.ils; }));
       const nights = appData.hotels.filter(h => h.paid && ISO_DATE.test(h.checkIn || '') && ISO_DATE.test(h.checkOut || '')).reduce((t, h) => t + Math.max(0, nightsBetween(h.checkIn, h.checkOut)), 0);
       // average + what it is built from (same wording as the app's category summary)
       const bookCat = {}; appData.expenses.forEach(e => { if (isBookingExp(e)) { const k = catOf(e); bookCat[k] = (bookCat[k] || 0) + ilsOf(e); } });
+      const nRefunds = appData.expenses.filter(isRefund).length;
+      const gross = SUMMARY_CATS.reduce((t, c) => t + byCat[c].ils, 0);   // spend before refunds: the donut and the % column
       const avgOf = c => {
+        if (c === REFUND_CAT) return '—';
         if (c === 'מלון') return nights ? `<b>${esc(ilsStr(byCat[c].ils / nights, 0))} ללילה</b><small>${nights} לילות</small>` : '—';
         const base = dailyCat[c] || 0;
         if (!D.days.length || !base) return '—';
@@ -5241,11 +5359,11 @@ Rules:
       // donut (static SVG)
       const ent = SUMMARY_CATS.filter(c => byCat[c].ils > 0).map(c => [c, byCat[c].ils]);
       let donut = '';
-      if (total > 0) {
+      if (gross > 0) {
         const R = 70, r = 44, cx = 80, cy = 80; let a = -Math.PI / 2;
         if (ent.length === 1) donut = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${COL[ent[0][0]]}" stroke-width="${R - r}"/>`;
         else ent.forEach(([c, v]) => {
-          const b = a + v / total * Math.PI * 2, large = b - a > Math.PI ? 1 : 0;
+          const b = a + v / gross * Math.PI * 2, large = b - a > Math.PI ? 1 : 0;
           const P = (rad, ang) => `${(cx + rad * Math.cos(ang)).toFixed(2)} ${(cy + rad * Math.sin(ang)).toFixed(2)}`;
           donut += `<path d="M ${P(R, a)} A ${R} ${R} 0 ${large} 1 ${P(R, b)} L ${P(r, b)} A ${r} ${r} 0 ${large} 0 ${P(r, a)} Z" fill="${COL[c]}"/>`;
           a = b;
@@ -5260,11 +5378,12 @@ Rules:
         const segs = SUMMARY_CATS.filter(c => d.cat[c]).map(c => `<i style="background:${COL[c]};flex:${d.cat[c].toFixed(2)} 0 0"></i>`).join('');
         const rows = details ? d.daily.slice().sort((a, b) => b.ils - a.ils).map(x => itemRow(x)).join('') + d.pre.map(x => itemRow(x, true)).join('') : '';
         const catLine = SUMMARY_CATS.filter(c => d.cat[c]).sort((a, b) => d.cat[b] - d.cat[a])
-          .map(c => `<span class="cl"><i class="dot" style="background:${COL[c]}"></i>${CAT_ICONS[c] || ''} ${esc(ilsStr(d.cat[c], 0))}</span>`).join('');
+          .map(c => `<span class="cl"><i class="dot" style="background:${COL[c]}"></i>${CAT_ICONS[c] || ''} ${esc(ilsStr(d.cat[c], 0))}</span>`).join('')
+          + (d.cat[REFUND_CAT] ? `<span class="cl rf"><i class="dot" style="background:${COL[REFUND_CAT]}"></i>${CAT_ICONS[REFUND_CAT]} ${esc(ilsStr(d.cat[REFUND_CAT], 0))}</span>` : '');
         const n = d.daily.length;
         return `<div class="day${d.d === today ? ' today' : ''}">
           <div class="day-h"><span class="dn">${i + 1}</span><b>${esc(dlab(d.d))}</b>${d.d === today ? '<span class="chip">היום</span>' : ''}<span class="dt">${d.total ? esc(ilsStr(d.total, 0)) : '—'}</span></div>
-          ${d.total ? `<div class="bar"><span style="width:${(d.total / scale * 100).toFixed(1)}%">${segs}</span></div>` : ''}
+          ${d.total ? `<div class="bar"><span style="width:${(Math.max(0, d.total) / scale * 100).toFixed(1)}%">${segs}</span></div>` : ''}
           ${details ? (rows ? `<table class="items">${rows}</table>` : '<div class="none">אין הוצאות</div>')
                     : (catLine ? `<div class="cats">${catLine}<span class="sub">${n} הוצאות</span></div>` : '<div class="none">אין הוצאות</div>')}
         </div>`;
@@ -5301,7 +5420,10 @@ Rules:
       const ver = (document.querySelector('[data-appver]') || {}).textContent || '';
       const kpi = (k, v, sub) => `<div class="kpi"><small>${k}</small><b>${v}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
       const catRows = SUMMARY_CATS.filter(c => byCat[c].ils > 0).map(c => `<tr><td class="cn"><i class="dot" style="background:${COL[c]}"></i>${CAT_ICONS[c] || ''} ${c}</td>
-        <td class="amt co">${esc(sumsToString(curOrder(byCat[c].byCur)))}</td><td class="amt ci">${esc(ilsStr(byCat[c].ils, 0))}</td><td class="c cp">${Math.round(byCat[c].ils / total * 100)}%</td><td class="avg ca">${avgOf(c)}</td></tr>`).join('');
+        <td class="amt co">${esc(sumsToString(curOrder(byCat[c].byCur)))}</td><td class="amt ci">${esc(ilsStr(byCat[c].ils, 0))}</td><td class="c cp">${Math.round(byCat[c].ils / gross * 100)}%</td><td class="avg ca">${avgOf(c)}</td></tr>`).join('')
+        // refunds: a negative row with no percentage (the % column is of the spend before refunds, so it adds up to 100%)
+        + (nRefunds ? `<tr class="rf"><td class="cn"><i class="dot" style="background:${COL[REFUND_CAT]}"></i>${CAT_ICONS[REFUND_CAT]} ${REFUND_CAT}</td>
+        <td class="amt co">${esc(sumsToString(curOrder(byCat[REFUND_CAT].byCur)))}</td><td class="amt ci">${esc(ilsStr(byCat[REFUND_CAT].ils, 0))}</td><td class="c cp">—</td><td class="avg ca">—</td></tr>` : '');
       const title = tripTitle(), flag = (rateOf(code).flag || '');
 
       return stripLtr(`<!doctype html>
@@ -5351,6 +5473,7 @@ a{text-decoration:none}
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tag{font-size:.65rem;border:1px solid var(--line);border-radius:6px;padding:0 5px}
 .none{color:var(--muted);font-size:.8rem;margin-top:4px}
+.rf td,.rf .amt,.cl.rf{color:var(--green)}
 .cats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.8rem;align-items:center}.cl{white-space:nowrap;direction:ltr;unicode-bidi:isolate}.cats .sub{margin-inline-start:auto}
 .foot{color:var(--muted);font-size:.72rem;text-align:center;margin:12px 0 24px}
 @media (max-width:520px){.sumgrid{grid-template-columns:1fr;justify-items:center}.items .pay{display:none}
@@ -5384,12 +5507,12 @@ a{text-decoration:none}
 
 <section class="card"><h2>📊 סיכום</h2>
 <div class="kpis">
-${kpi('סה"כ הוצאות', esc(ilsStr(total, 0)), 'כולל הזמנות')}
+${kpi('סה"כ הוצאות', esc(ilsStr(total, 0)), nRefunds ? 'כולל הזמנות · אחרי זיכויים' : 'כולל הזמנות')}
 ${kpi('ממוצע ליום בטיול', esc(ilsStr(D.avg, 0)), `${D.days.length} ימים · בלי הזמנות`)}
 ${kpi('הזמנות', esc(ilsStr(bookTotal, 0)), `${D.bookings.length} חיובים`)}
 ${kpi('יתרות', esc(money(w.cash, code)), `LAYA ${esc(money(w.laya, code))}${code === 'JPY' ? ` · Suica ${esc(money(w.suica, code))}` : ''}`)}
 </div>
-${total > 0 ? `<div class="sumgrid">${donut}<table class="cats"><tr><th>קטגוריה</th><th class="amt">סכום</th><th class="amt">₪</th><th class="c">%</th><th>ממוצע</th></tr>${catRows}</table></div>
+${gross > 0 || nRefunds ? `<div class="sumgrid">${donut}<table class="cats"><tr><th>קטגוריה</th><th class="amt">סכום</th><th class="amt">₪</th><th class="c">%</th><th>ממוצע</th></tr>${catRows}</table></div>
 <div class="note">הממוצע ליום מחושב על ימי הטיול עד היום, בלי הזמנות (טיסות, מלונות, רכב, כרטיסים) ובלי קניות מלפני הטיול. במלונות: ממוצע ללילה. סכומים בשקלים כוללים עמלת אשראי.</div>` : '<div class="note">טרם נרשמו הוצאות.</div>'}
 </section>
 
@@ -5925,7 +6048,7 @@ ${opts && opts.exec ? '' : creditSec}
     // once per id: a second tap on the same link only says it is already saved.
     const LINK_SEEN_KEY = 'yudaleLinkSeen';
     const LINK_CATS = ['אוכל', 'קניות', 'תחבורה', 'אטרקציות', 'שונות'];
-    const LINK_PAYS = ['מזומן', 'אשראי', 'LAYA', 'Suica'];
+    const LINK_PAYS = ['מזומן', 'אשראי', 'LAYA', 'Suica', 'ביט'];   // ביט: refunds only (the chip shows only for ↩️ זיכוי)
     function linkSeen() { try { const a = JSON.parse(localStorage.getItem(LINK_SEEN_KEY)); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
     function linkMarkSeen(id) { try { const a = linkSeen().filter(x => x !== id); a.push(id); localStorage.setItem(LINK_SEEN_KEY, JSON.stringify(a.slice(-300))); } catch (_) {} }
     function linkDecode(s) {
@@ -5938,14 +6061,14 @@ ${opts && opts.exec ? '' : creditSec}
       try {
         const x = linkDecode(m[1]);
         const a = Number(x.a);
-        if (!x || typeof x.id !== 'string' || !x.id || !(a > 0) || !isFinite(a) || a > 1e9) return null;
+        if (!x || typeof x.id !== 'string' || !x.id || !a || !isFinite(a) || Math.abs(a) > 1e9) return null;   // a < 0: a refund
         if (x.c != null && !(typeof x.c === 'string' && DEFAULT_RATES[x.c])) return { badCurrency: String(x.c).slice(0, 8) };   // never save it in the wrong currency
         return {
-          id: x.id.slice(0, 40), amount: a,
+          id: x.id.slice(0, 40), amount: Math.abs(a),
           currency: typeof x.c === 'string' && DEFAULT_RATES[x.c] ? x.c : null,
-          category: LINK_CATS.includes(x.k) ? x.k : 'שונות',
+          category: a < 0 || x.k === REFUND_CAT ? REFUND_CAT : LINK_CATS.includes(x.k) ? x.k : 'שונות',
           note: typeof x.n === 'string' ? x.n.trim().slice(0, 120) : '',
-          payment: LINK_PAYS.includes(x.p) ? x.p : null,
+          payment: LINK_PAYS.includes(x.p) && ((a < 0 || x.k === REFUND_CAT) ? REFUND_PAYS.includes(x.p) : x.p !== 'ביט') ? x.p : null,   // a refund: cash or credit only
           day: ISO_DATE.test(x.d || '') && dateToIso(isoToDate(x.d)) === x.d ? x.d : null
         };
       } catch (_) { return null; }
@@ -5959,7 +6082,7 @@ ${opts && opts.exec ? '' : creditSec}
       const have = appData.expenses.find(e => e.lnk === x.id);
       if (have) { showToast(`✓ ההוצאה הזאת כבר נשמרה (${have.note} · ${money(have.amount, have.currency)})`); return; }
       if (linkSeen().includes(x.id)) {
-        confirmDialog({ title: 'להוסיף שוב?', text: `ההוצאה "${x.note || x.category}" (${money(x.amount, x.currency || curCode())}) כבר נוספה מהקישור הזה ונמחקה אחר כך. להוסיף אותה שוב?`,
+        confirmDialog({ title: 'להוסיף שוב?', text: `ההוצאה "${x.note || x.category}" (${money(x.category === REFUND_CAT ? -x.amount : x.amount, x.currency || curCode())}) כבר נוספה מהקישור הזה ונמחקה אחר כך. להוסיף אותה שוב?`,
           okLabel: 'הוסף', onOk: () => addLinkExpense(x) });
         return;
       }
