@@ -1056,6 +1056,8 @@
         <div id="backup-status" class="status-box"></div>
         <div id="snapshot-list" class="scroll-list short"></div>
         <div class="scroll-hint" data-for="snapshot-list"></div>
+        <div class="field-label" style="margin-top:14px;">🧳 טיולים קודמים</div>
+        <div id="trip-archive"></div>
         <button class="primary-btn btn-secondary" style="margin-top:12px;" onclick="exportData()">📥 גבה לקובץ עכשיו</button>
       </div>
 
@@ -1069,7 +1071,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 59 · 20/11/2026 · f0a877</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 60 · 20/11/2026 · 8b69fc</span></div>
     </div>
 
   </div>
@@ -4883,6 +4885,64 @@ Rules:
         catch (e) { if (snaps.days.length <= 1) return false; snaps.days.pop(); } // storage full: drop the oldest copy
       }
     }
+    // Earlier trips: a full copy of each trip, kept inside the app (not only 7 days), taken when a new trip starts,
+    // or before a backup / an older trip replaces the current one
+    const TRIPS_KEY = 'japanTrackerTrips_v1';
+    function readTrips() {
+      try { const x = JSON.parse(localStorage.getItem(TRIPS_KEY)); if (Array.isArray(x)) return x.filter(t => t && t.id && typeof t.json === 'string'); }
+      catch (e) { /* none yet */ }
+      return [];
+    }
+    function writeTrips(list) {
+      for (;;) {
+        try { localStorage.setItem(TRIPS_KEY, JSON.stringify(list)); return true; }
+        catch (e) { if (list.length <= 1) return false; list.pop(); }   // storage full: drop the oldest trip
+      }
+    }
+    const tripIdOf = () => tripTitle() + '|' + (tripRange().start || '');
+    function archiveCurrentTrip() {
+      if (!hasUserData()) return true;
+      const r = tripRange(), json = JSON.stringify(appData);
+      const entry = { id: tripIdOf(), title: tripTitle(), slug: tripSlug(), start: r.start || '', end: r.end || '', at: new Date().toISOString(), info: snapInfo(json), json };
+      const list = readTrips().filter(t => t.id !== entry.id);
+      list.unshift(entry);
+      const ok = writeTrips(list) && readTrips().some(t => t.id === entry.id);
+      if (!ok) showToast('אין מספיק מקום לשמור עותק של הטיול באפליקציה. כדאי להוריד קובץ גיבוי.', 'error');
+      return ok;
+    }
+    function renderTripArchive() {
+      const box = document.getElementById('trip-archive');
+      if (!box) return;
+      const cur = tripIdOf(), list = readTrips();
+      box.innerHTML = list.length ? list.map(t => `<div class="snap-row"><div>${escapeHtml(t.title)}${t.id === cur ? ' <b>(הטיול הנוכחי)</b>' : ''}<small>${t.start ? escapeHtml(ddmm(t.start) + ' – ' + ddmm(t.end)) + ' · ' : ''}${escapeHtml(t.info || '')} · נשמר ${escapeHtml(dateLabel(t.at))}</small></div>
+          <span style="display:flex; gap:6px; flex-wrap:wrap;"><button onclick="downloadArchivedTrip('${escapeHtml(t.id)}')" aria-label="הורד קובץ">⬇️ קובץ</button>${t.id === cur ? '' : `<button onclick="restoreArchivedTrip('${escapeHtml(t.id)}')">↩️ פתח</button>`}<button onclick="deleteArchivedTrip('${escapeHtml(t.id)}')" aria-label="מחק">🗑️</button></span></div>`).join('')
+        : '<p style="font-size:0.8rem;color:var(--text-muted);">כשתתחילו טיול חדש, עותק מלא של הטיול הנוכחי יישמר כאן.</p>';
+    }
+    const archivedTrip = id => readTrips().find(t => t.id === id);
+    function downloadArchivedTrip(id) {
+      const t = archivedTrip(id); if (!t) return;
+      const name = backupFileName(t.slug || 'trip');
+      downloadJson(t.json, name);
+      showMsg('settings-msg', `הקובץ הורד לתיקיית ההורדות: ${name}`);
+    }
+    function restoreArchivedTrip(id) {
+      const t = archivedTrip(id); if (!t) return;
+      confirmDialog({ title: '↩️ פתיחת טיול קודם', text: `לפתוח את "${t.title}" במקום הטיול הנוכחי? הטיול הנוכחי יישמר ברשימת הטיולים הקודמים, כך ששום דבר לא יאבד.`, okLabel: 'פתח',
+        onOk: () => {
+          let data;
+          try { data = normalize(JSON.parse(t.json)); } catch (e) { showMsg('settings-msg', 'העותק פגום ולא ניתן לפתוח', 'error'); return; }
+          if (!archiveCurrentTrip()) return;
+          saveSafetyCopy('לפני פתיחת טיול קודם');
+          appData = data; wallet(); saveData();
+          showMsg('settings-msg', `${t.title} נפתח`);
+        } });
+    }
+    function deleteArchivedTrip(id) {
+      const t = archivedTrip(id); if (!t) return;
+      confirmDialog({ title: '🗑️ מחיקת עותק', text: `למחוק את העותק של "${t.title}" מהאפליקציה? קבצי גיבוי שהורדתם לא נמחקים.`, okLabel: 'מחק', danger: true,
+        onOk: () => { writeTrips(readTrips().filter(x => x.id !== id)); renderTripArchive(); } });
+    }
+
     // First time the app is opened each day: keep a copy of the data as it stands (newest first, 7 days)
     function takeDailySnapshot() {
       if (!hasUserData()) return;
@@ -4965,6 +5025,7 @@ Rules:
       document.getElementById('snapshot-list').innerHTML = rows.length
         ? rows.map(r => `<div class="snap-row"><div>${escapeHtml(r.title)}<small>${escapeHtml(r.sub)}</small></div><button onclick="restoreSnapshot('${escapeHtml(r.id)}')">שחזר</button></div>`).join('')
         : '<p style="font-size:0.8rem;color:var(--text-muted);">עותק ראשון יישמר ביום הבא שתפתח את האפליקציה עם נתונים.</p>';
+      renderTripArchive();
     }
 
     function initBackup() {
@@ -5007,16 +5068,41 @@ Rules:
     }
 
     // ---------- Data management ----------
+    // backup file names: trip in Latin letters + date + time, so two trips (or two backups of one day) never share a name
+    const TRIP_EN = { JPY: 'Japan', EUR: 'Europe', USD: 'USA', GBP: 'UK', THB: 'Thailand', CHF: 'Switzerland', CZK: 'Czechia', HUF: 'Hungary',
+      PLN: 'Poland', TRY: 'Turkey', GEL: 'Georgia', AED: 'UAE', EGP: 'Egypt', JOD: 'Jordan', CAD: 'Canada', AUD: 'Australia', NZD: 'NewZealand',
+      KRW: 'Korea', CNY: 'China', VND: 'Vietnam', INR: 'India', MXN: 'Mexico', BRL: 'Brazil', ARS: 'Argentina', ISK: 'Iceland', NOK: 'Norway',
+      SEK: 'Sweden', DKK: 'Denmark', RON: 'Romania', BGN: 'Bulgaria', MAD: 'Morocco', ZAR: 'SouthAfrica', SGD: 'Singapore', HKD: 'HongKong',
+      IDR: 'Indonesia', PHP: 'Philippines', MYR: 'Malaysia', ILS: 'Israel', TWD: 'Taiwan', PEN: 'Peru', CLP: 'Chile', COP: 'Colombia', LKR: 'SriLanka', NPR: 'Nepal' };
+    function tripSlug(data = appData) {
+      const st = data.settings || {}, code = st.currency || 'JPY';
+      const custom = (!st.tripNameAuto && st.tripName ? st.tripName : '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const base = /[A-Za-z]/.test(custom) ? custom : (TRIP_EN[code] || code);
+      let y = st.tripYear;
+      if (!y) { const f = (data.hotels || []).map(h => h.checkIn).filter(Boolean).sort()[0]; y = f ? f.slice(0, 4) : ''; }
+      return (y && !String(base).includes(String(y)) ? `${base}-${y}` : base).slice(0, 40);
+    }
+    function backupFileName(slug) {
+      const d = new Date();
+      return `yudale_${slug}_${dateToIso(d)}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.json`;
+    }
+    function downloadJson(json, filename) {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
     function exportData() {   // always a direct download (no share sheet)
       const json = JSON.stringify(appData, null, 2);
-      const filename = `trip_expenses_backup_${dateToIso(new Date())}.json`;
+      const filename = backupFileName(tripSlug());
       const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
       const a = document.createElement('a');
       a.href = url; a.download = filename; a.rel = 'noopener';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       markBackedUp();
-      showMsg('settings-msg', 'קובץ הגיבוי הורד לתיקיית ההורדות (Downloads)');
+      showMsg('settings-msg', `קובץ הגיבוי הורד לתיקיית ההורדות (Downloads): ${filename}`);
       return true;
     }
 
@@ -5386,6 +5472,7 @@ ${opts && opts.exec ? '' : creditSec}
           text: `הגיבוי מכיל ${data.expenses.length} הוצאות, ${data.hotels.length} מלונות, ${data.reservations.length} הזמנות ו-${data.splits.length} קיזוזים. הנתונים הנוכחיים יוחלפו. להמשיך?`,
           okLabel: 'ייבא',
           onOk: () => {
+            archiveCurrentTrip();
             saveSafetyCopy('לפני ייבוא');
             const prev = appData;
             appData = data;
@@ -5492,6 +5579,7 @@ ${opts && opts.exec ? '' : creditSec}
 
     function startNewTrip({ currency, name, year, solo, mode }) {
       if (!DEFAULT_RATES[currency]) currency = curCode();
+      archiveCurrentTrip();             // the finished trip stays in "טיולים קודמים"
       saveSafetyCopy('לפני טיול חדש');
       const st = appData.settings;
       // trip data starts empty
