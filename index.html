@@ -1069,7 +1069,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 57 · 19/11/2026 · 280e89</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 58 · 20/11/2026 · 9db296</span></div>
     </div>
 
   </div>
@@ -5292,7 +5292,7 @@ a{text-decoration:none}
 }
 </style></head><body><div class="wrap">
 <div class="top"><div><h1>${esc(flag)} ${esc(title)}</h1>
-<div class="meta">${D.start ? `${esc(ddmm(D.start))} – ${esc(ddmm(D.end))} · ` : ''}הופק ${esc(dateLabel(new Date().toISOString()))}</div></div>
+<div class="meta">${opts && opts.exec ? 'דוח מנהלים · ' : ''}${D.start ? `${esc(ddmm(D.start))} – ${esc(ddmm(D.end))} · ` : ''}הופק ${esc(dateLabel(new Date().toISOString()))}</div></div>
 <button class="print" onclick="window.print()">🖨️ הדפסה / שמירה כ-PDF</button></div>
 
 <section class="card"><h2>📊 סיכום</h2>
@@ -5306,49 +5306,50 @@ ${total > 0 ? `<div class="sumgrid">${donut}<table class="cats"><tr><th>קטגו
 <div class="note">הממוצע ליום מחושב על ימי הטיול עד היום, בלי הזמנות (טיסות, מלונות, רכב, כרטיסים) ובלי קניות מלפני הטיול. במלונות: ממוצע ללילה. סכומים בשקלים כוללים עמלת אשראי.</div>` : '<div class="note">טרם נרשמו הוצאות.</div>'}
 </section>
 
-<section class="card page"><h2>📅 יום אחר יום</h2>
+${opts && opts.exec ? '' : `<section class="card page"><h2>📅 יום אחר יום</h2>
 ${preRows ? `<h3>🧾 לפני הטיול</h3><table class="items">${preRows}</table>` : D.preTrip.length ? `<h3>🧾 לפני הטיול</h3><div class="sub">${D.preTrip.length} הוצאות · ${esc(ilsStr(preIls, 0))}</div>` : ''}
 ${dayBlocks || '<div class="note">הטיול עוד לא התחיל.</div>'}
-</section>
+</section>`}
 
-<section class="card page"><h2>🏨 הזמנות</h2>
+<section class="card${opts && opts.exec ? '' : ' page'}"><h2>🏨 הזמנות</h2>
 ${hotels ? `<h3>מלונות</h3><div class="tw"><table><tr><th>מלון</th><th>תאריכים</th><th class="c">לילות</th><th>סטטוס</th><th class="amt">סכום</th></tr>${hotels}</table></div>` : ''}
 ${resv ? `<h3>טיסות, רכב והזמנות נוספות</h3><div class="tw"><table class="res-t"><tr><th>תאריך</th><th>הזמנה</th><th class="amt">סכום</th></tr>${resv}</table></div>` : ''}
 ${!hotels && !resv ? '<div class="note">אין הזמנות.</div>' : ''}
 </section>
-${creditSec}
+${opts && opts.exec ? '' : creditSec}
 
 <div class="foot">${esc(title)} · יודל'ה${ver ? ' · ' + esc(ver) : ''}</div>
 </div></body></html>`);   // the report isolates its amounts with its own CSS, so the on-screen marks are removed
     }
     // ask first: with or without every expense of every day (default: without)
     function askHtmlReport() {
-      let details = false;
+      let kind = 'exec';   // executive report is the default
       const ov = openDialog(`
         <h3>📑 דוח טיול</h3>
-        <p style="margin-bottom:8px;">לכלול בפרק "יום אחר יום" את כל ההוצאות של כל יום?</p>
+        <p style="margin-bottom:8px;">איזה דוח להפיק?</p>
         <div style="display:grid; gap:8px;">
-          <button type="button" class="chip-btn" data-d="0" style="padding:12px; text-align:start;">📋 בלי פירוט<small style="display:block; font-size:0.75rem; opacity:.8;">לכל יום: סה"כ ופילוח לפי קטגוריות</small></button>
-          <button type="button" class="chip-btn" data-d="1" style="padding:12px; text-align:start;">🧾 עם פירוט יומי<small style="display:block; font-size:0.75rem; opacity:.8;">כל ההוצאות של כל יום, אחת אחת (דוח ארוך יותר)</small></button>
+          <button type="button" class="chip-btn" data-d="exec" style="padding:12px; text-align:start;">📊 דוח מנהלים<small style="display:block; font-size:0.75rem; opacity:.8;">סיכום והזמנות בלבד: מלונות, טיסות, רכב והזמנות נוספות (קצר)</small></button>
+          <button type="button" class="chip-btn" data-d="0" style="padding:12px; text-align:start;">📋 דוח מלא, בלי פירוט יומי<small style="display:block; font-size:0.75rem; opacity:.8;">לכל יום: סה"כ ופילוח לפי קטגוריות</small></button>
+          <button type="button" class="chip-btn" data-d="1" style="padding:12px; text-align:start;">🧾 דוח מלא, עם פירוט יומי<small style="display:block; font-size:0.75rem; opacity:.8;">כל ההוצאות של כל יום, אחת אחת (דוח ארוך יותר)</small></button>
         </div>
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
           <button class="primary-btn" data-act="ok">ייצוא</button>
         </div>`);
-      const paint = () => ov.querySelectorAll('[data-d]').forEach(b => b.classList.toggle('selected', (b.dataset.d === '1') === details));
-      ov.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { details = b.dataset.d === '1'; paint(); });
+      const paint = () => ov.querySelectorAll('[data-d]').forEach(b => b.classList.toggle('selected', b.dataset.d === kind));
+      ov.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { kind = b.dataset.d; paint(); });
       paint();
       ov.querySelector('[data-act=cancel]').onclick = () => ov.remove();
       ov.querySelector('[data-act=ok]').onclick = () => {
         ov.remove();
-        if (exportHtmlReport({ details })) showMsg('summary-msg', 'דוח הטיול (HTML) הורד לתיקיית ההורדות. פתחו אותו בדפדפן; בראש הדוח יש כפתור להדפסה / שמירה כ-PDF');
+        if (exportHtmlReport({ details: kind === '1', exec: kind === 'exec' })) showMsg('summary-msg', 'דוח הטיול (HTML) הורד לתיקיית ההורדות. פתחו אותו בדפדפן; בראש הדוח יש כפתור להדפסה / שמירה כ-PDF');
       };
     }
     function exportHtmlReport(opts) {
       const html = buildHtmlReport(opts);
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
       const a = document.createElement('a');
-      a.href = url; a.download = `trip_report_${dateToIso(new Date())}.html`; a.rel = 'noopener';
+      a.href = url; a.download = `trip_report${opts && opts.exec ? '_exec' : ''}_${dateToIso(new Date())}.html`; a.rel = 'noopener';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       return true;
