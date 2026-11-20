@@ -1069,7 +1069,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 58 · 20/11/2026 · 9db296</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 59 · 20/11/2026 · f0a877</span></div>
     </div>
 
   </div>
@@ -4061,8 +4061,9 @@
         <label class="field-label">אמצעי תשלום<select class="select-input" data-el="pay">
           <option value="אשראי">💳 אשראי</option>
           ${sameCur ? '<option value="LAYA">💳 LAYA</option><option value="מזומן">💵 מזומן</option>' : ''}
+          <option value="ביט">📱 ביט / העברה (למשל לזוג השני ששילם)</option>
         </select></label>
-        ${sameCur ? '' : `<p style="font-size:0.75rem;">במטבע ${escapeHtml(r.currency)} אפשר לרשום רק תשלום באשראי.</p>`}
+        <p style="font-size:0.75rem;">${sameCur ? '' : `במטבע ${escapeHtml(r.currency)} אין מזומן או LAYA. `}📱 ביט / העברה: נרשם כהוצאה ששולמה, בלי לגעת במזומן, ב-LAYA או בחיובי האשראי.</p>
         <div class="share-box" data-el="share" style="margin-top:12px;"></div>
         <div class="dialog-actions">
           <button class="primary-btn btn-secondary" data-act="cancel">ביטול</button>
