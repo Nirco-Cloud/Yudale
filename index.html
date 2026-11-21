@@ -1080,7 +1080,7 @@
         <input type="file" id="import-file" accept=".json,application/json" style="display:none;" onchange="importData(event)">
       </div>
       <a class="primary-btn btn-secondary guide-link" id="guide-link" href="user_guide_he.html" onclick="return openGuide(this)">📖 מדריך למשתמש</a>
-      <div class="app-version" id="app-version"><span data-appver>גרסה 62 · 20/11/2026 · 30f16f</span></div>
+      <div class="app-version" id="app-version"><span data-appver>גרסה 63 · 21/11/2026 · de86c4</span></div>
     </div>
 
   </div>
@@ -3410,7 +3410,8 @@
         `<div class="dash-kpis">` +
           `<div class="dash-kpi"><small>סה"כ</small><b>${escapeHtml(ilsStr(total, 0))}</b></div>` +
           `<div class="dash-kpi"><small>ממוצע ליום בטיול</small><b>${escapeHtml(ilsStr(dayListData().avg || avg, 0))}</b></div>` +
-          `<div class="dash-kpi"><small>היום (${ddmm(todayIso)})</small><b>${escapeHtml(ilsStr(todayV, 0))}</b></div>` +
+          (dayListData().ended ? `<div class="dash-kpi"><small>✈️ הטיול הסתיים</small><b>${escapeHtml(ddmm(tripRange().end))}</b></div>`
+            : `<div class="dash-kpi"><small>היום (${ddmm(todayIso)})</small><b>${escapeHtml(ilsStr(todayV, 0))}</b></div>`) +
         `</div>` +
         `<div class="dash-title">לפי קטגוריה</div><div class="dash-sub">חלק מסך ההוצאות</div>` +
         (gross > 0 ? dashDonut(cats, gross, total) : '') + `<div class="dash-legend">${legend}</div>` +
@@ -3442,8 +3443,12 @@
       if (!dates.length) return { start: dailyDays[0] || today, end: today, fromBookings: false };
       dates.sort();
       let end = dates[dates.length - 1];
+      // a flight home (a flight on or after the last hotel checkout) closes the trip: spending after it is "after the trip"
+      const lastOut = appData.hotels.map(h => h.checkOut).filter(d => ISO_DATE.test(d || '')).sort().pop() || '';
+      const homeFlight = appData.reservations.some(r => r.kind === 'flight' && ISO_DATE.test(r.date || '') && r.date >= lastOut && r.date >= dates[0] && r.date > dates[0]);
+      if (homeFlight) return { start: dates[0], end, fromBookings: true, closed: true };
       const lastDaily = dailyDays[dailyDays.length - 1];
-      if (lastDaily && lastDaily > end) end = lastDaily;   // spent after the last booking: still part of the trip
+      if (lastDaily && lastDaily > end) end = lastDaily;   // no flight home booked: spending after the last booking is still the trip
       return { start: dates[0], end, fromBookings: true };
     }
     function dayListData() {
@@ -3464,9 +3469,10 @@
       const fStart = today < start ? start : addDaysIso(last, 1);
       if (fStart <= end) for (let d = fStart, n = 0; d <= end && n < 400; d = addDaysIso(d, 1), n++) future.push({ d, items: byDay[d] || [] });
       const preTrip = Object.keys(byDay).filter(d => d < start).sort().flatMap(d => byDay[d].filter(x => !x.booking).map(x => ({ ...x, d })));
+      const afterTrip = Object.keys(byDay).filter(d => d > end).sort().flatMap(d => byDay[d].filter(x => !x.booking).map(x => ({ ...x, d })));   // after the flight home
       const bookings = [].concat(...Object.values(byDay)).filter(x => x.booking);
       const total = days.reduce((t, x) => t + x.total, 0);
-      return { today, start, end, days, future, preTrip, bookings, total, avg: days.length ? total / days.length : 0 };
+      return { today, start, end, days, future, preTrip, afterTrip, ended: today > end && !!tripRange().closed, bookings, total, avg: days.length ? total / days.length : 0 };
     }
     const dayListOpen = new Set();
     function renderDayList() {
@@ -3487,7 +3493,7 @@
       if (D.total > 0) {
         const over = budget && D.avg > budget;
         h += `<div class="dl-stats">` +
-          `<div class="dl-stat"><span class="dl-stat-k">בטיול עד היום</span><span class="dl-stat-v">${num(ils(D.total))}</span><span class="dl-stat-s">${num(D.days.length)} ימים</span></div>` +
+          `<div class="dl-stat"><span class="dl-stat-k">${D.ended ? 'בטיול' : 'בטיול עד היום'}</span><span class="dl-stat-v">${num(ils(D.total))}</span><span class="dl-stat-s">${num(D.days.length)} ימים</span></div>` +
           `<div class="dl-stat"><span class="dl-stat-k">ממוצע ליום</span><span class="dl-stat-v">${num(ils(D.avg))}</span>${budget ? `<span class="dl-stat-s ${over ? 'dl-over' : 'dl-good'}">${over ? '▲ מעל התקציב' : '✓ בתקציב'}</span>` : ''}</div>` +
           `<button type="button" class="dl-stat" data-jump="${top.d}"><span class="dl-stat-k">היום הגבוה</span><span class="dl-stat-v">${num(ils(top.total))}</span><span class="dl-stat-s">${num(ddmm(top.d))} · יום ${wd(top.d)}</span></button>` +
           `</div>`;
@@ -3529,15 +3535,19 @@
           (x.pre.length ? `<div class="dl-subhead">הזמנות · לא נכללות בסכום היומי</div><ul class="dl-lines">${x.pre.map(y => line(y, true)).join('')}</ul>` : '') +
           '</div></li>';
       });
-      if (D.preTrip.length) {
-        const ps = D.preTrip.reduce((t, x) => t + x.ils, 0), isOpen = dayListOpen.has('pre');
-        h += `<li class="dl-item dl-group${isOpen ? ' dl-open' : ''}"><button type="button" class="dl-row" data-key="pre" aria-expanded="${isOpen}">` +
-          `<span class="dl-gicon" aria-hidden="true">🧾</span><span class="dl-gtxt"><b>לפני הטיול</b><small>${num(D.preTrip.length)} רכישות · ${num(ddmm(D.preTrip[0].d))}–${num(ddmm(D.preTrip[D.preTrip.length - 1].d))}</small></span>` +
+      // grouped rows outside the trip's days: 🏠 after the flight home (on top) and 🧾 before the trip (at the bottom)
+      const group = (list, key, gicon, title) => {
+        if (!list.length) return '';
+        const ps = list.reduce((t, x) => t + x.ils, 0), isOpen = dayListOpen.has(key);
+        return `<li class="dl-item dl-group${isOpen ? ' dl-open' : ''}"><button type="button" class="dl-row" data-key="${key}" aria-expanded="${isOpen}">` +
+          `<span class="dl-gicon" aria-hidden="true">${gicon}</span><span class="dl-gtxt"><b>${title}</b><small>${num(list.length)} רכישות · ${num(ddmm(list[0].d))}–${num(ddmm(list[list.length - 1].d))}</small></span>` +
           `<span class="dl-amt">${num(ils(ps))}</span>${chev}</button>` +
           `<div class="dl-detail"${isOpen ? '' : ' hidden'}><ul class="dl-fut">` +
-          D.preTrip.slice().reverse().map(x => `<li class="dl-fday"><span><span class="dl-dd">${num(ddmm(x.d))}</span></span><span class="dl-fitems"><span class="dl-fitem"><span class="dl-note">${icon(x.cat)} ${escapeHtml(x.e.note || x.cat)}</span>${num(ils(x.ils))}</span></span></li>`).join('') +
+          list.slice().reverse().map(x => `<li class="dl-fday"><span><span class="dl-dd">${num(ddmm(x.d))}</span></span><span class="dl-fitems"><span class="dl-fitem"><span class="dl-note">${icon(x.cat)} ${escapeHtml(x.e.note || x.cat)}</span>${num(ils(x.ils))}</span></span></li>`).join('') +
           '</ul></div></li>';
-      }
+      };
+      h = h.replace('<ul class="dl-list">', '<ul class="dl-list">' + group(D.afterTrip, 'post', '🏠', 'אחרי הטיול'));
+      h += group(D.preTrip, 'pre', '🧾', 'לפני הטיול');
       box.innerHTML = h + '</ul>';
     }
     function setDailyBudget() {
@@ -5390,6 +5400,8 @@ Rules:
       }).join('');
       const preIls = D.preTrip.reduce((t, x) => t + x.ils, 0);
       const preRows = !details ? '' : D.preTrip.map(x => `<tr><td class="ic">${CAT_ICONS[x.cat] || '•'}</td><td>${esc(x.e.note || x.cat)}</td><td class="pay">${esc(ddmm(x.d))}</td><td class="amt">${both(x.e)}</td></tr>`).join('');
+      const postIls = D.afterTrip.reduce((t, x) => t + x.ils, 0);
+      const postRows = !details ? '' : D.afterTrip.map(x => `<tr><td class="ic">${CAT_ICONS[x.cat] || '•'}</td><td>${esc(x.e.note || x.cat)}</td><td class="pay">${esc(ddmm(x.d))}</td><td class="amt">${both(x.e)}</td></tr>`).join('');
 
       // ---- bookings ----
       const mapA = q => q ? ` <a href="${esc('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q))}" target="_blank" rel="noopener">🧭</a>` : '';
@@ -5518,7 +5530,7 @@ ${gross > 0 || nRefunds ? `<div class="sumgrid">${donut}<table class="cats"><tr>
 
 ${opts && opts.exec ? '' : `<section class="card page"><h2>📅 יום אחר יום</h2>
 ${preRows ? `<h3>🧾 לפני הטיול</h3><table class="items">${preRows}</table>` : D.preTrip.length ? `<h3>🧾 לפני הטיול</h3><div class="sub">${D.preTrip.length} הוצאות · ${esc(ilsStr(preIls, 0))}</div>` : ''}
-${dayBlocks || '<div class="note">הטיול עוד לא התחיל.</div>'}
+${dayBlocks || '<div class="note">הטיול עוד לא התחיל.</div>'}${postRows ? `<h3>🏠 אחרי הטיול</h3><table class="items">${postRows}</table>` : D.afterTrip.length ? `<h3>🏠 אחרי הטיול</h3><div class="sub">${D.afterTrip.length} הוצאות · ${esc(ilsStr(postIls, 0))}</div>` : ''}
 </section>`}
 
 <section class="card${opts && opts.exec ? '' : ' page'}"><h2>🏨 הזמנות</h2>
